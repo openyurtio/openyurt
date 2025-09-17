@@ -24,6 +24,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -44,6 +45,12 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 )
 
+var (
+	execCommand = exec.Command
+	lookPath    = exec.LookPath
+	checkYurthubHealthzFunc = CheckYurthubHealthz
+)
+
 // CheckAndInstallYurthub install yurthub binary, skip install if it exists.
 // func CheckAndInstallYurthub(yurthubResourceServer, yurthubVersion string) error {
 func CheckAndInstallYurthub() error {
@@ -53,14 +60,12 @@ func CheckAndInstallYurthub() error {
 	// }
 
 	yurthubExist := false
-	if _, err := exec.LookPath(constants.YurthubExecStart); err == nil {
-		// yurthub binary already exists
+	if _, err := lookPath(constants.YurthubExecStart); err == nil {
 		klog.Infof("Yurthub binary already exists, skip install.")
 		yurthubExist = true
 	}
 
 	if !yurthubExist {
-		// Download and install yurthub
 		// packageUrl := fmt.Sprintf("%s/yurthub/%s/%s/yurthub", yurthubResourceServer, yurthubVersion, runtime.GOARCH)
 		packageUrl := constants.YurtHubExecInstallUrlFormat
 		savePath := fmt.Sprintf("%s/yurthub", constants.TmpDownloadDir)
@@ -68,7 +73,6 @@ func CheckAndInstallYurthub() error {
 		if err := yurtadmutil.DownloadFile(packageUrl, savePath, 3); err != nil {
 			return fmt.Errorf("download yurthub fail: %w", err)
 		}
-		// copy to /usr/bin/yurthub and set executable permission
 		if err := edgenode.CopyFile(savePath, constants.YurthubExecStart, 0755); err != nil {
 			return err
 		}
@@ -80,11 +84,11 @@ func CheckAndInstallYurthub() error {
 // creates the systemd service configuration of YurtHub
 func CreateYurthubSystemdService(data joindata.YurtJoinData) error {
 	nodePoolName := data.NodeRegistration().NodePoolName
-	// If nodePoolName is empty, use the default value "default"
+
 	if nodePoolName == "" {
 		nodePoolName = "default"
 	}
-	// generate systemd service content
+	
 	ctx := map[string]string{
 		"execStart":     constants.YurthubExecStart,
 		"bindAddress":   "127.0.0.1",
@@ -101,22 +105,22 @@ func CreateYurthubSystemdService(data joindata.YurtJoinData) error {
 		return err
 	}
 
-	serviceFile := "/etc/systemd/system/yurthub.service"
+	serviceFile := constants.YurtHubServiceDir + constants.YurtHubServiceName
 	if err := os.WriteFile(serviceFile, []byte(serviceContent), 0644); err != nil {
 		return err
 	}
 
-	cmd := exec.Command("systemctl", "daemon-reload")
+	cmd := execCommand("systemctl", "daemon-reload")
 	if err := cmd.Run(); err != nil {
 		return err
 	}
 
-	cmd = exec.Command("systemctl", "enable", "yurthub.service")
+	cmd = execCommand("systemctl", "enable", constants.YurtHubServiceName)
 	if err := cmd.Run(); err != nil {
 		return err
 	}
 
-	cmd = exec.Command("systemctl", "start", "yurthub.service")
+	cmd = execCommand("systemctl", "start", constants.YurtHubServiceName)
 	if err := cmd.Run(); err != nil {
 		return err
 	}
@@ -213,13 +217,13 @@ func SetHubBootstrapConfig(serverAddr string, joinToken string, caCertHashes []s
 // Check the health status of the YurtHub service
 func CheckYurthubServiceHealth(yurthubServer string) error {
 	// Checking the systemd service status
-	cmd := exec.Command("systemctl", "is-active", "yurthub.service")
+	cmd := execCommand("systemctl", "is-active", constants.YurtHubServiceName)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("yurthub service is not active: %v", err)
 	}
 
 	// Check the YurtHub health endpoint
-	if err := CheckYurthubHealthz(yurthubServer); err != nil { // Here is the previous CheckYurthubHealthz, called in postcheck.go
+	if err := checkYurthubHealthzFunc(yurthubServer); err != nil { // Here is the previous CheckYurthubHealthz, called in postcheck.go
 		return err
 	}
 

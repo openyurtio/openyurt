@@ -24,7 +24,6 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 	yurtadmutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/kubernetes"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/system"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/yurthub"
