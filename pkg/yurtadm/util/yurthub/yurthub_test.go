@@ -17,7 +17,7 @@ limitations under the License.
 package yurthub
 
 import (
-  "fmt"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -29,7 +29,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
-  "github.com/openyurtio/openyurt/pkg/yurtadm/constants"
+	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 )
 
 var (
@@ -273,12 +273,6 @@ status: {}
 	serverAddrsB = "https://192.0.0.2:6443"
 )
 
-// Save original functions
-var (
-	originalExecCommand func(string, ...string) *exec.Cmd
-	originalLookPath    func(string) (string, error)
-)
-
 func Test_useRealServerAddr(t *testing.T) {
 	type args struct {
 		yurthubTemplate       string
@@ -487,20 +481,19 @@ func (m *mockYurtJoinData) Namespace() string {
 func TestCheckAndInstallYurthub(t *testing.T) {
 	tempDir := t.TempDir()
 	yurthubExecPath := filepath.Join(tempDir, "yurthub")
-	
+
 	oldLookPath := lookPath
 	defer func() {
 		lookPath = oldLookPath
 	}()
 
 	t.Run("Yurthub binary already exists", func(t *testing.T) {
-		// Create a dummy yurthub binary
+
 		err := os.WriteFile(yurthubExecPath, []byte("dummy"), 0755)
 		if err != nil {
 			t.Fatalf("Failed to create dummy yurthub binary: %v", err)
 		}
 
-		// Mock LookPath to return our dummy binary
 		lookPath = func(file string) (string, error) {
 			if file == constants.YurthubExecStart {
 				return yurthubExecPath, nil
@@ -508,15 +501,21 @@ func TestCheckAndInstallYurthub(t *testing.T) {
 			return oldLookPath(file)
 		}
 
-		// Test when yurthub already exists
-		err = CheckAndInstallYurthub()
+		err = CheckAndInstallYurthub("v1.6.1")
 		if err != nil {
 			t.Errorf("CheckAndInstallYurthub() error = %v, wantErr %v", err, nil)
 		}
 	})
 
+	t.Run("Yurthub version is empty", func(t *testing.T) {
+		err := CheckAndInstallYurthub("")
+		if err == nil {
+			t.Errorf("CheckAndInstallYurthub() should return error for empty version but got nil")
+		}
+	})
+
 	t.Run("Yurthub binary does not exist", func(t *testing.T) {
-		// Mock LookPath to simulate binary not found
+
 		lookPath = func(file string) (string, error) {
 			if file == constants.YurthubExecStart {
 				return "", &os.PathError{}
@@ -529,7 +528,7 @@ func TestCheckAndInstallYurthub(t *testing.T) {
 }
 
 func TestCreateYurthubSystemdService(t *testing.T) {
-	// Mock data
+
 	mockData := &mockYurtJoinData{
 		serverAddr: "127.0.0.1:6443",
 		nodeRegistration: &joindata.NodeRegistration{
@@ -539,8 +538,7 @@ func TestCreateYurthubSystemdService(t *testing.T) {
 		},
 		namespace: "kube-system",
 	}
-	
-	// Save original functions and restore after test
+
 	oldExecCommand := execCommand
 	oldExecLookPath := lookPath
 	defer func() {
@@ -549,20 +547,18 @@ func TestCreateYurthubSystemdService(t *testing.T) {
 	}()
 
 	execCommand = func(name string, arg ...string) *exec.Cmd {
-		// Return a dummy command that does nothing
 		return exec.Command("echo", "dummy")
 	}
 
 	t.Run("Create systemd service successfully", func(t *testing.T) {
-
 		defer func() {
 			if r := recover(); r != nil {
 				t.Errorf("CreateYurthubSystemdService() panicked: %v", r)
 			}
 		}()
-		
+
 		err := CreateYurthubSystemdService(mockData)
-		_ = err 
+		_ = err
 	})
 
 	t.Run("Create systemd service with empty node pool name", func(t *testing.T) {
@@ -576,20 +572,19 @@ func TestCreateYurthubSystemdService(t *testing.T) {
 			namespace: "kube-system",
 		}
 
-		// Same as above, just make sure it doesn't panic
 		defer func() {
 			if r := recover(); r != nil {
 				t.Errorf("CreateYurthubSystemdService() with empty node pool panicked: %v", r)
 			}
 		}()
-		
+
 		err := CreateYurthubSystemdService(mockDataEmptyPool)
-		_ = err // We acknowledge the error but don't assert on it
+		_ = err 
 	})
 }
 
 func TestCheckYurthubServiceHealth(t *testing.T) {
-	// Save original functions and restore after test
+
 	oldExecCommand := execCommand
 	oldCheckYurthubHealthz := checkYurthubHealthzFunc
 	defer func() {
@@ -606,7 +601,6 @@ func TestCheckYurthubServiceHealth(t *testing.T) {
 			return exec.Command("echo", "dummy")
 		}
 
-		// Mock CheckYurthubHealthz to return no error
 		checkYurthubHealthzFunc = func(string) error {
 			return nil
 		}
@@ -618,7 +612,6 @@ func TestCheckYurthubServiceHealth(t *testing.T) {
 	})
 
 	t.Run("Service is not active", func(t *testing.T) {
-		// Mock execCommand to simulate inactive service
 		execCommand = func(name string, arg ...string) *exec.Cmd {
 			if name == "systemctl" && len(arg) > 0 && arg[0] == "is-active" {
 				// Create a command that will fail
@@ -634,7 +627,6 @@ func TestCheckYurthubServiceHealth(t *testing.T) {
 	})
 
 	t.Run("Service is active but not healthy", func(t *testing.T) {
-		// Mock execCommand to simulate active service
 		execCommand = func(name string, arg ...string) *exec.Cmd {
 			if name == "systemctl" && len(arg) > 0 && arg[0] == "is-active" {
 				return exec.Command("echo", "active")
@@ -642,7 +634,6 @@ func TestCheckYurthubServiceHealth(t *testing.T) {
 			return exec.Command("echo", "dummy")
 		}
 
-		// Mock CheckYurthubHealthz to return an error
 		checkYurthubHealthzFunc = func(string) error {
 			return fmt.Errorf("health check failed")
 		}

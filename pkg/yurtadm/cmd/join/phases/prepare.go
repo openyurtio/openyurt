@@ -69,27 +69,15 @@ func RunPrepare(data joindata.YurtJoinData) error {
 	}
 	if err := yurthub.SetHubBootstrapConfig(data.ServerAddr(), data.JoinToken(), data.CaCertHashes()); err != nil {
 		return err
-	} // Although it has been changed to systemd service, still need to set this file first
-	// if err := yurthub.AddYurthubStaticYaml(data, constants.StaticPodPath); err != nil {
-	// 	return err
-	// }
+	} 
 
-	if err := yurthub.CheckAndInstallYurthub(); err != nil {
+	if err := yurthub.CheckAndInstallYurthub(constants.YurthubVerison); err != nil {
 		return err
-	} // download yurthub exec file
-	
-	// need to create the systemd service of yurthub
+	} 
+
 	if err := yurthub.CreateYurthubSystemdService(data); err != nil {
 		return err
-	} // Create system services
-
-	// Not in use
-	// if len(data.StaticPodTemplateList()) != 0 {
-	// 	// deploy user specified static pods
-	// 	if err := edgenode.DeployStaticYaml(data.StaticPodManifestList(), data.StaticPodTemplateList(), constants.StaticPodPath); err != nil {
-	// 		return err
-	// 	}
-	// }
+	} 
 
 	if err := yurtadmutil.SetDiscoveryConfig(data); err != nil {
 		return err

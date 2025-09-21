@@ -42,9 +42,10 @@ const (
 	YurthubCloudYurtStaticSetName = "yurt-hub-cloud"
 
 	// additional constants for yurthub systemd service
-	YurtHubServiceName = "yurthub.service"
-	YurtHubServiceDir  = "/etc/systemd/system/"
-	YurthubExecStart   = "/usr/local/bin/yurthub"
+	YurtHubServiceName     = "yurthub.service"
+	YurthubServiceConfPath = "yurthub.service.d/10-yurthub.conf"
+	YurtHubServiceDir      = "/etc/systemd/system/"
+	YurthubExecStart       = "/usr/local/bin/yurthub"
 
 	// ManifestsSubDirName defines directory name to store manifests
 	ManifestsSubDirName = "manifests"
@@ -77,8 +78,10 @@ const (
 	KubeadmInstallUrl               = "https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/"
 
 	// Yurthub Exec download url, Will be modified later, After the entire download method is determined
-	YurtHubExecInstallUrlFormat = "https://alias-cn-hangzhou.oss-cn-beijing.aliyuncs.com/yurthub/v1.6.1/amd64/yurthub"
-
+	// YurtHubExecInstallUrlFormat = "https://alias-cn-hangzhou.oss-cn-beijing.aliyuncs.com/yurthub/v1.6.1/amd64/yurthub"
+	YurthubExecResourceServer = "alias-cn-hangzhou.oss-cn-beijing.aliyuncs.com"
+	YurthubExecUrlFormat      = "https://%s/yurthub/%s/%s/yurthub"
+	YurthubVerison            = "v1.6.1"
 
 	EdgeNode  = "edge"
 	CloudNode = "cloud"
@@ -283,28 +286,25 @@ spec:
   priorityClassName: system-node-critical
   priority: 2000001000
 `
-// YurthubSystemServiceTemplate is the template of yurthub systemd service
-	YurtHubSystemServiceTemplate = `
-[Unit]
+
+	YurtHubServiceContent = `[Unit]
 Description=YurtHub Service
 After=network.target
 
 [Service]
 Type=simple
-Environment="NODE_NAME=${HOSTNAME}"
-ExecStart={{.execStart}} \
-    --v=2 \
-    --bind-address={{.bindAddress}} \
-    --server-addr={{.serverAddr}} \
-    --node-name={{.nodeName}} \
-    --nodepool-name={{.nodePoolName}} \
-    --bootstrap-file={{.bootstrapFile}} \
-    --working-mode={{.workingMode}} \
-    --namespace={{.namespace}}
+ExecStart=/usr/local/bin/yurthub
 Restart=always
 
 [Install]
 WantedBy=multi-user.target
 `
 
+	YurtHubUnitConfig = `[Service]
+Environment="YURTHUB_BOOTSTRAP_ARGS=--bootstrap-file={{.bootstrapFile}}"
+Environment="YURTHUB_CONFIG_ARGS=--bind-address={{.bindAddress}} --working-mode={{.workingMode}} --namespace={{.namespace}}"
+Environment="YURTHUB_EXTRA_ARGS=--v=2"
+ExecStart=
+ExecStart=/usr/local/bin/yurthub --node-name={{.nodeName}}{{if .nodePoolName}} --nodepool-name={{.nodePoolName}}{{end}} --server-addr={{.serverAddr}} $YURTHUB_BOOTSTRAP_ARGS $YURTHUB_CONFIG_ARGS $YURTHUB_EXTRA_ARGS
+`
 )
