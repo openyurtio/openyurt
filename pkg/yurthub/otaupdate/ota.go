@@ -19,10 +19,11 @@ package otaupdate
 import (
 	"context"
 	"encoding/json"
-
 	"fmt"
 	"net/http"
+	"strings"
 
+	"github.com/go-errors/errors"
 	"github.com/gorilla/mux"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,7 +38,9 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonpodupdater"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonsetupgradestrategy"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonsetupgradestrategy/daemonpodupdater"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonsetupgradestrategy/imagepreheat"
 	podutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/pod"
 )
 
@@ -101,10 +104,14 @@ func UpdatePod(clientset kubernetes.Interface, nodeName string) http.Handler {
 		namespace := params["ns"]
 		podName := params["podname"]
 
-		pod, ok := preCheck(clientset, namespace, podName, nodeName)
-		// Pod update is not allowed
-		if !ok {
-			util.WriteErr(w, "Pod is not-updatable", http.StatusForbidden)
+		pod, err := getPod(clientset, namespace, podName)
+		if err != nil {
+			util.WriteErr(w, fmt.Sprintf("Get pod failed, %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		if err := preCheckUpdatePod(pod, nodeName); err != nil {
+			util.WriteErr(w, fmt.Sprintf("Pre check update pod failed, %v", err), http.StatusForbidden)
 			return
 		}
 
@@ -145,38 +152,63 @@ func UpdatePod(clientset kubernetes.Interface, nodeName string) http.Handler {
 	})
 }
 
-// preCheck will check the necessary requirements before apply upgrade
-// 1. target pod has not been deleted yet
-// 2. target pod belongs to current node
-// 3. check whether target pod is updatable
-// At last, return the target pod to do further operation
-func preCheck(clientset kubernetes.Interface, namespace, podName, nodeName string) (*corev1.Pod, bool) {
-	pod, err := clientset.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
-	if err != nil {
-		klog.Errorf("couldn't get pod %s/%s, %v", namespace, podName, err)
-		return nil, false
+func getPod(clientset kubernetes.Interface, namespace, podName string) (*corev1.Pod, error) {
+	return clientset.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+}
+
+func preCheckUpdatePod(pod *corev1.Pod, nodeName string) error {
+	if err := checkPodStatus(pod, nodeName); err != nil {
+		return errors.Errorf("Failed to check pod %v/%v status, error: %v", pod.Namespace, pod.Name, err)
 	}
 
-	// Pod will not be updated when it's being deleted
+	if err := checkPodImageReady(pod); err != nil {
+		return errors.Errorf("Failed to check pod %v/%v image ready, error: %v", pod.Namespace, pod.Name, err)
+	}
+
+	return nil
+}
+
+func checkPodStatus(pod *corev1.Pod, nodeName string) error {
 	if pod.DeletionTimestamp != nil {
-		klog.Infof("Pod %v/%v is deleting, can not be updated", namespace, podName)
-		return nil, false
+		return errors.Errorf("Pod %v/%v is deleting, can not be updated", pod.Namespace, pod.Name)
 	}
 
-	// Pod will not be updated when it's not running on the current node
 	if pod.Spec.NodeName != nodeName {
-		klog.Infof("Pod: %v/%v is running on %v, can not be updated", namespace, podName, pod.Spec.NodeName)
-		return nil, false
+		return errors.Errorf("Pod: %v/%v is running on %v, can not be updated", pod.Namespace, pod.Name, pod.Spec.NodeName)
 	}
 
-	// Pod will not be updated without pod condition PodNeedUpgrade=true
 	if !daemonpodupdater.IsPodUpdatable(pod) {
-		klog.Infof("Pod: %v/%v is not updatable", namespace, podName)
-		return nil, false
+		return errors.Errorf("Pod: %v/%v update status is False, can not be updated", pod.Namespace, pod.Name)
 	}
 
-	klog.V(5).Infof("Pod: %v/%v is updatable", namespace, podName)
-	return pod, true
+	return nil
+}
+
+func checkPodImageReady(pod *corev1.Pod) error {
+	cond := getPodImageReadyCondition(pod)
+	if cond == nil {
+		return nil
+	}
+
+	if cond.Status != corev1.ConditionTrue {
+		return errors.Errorf("Pod: %v/%v image is not ready, reason: %s, message: %s", pod.Namespace, pod.Name, cond.Reason, cond.Message)
+	}
+
+	hashVersion := imagepreheat.GetPodNextHashVersion(pod)
+	if strings.TrimPrefix(cond.Message, daemonsetupgradestrategy.VersionPrefix) != hashVersion {
+		return errors.Errorf("Pod: %v/%v image is not ready, reason: %s, message: %s", pod.Namespace, pod.Name, cond.Reason, cond.Message)
+	}
+
+	return nil
+}
+
+func getPodImageReadyCondition(pod *corev1.Pod) *corev1.PodCondition {
+	for _, cond := range pod.Status.Conditions {
+		if cond.Type == daemonsetupgradestrategy.PodImageReady {
+			return &cond
+		}
+	}
+	return nil
 }
 
 // HealthyCheck checks if cloud-edge is disconnected before ota update handle, ota update is not allowed when disconnected
@@ -201,24 +233,28 @@ func HealthyCheck(healthChecker healthchecker.Interface, clientManager transport
 	})
 }
 
-// ImagePullPod handles image pre-pull requests for a specific pod
-func ImagePullPod(clientset kubernetes.Interface, nodeName string) http.Handler {
+// PullPodImage handles image pre-pull requests for a specific pod
+func PullPodImage(clientset kubernetes.Interface, nodeName string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		params := mux.Vars(r)
 		namespace := params["ns"]
 		podName := params["podname"]
 
-		pod, ok := preCheck(clientset, namespace, podName, nodeName)
-		if !ok {
-			util.WriteErr(w, "Pod is not-updatable", http.StatusForbidden)
+		pod, err := getPod(clientset, namespace, podName)
+		if err != nil {
+			util.WriteErr(w, fmt.Sprintf("Get pod failed, %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		if err := checkPodStatus(pod, nodeName); err != nil {
+			util.WriteErr(w, fmt.Sprintf("Failed to check pod status %v/%v, error: %v", namespace, podName, err), http.StatusForbidden)
 			return
 		}
 
 		cond := corev1.PodCondition{
-			Type:    daemonpodupdater.PodImageReady,
+			Type:    daemonsetupgradestrategy.PodImageReady,
 			Status:  corev1.ConditionFalse,
-			Reason:  "imagepull start",
-			Message: "Image pre-pull requested by user",
+			Message: daemonsetupgradestrategy.VersionPrefix + imagepreheat.GetPodNextHashVersion(pod),
 		}
 		podutil.UpdatePodCondition(&pod.Status, &cond)
 

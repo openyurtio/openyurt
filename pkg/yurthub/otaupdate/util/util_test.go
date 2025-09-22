@@ -27,7 +27,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 
 	yurtutil "github.com/openyurtio/openyurt/pkg/util"
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonpodupdater"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonsetupgradestrategy"
 )
 
 func TestEncodePods(t *testing.T) {
@@ -124,7 +124,7 @@ func TestNewPodWithCondition(t *testing.T) {
 	assert.Equal(t, kind, pod.OwnerReferences[0].Kind, "Pod owner reference kind should be set correctly")
 	assert.NotNil(t, pod.Status.Conditions, "Pod status conditions should not be nil")
 	assert.Equal(t, 1, len(pod.Status.Conditions), "Pod should have exactly one condition")
-	assert.Equal(t, daemonpodupdater.PodNeedUpgrade, pod.Status.Conditions[0].Type, "Pod condition type should be set correctly")
+	assert.Equal(t, daemonsetupgradestrategy.PodNeedUpgrade, pod.Status.Conditions[0].Type, "Pod condition type should be set correctly")
 	assert.Equal(t, ready, pod.Status.Conditions[0].Status, "Pod condition status should be set correctly")
 }
 
@@ -140,7 +140,7 @@ func TestSetPodUpgradeCondition(t *testing.T) {
 
 	assert.NotNil(t, pod.Status.Conditions, "Pod status conditions should not be nil after setting condition")
 	assert.Equal(t, 1, len(pod.Status.Conditions), "Pod should have exactly one condition after setting condition")
-	assert.Equal(t, daemonpodupdater.PodNeedUpgrade, pod.Status.Conditions[0].Type, "Pod condition type should be set correctly")
+	assert.Equal(t, daemonsetupgradestrategy.PodNeedUpgrade, pod.Status.Conditions[0].Type, "Pod condition type should be set correctly")
 	assert.Equal(t, ready, pod.Status.Conditions[0].Status, "Pod condition status should be set correctly")
 }
 

@@ -79,7 +79,7 @@ func RunYurtHubServers(cfg *config.YurtHubConfiguration,
 }
 
 // registerHandler registers handlers for yurtHubServer, and yurtHubServer can handle requests like profiling, healthz, update token.
-func registerHandlers(c *mux.Router, cfg *config.YurtHubConfiguration, rest *rest.RestConfigManager) {
+func registerHandlers(c *mux.Router, cfg *config.YurtHubConfiguration, healthChecker healthchecker.Interface) {
 	// register handlers for update join token
 	c.Handle("/v1/token", updateTokenHandler(cfg.CertManager)).Methods("POST", "PUT")
 
@@ -103,10 +103,10 @@ func registerHandlers(c *mux.Router, cfg *config.YurtHubConfiguration, rest *res
 		c.Handle("/pods", getPodList(cfg.SharedFactory)).Methods("GET")
 	}
 	c.Handle("/openyurt.io/v1/namespaces/{ns}/pods/{podname}/upgrade",
-		ota.HealthyCheck(rest, cfg.TransportAndDirectClientManager, cfg.NodeName, ota.UpdatePod)).Methods("POST")
+		ota.HealthyCheck(healthChecker, cfg.TransportAndDirectClientManager, cfg.NodeName, ota.UpdatePod)).Methods("POST")
 
 	c.Handle("/openyurt.io/v1/namespaces/{ns}/pods/{podname}/imagepull",
-		ota.HealthyCheck(rest, cfg.NodeName, ota.ImagePullPod)).Methods("POST")
+		ota.HealthyCheck(healthChecker, cfg.TransportAndDirectClientManager, cfg.NodeName, ota.PullPodImage)).Methods("POST")
 }
 
 // healthz returns ok for healthz request

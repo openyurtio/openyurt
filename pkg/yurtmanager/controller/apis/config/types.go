@@ -22,7 +22,7 @@ import (
 	"k8s.io/kube-controller-manager/config/v1alpha1"
 
 	csrapproverconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/csrapprover/config"
-	daemonpodupdaterconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonpodupdater/config"
+	daemonpodupdaterconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonsetupgradestrategy/daemonpodupdater/config"
 	hubleaderconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/hubleader/config"
 	hubleadercfgconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/hubleaderconfig/config"
 	hubleaderrbacconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/hubleaderrbac/config"

@@ -50,43 +50,14 @@ import (
 	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
-	k8sutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonpodupdater/kubernetes"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonsetupgradestrategy"
+	k8sutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonsetupgradestrategy/daemonpodupdater/kubernetes"
 	podutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/pod"
 )
 
 var (
 	// controllerKind contains the schema.GroupVersionKind for this controller type.
 	controllerKind = appsv1.SchemeGroupVersion.WithKind("DaemonSet")
-)
-
-const (
-	// UpdateAnnotation is the annotation key used in DaemonSet spec to indicate
-	// which update strategy is selected. Currently, "OTA" and "AdvancedRollingUpdate" are supported.
-	UpdateAnnotation = "apps.openyurt.io/update-strategy"
-
-	// OTAUpdate set DaemonSet to over-the-air update mode.
-	// In daemonPodUpdater controller, we add PodNeedUpgrade condition to pods.
-	OTAUpdate = "OTA"
-	// AutoUpdate set DaemonSet to Auto update mode.
-	// In this mode, DaemonSet will keep updating even if there are not-ready nodes.
-	// For more details, see https://github.com/openyurtio/openyurt/pull/921.
-	AutoUpdate            = "Auto"
-	AdvancedRollingUpdate = "AdvancedRollingUpdate"
-
-	// PodNeedUpgrade indicates whether the pod is able to upgrade.
-	PodNeedUpgrade corev1.PodConditionType = "PodNeedUpgrade"
-	// PodImageReady indicates whether the pod image has been pulled
-	PodImageReady corev1.PodConditionType = "PodImageReady"
-
-	// MaxUnavailableAnnotation is the annotation key added to DaemonSet to indicate
-	// the max unavailable pods number. It's used with "apps.openyurt.io/update-strategy=AdvancedRollingUpdate".
-	// If this annotation is not explicitly stated, it will be set to the default value 1.
-	MaxUnavailableAnnotation = "apps.openyurt.io/max-unavailable"
-	DefaultMaxUnavailable    = "10%"
-
-	// BurstReplicas is a rate limiter for booting pods on a lot of pods.
-	// The value of 250 is chosen b/c values that are too high can cause registry DoS issues.
-	BurstReplicas = 250
 )
 
 func Format(format string, args ...interface{}) string {
@@ -148,7 +119,7 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 	// 1. Watch for changes to DaemonSet
 	daemonsetUpdatePredicate := predicate.Funcs{
 		CreateFunc: func(evt event.CreateEvent) bool {
-			return false
+			return checkPrerequisites(evt.Object.(*appsv1.DaemonSet))
 		},
 		DeleteFunc: func(evt event.DeleteEvent) bool {
 			return false
@@ -157,7 +128,7 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 			return daemonsetUpdate(evt)
 		},
 		GenericFunc: func(evt event.GenericEvent) bool {
-			return false
+			return checkPrerequisites(evt.Object.(*appsv1.DaemonSet))
 		},
 	}
 
@@ -202,7 +173,6 @@ func daemonsetUpdate(evt event.UpdateEvent) bool {
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=pods/status,verbs=update;patch
 // +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core,resources=pods/status,verbs=update
 
 // Reconcile reads that state of the cluster for a DaemonSet object and makes changes based on the state read
 // and what is in the DaemonSet.Spec
@@ -234,7 +204,7 @@ func (r *ReconcileDaemonpodupdater) Reconcile(_ context.Context, request reconci
 	}
 
 	// Recheck required annotation
-	v, ok := instance.Annotations[UpdateAnnotation]
+	v, ok := instance.Annotations[daemonsetupgradestrategy.UpdateAnnotation]
 	if !ok {
 		klog.V(4).Infof("won't sync DaemonSet %q without annotation 'apps.openyurt.io/update-strategy'",
 			request.NamespacedName)
@@ -242,13 +212,13 @@ func (r *ReconcileDaemonpodupdater) Reconcile(_ context.Context, request reconci
 	}
 
 	switch strings.ToLower(v) {
-	case strings.ToLower(OTAUpdate):
+	case strings.ToLower(daemonsetupgradestrategy.OTAUpdate):
 		if err := r.otaUpdate(instance); err != nil {
 			klog.Error(Format("could not OTA update DaemonSet %v pod: %v", request.NamespacedName, err))
 			return reconcile.Result{}, err
 		}
 
-	case strings.ToLower(AutoUpdate), strings.ToLower(AdvancedRollingUpdate):
+	case strings.ToLower(daemonsetupgradestrategy.AdvancedRollingUpdate):
 		if err := r.advancedRollingUpdate(instance); err != nil {
 			klog.Error(Format("could not advanced rolling update DaemonSet %v pod: %v", request.NamespacedName, err))
 			return reconcile.Result{}, err
@@ -302,8 +272,9 @@ func (r *ReconcileDaemonpodupdater) otaUpdate(ds *appsv1.DaemonSet) error {
 		return err
 	}
 
+	newHash := k8sutil.ComputeHash(&ds.Spec.Template, ds.Status.CollisionCount)
 	for _, pod := range pods {
-		if err := SetPodUpgradeCondition(r.Client, ds, pod); err != nil {
+		if err := r.SetPodUpgradeCondition(ds, pod, newHash); err != nil {
 			return err
 		}
 	}
@@ -328,6 +299,7 @@ func (r *ReconcileDaemonpodupdater) advancedRollingUpdate(ds *appsv1.DaemonSet) 
 	var allowedReplacementPods []string
 	var candidatePodsToDelete []string
 
+	newHash := k8sutil.ComputeHash(&ds.Spec.Template, ds.Status.CollisionCount)
 	for nodeName, pods := range nodeToDaemonPods {
 		// Check if node is ready, ignore not-ready node
 		// this is a significant difference from the native DaemonSet controller
@@ -339,7 +311,7 @@ func (r *ReconcileDaemonpodupdater) advancedRollingUpdate(ds *appsv1.DaemonSet) 
 			continue
 		}
 
-		newPod, oldPod, ok := findUpdatedPodsOnNode(ds, pods)
+		newPod, oldPod, ok := findUpdatedPodsOnNode(ds, pods, newHash)
 		if !ok {
 			// Let the manage loop clean up this node, and treat it as an unavailable node
 			klog.V(3).Infof("DaemonSet %s/%s has excess pods on node %s, skipping to allow the core loop to process", ds.Namespace, ds.Name, nodeName)
@@ -429,8 +401,8 @@ func (r *ReconcileDaemonpodupdater) syncPodsOnNodes(ds *appsv1.DaemonSet, podsTo
 
 	deleteDiff := len(podsToDelete)
 
-	if deleteDiff > BurstReplicas {
-		deleteDiff = BurstReplicas
+	if deleteDiff > daemonsetupgradestrategy.BurstReplicas {
+		deleteDiff = daemonsetupgradestrategy.BurstReplicas
 	}
 
 	r.expectations.SetExpectations(dsKey, 0, deleteDiff)
@@ -470,9 +442,9 @@ func (r *ReconcileDaemonpodupdater) syncPodsOnNodes(ds *appsv1.DaemonSet, podsTo
 // maxUnavailableCounts calculates the true number of allowed unavailable
 func (r *ReconcileDaemonpodupdater) maxUnavailableCounts(ds *appsv1.DaemonSet, nodeToDaemonPods map[string][]*corev1.Pod) (int, error) {
 	// If annotation is not set, use default value one
-	v, ok := ds.Annotations[MaxUnavailableAnnotation]
+	v, ok := ds.Annotations[daemonsetupgradestrategy.MaxUnavailableAnnotation]
 	if !ok || v == "0" || v == "0%" {
-		v = DefaultMaxUnavailable
+		v = daemonsetupgradestrategy.DefaultMaxUnavailable
 	}
 
 	intstrv := intstrutil.Parse(v)

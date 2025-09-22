@@ -18,9 +18,7 @@ package daemonpodupdater
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -32,8 +30,7 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonpodupdater/config"
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonpodupdater/kubernetes"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonsetupgradestrategy"
 	podutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/pod"
 )
 
@@ -65,9 +62,7 @@ func GetDaemonsetPods(c client.Client, ds *appsv1.DaemonSet) ([]*corev1.Pod, err
 
 // IsDaemonsetPodLatest check whether pod is the latest by comparing its Spec with daemonset's
 // If pod is latest, return true, otherwise return false
-func IsDaemonsetPodLatest(ds *appsv1.DaemonSet, pod *corev1.Pod) bool {
-	hash := kubernetes.ComputeHash(&ds.Spec.Template, ds.Status.CollisionCount)
-	klog.V(4).Infof("compute hash: %v", hash)
+func IsDaemonsetPodLatest(ds *appsv1.DaemonSet, pod *corev1.Pod, hash string) bool {
 	generation, err := GetTemplateGeneration(ds)
 	if err != nil {
 		generation = nil
@@ -115,9 +110,8 @@ func NodeReady(nodeStatus *corev1.NodeStatus) bool {
 }
 
 // SetPodUpgradeCondition calculate and set pod condition "PodNeedUpgrade"
-func SetPodUpgradeCondition(c client.Client, ds *appsv1.DaemonSet, pod *corev1.Pod) error {
-	isPodLatest := IsDaemonsetPodLatest(ds, pod)
-
+func (r *ReconcileDaemonpodupdater) SetPodUpgradeCondition(ds *appsv1.DaemonSet, pod *corev1.Pod, newHash string) error {
+	isPodLatest := IsDaemonsetPodLatest(ds, pod, newHash)
 	// Comply with K8s, use constant ConditionTrue and ConditionFalse
 	var status corev1.ConditionStatus
 	switch isPodLatest {
@@ -127,39 +121,13 @@ func SetPodUpgradeCondition(c client.Client, ds *appsv1.DaemonSet, pod *corev1.P
 		status = corev1.ConditionTrue
 	}
 
-	// construct updated ds info according to the pod image & imagepullsecret & servcie account
-	var dsInfoBytes []byte
-	dsInfo := &config.DaemonsetUpdateImageInfo{
-		ImageList:          []string{},
-		ImagePullSecrets:   []string{},
-		ServiceAccountName: pod.Spec.ServiceAccountName,
-	}
-
-	containers := slices.Clone(pod.Spec.InitContainers)
-	containers = append(containers, pod.Spec.Containers...)
-	for _, container := range containers {
-		// exclude imagepullpolicy=Always images
-		if container.ImagePullPolicy == corev1.PullAlways {
-			continue
-		}
-		dsInfo.ImageList = append(dsInfo.ImageList, container.Image)
-	}
-	for _, imagePullSecret := range pod.Spec.ImagePullSecrets {
-		dsInfo.ImagePullSecrets = append(dsInfo.ImagePullSecrets, imagePullSecret.Name)
-	}
-	if dsInfo.ServiceAccountName == "" {
-		dsInfo.ServiceAccountName = "default"
-	}
-	dsInfoBytes, _ = json.Marshal(dsInfo)
-	klog.V(5).Infof("set pod %q condition PodNeedUpgrade message with dsInfo: %s", pod.Name, dsInfoBytes)
-
 	cond := &corev1.PodCondition{
-		Type:    PodNeedUpgrade,
+		Type:    daemonsetupgradestrategy.PodNeedUpgrade,
 		Status:  status,
-		Message: string(dsInfoBytes),
+		Message: daemonsetupgradestrategy.VersionPrefix + newHash,
 	}
 	if change := podutil.UpdatePodCondition(&pod.Status, cond); change {
-		if err := c.Status().Update(context.TODO(), pod, &client.SubResourceUpdateOptions{}); err != nil {
+		if err := r.Client.Status().Update(context.TODO(), pod, &client.SubResourceUpdateOptions{}); err != nil {
 			return err
 		}
 		klog.Infof("set pod %q condition PodNeedUpgrade to %v", pod.Name, !isPodLatest)
@@ -172,8 +140,8 @@ func SetPodUpgradeCondition(c client.Client, ds *appsv1.DaemonSet, pod *corev1.P
 // 1. annotation "apps.openyurt.io/update-strategy"="AdvancedRollingUpdate" or "OTA"
 // 2. update strategy is "OnDelete"
 func checkPrerequisites(ds *appsv1.DaemonSet) bool {
-	v, ok := ds.Annotations[UpdateAnnotation]
-	if !ok || (!strings.EqualFold(v, AutoUpdate) && !strings.EqualFold(v, OTAUpdate) && !strings.EqualFold(v, AdvancedRollingUpdate)) {
+	v, ok := ds.Annotations[daemonsetupgradestrategy.UpdateAnnotation]
+	if !ok || (!strings.EqualFold(v, daemonsetupgradestrategy.OTAUpdate) && !strings.EqualFold(v, daemonsetupgradestrategy.AdvancedRollingUpdate)) {
 		return false
 	}
 	return ds.Spec.UpdateStrategy.Type == appsv1.OnDeleteDaemonSetStrategyType
@@ -199,13 +167,13 @@ func CloneAndAddLabel(labels map[string]string, labelKey, labelValue string) map
 // is at most one of each old and new pods, or false if there are multiples. We can skip
 // processing the particular node in those scenarios and let the manage loop prune the
 // excess pods for our next time around.
-func findUpdatedPodsOnNode(ds *appsv1.DaemonSet, podsOnNode []*corev1.Pod) (newPod, oldPod *corev1.Pod, ok bool) {
+func findUpdatedPodsOnNode(ds *appsv1.DaemonSet, podsOnNode []*corev1.Pod, newHash string) (newPod, oldPod *corev1.Pod, ok bool) {
 	for _, pod := range podsOnNode {
 		if pod.DeletionTimestamp != nil {
 			continue
 		}
 
-		if IsDaemonsetPodLatest(ds, pod) {
+		if IsDaemonsetPodLatest(ds, pod, newHash) {
 			if newPod != nil {
 				return nil, nil, false
 			}
@@ -273,6 +241,6 @@ func IsPodUpgradeConditionTrue(status corev1.PodStatus) bool {
 // GetPodUpgradeCondition extracts the pod upgrade condition from the given status and returns that.
 // Returns nil if the condition is not present.
 func GetPodUpgradeCondition(status corev1.PodStatus) *corev1.PodCondition {
-	_, condition := podutil.GetPodCondition(&status, PodNeedUpgrade)
+	_, condition := podutil.GetPodCondition(&status, daemonsetupgradestrategy.PodNeedUpgrade)
 	return condition
 }
