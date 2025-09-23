@@ -19,6 +19,7 @@ package locallb
 import (
 	"fmt"
 	"reflect"
+	"sort"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/informers"
@@ -26,18 +27,22 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// IptablesManagerInterface is an interface that abstracts IptablesManager
+// This allows for mocking in unit tests.
+type IptablesManagerInterface interface {
+	updateIptablesRules(tenantKasService string, apiserverAddrs []string) error
+	cleanIptablesRules() error
+}
+
 type locallbManager struct {
 	tenantKasService string
 	apiserverAddrs   []string // ip1:port1,ip2:port2,...
-	iptablesManager  *IptablesManager
+	iptablesManager  IptablesManagerInterface
 }
 
 func NewLocalLBManager(tenantKasAddress string, informerFactory informers.SharedInformerFactory) (*locallbManager, error) {
-	m := &locallbManager{
-		tenantKasService: tenantKasAddress,
-		apiserverAddrs:   []string{},
-		iptablesManager:  NewIptablesManager(),
-	}
+	iptMgr := NewIptablesManager()
+	m := newLocalLBManagerWithDeps(tenantKasAddress, iptMgr)
 
 	endpointsInformer := informerFactory.Core().V1().Endpoints()
 	informer := endpointsInformer.Informer()
@@ -47,6 +52,16 @@ func NewLocalLBManager(tenantKasAddress string, informerFactory informers.Shared
 	})
 
 	return m, nil
+}
+
+// newLocalLBManagerWithDeps is a helper constructor primarily for testing.
+// It allows injecting a mock IptablesManagerInterface.
+func newLocalLBManagerWithDeps(tenantKasAddress string, iptMgr IptablesManagerInterface) *locallbManager {
+	return &locallbManager{
+		tenantKasService: tenantKasAddress,
+		apiserverAddrs:   []string{},
+		iptablesManager:  iptMgr,
+	}
 }
 
 func (m *locallbManager) addEndpoints(obj interface{}) {
@@ -104,6 +119,10 @@ func (m *locallbManager) updateEndpoints(oldObj, newObj interface{}) {
 		}
 		newApiserverAddrs = append(newApiserverAddrs, newAddrs...)
 	}
+	// Sort the address slices before comparing them. This ensures that the comparison
+	// is order-independent, checking for set equality rather than slice equality.
+	sort.Strings(oldApiserverAddrs)
+	sort.Strings(newApiserverAddrs)
 	// if newApiserverAddrs are the same as oldApiserverAddrs, that means endpoints are updated except addresses, do nothing.
 	// if not the same, we delete oldApiserverAddrs from m.apiserverAddrs, then append newApiserverAddrs to m.apiserverAddrs.
 	if !reflect.DeepEqual(oldApiserverAddrs, newApiserverAddrs) {
