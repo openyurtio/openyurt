@@ -25,11 +25,11 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
 	"time"
+	"path/filepath"
 
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -80,7 +80,7 @@ func CheckAndInstallYurthub(yurthubVersion string) error {
 func setYurthubMainService() error {
 	klog.Info("Setting yurthub main service.")
 
-	serviceFile := constants.YurtHubServiceDir + constants.YurtHubServiceName
+	serviceFile := constants.YurthubServicePath
 	serviceDir := filepath.Dir(serviceFile)
 
 	if _, err := os.Stat(serviceDir); err != nil {
@@ -124,7 +124,7 @@ func setYurthubUnitService(data joindata.YurtJoinData) error {
 		return err
 	}
 
-	unitDir := constants.YurtHubServiceDir + constants.YurtHubServiceName + ".d"
+	unitDir := filepath.Dir(constants.YurthubServiceConfPath)
 	if _, err := os.Stat(unitDir); err != nil {
 		if os.IsNotExist(err) {
 			if err := os.MkdirAll(unitDir, os.ModePerm); err != nil {
@@ -137,7 +137,7 @@ func setYurthubUnitService(data joindata.YurtJoinData) error {
 		}
 	}
 
-	unitFile := constants.YurtHubServiceDir + constants.YurthubServiceConfPath
+	unitFile :=  constants.YurthubServiceConfPath
 	if err := os.WriteFile(unitFile, []byte(unitContent), 0644); err != nil {
 		klog.Errorf("Write file %s fail: %v", unitFile, err)
 		return err
