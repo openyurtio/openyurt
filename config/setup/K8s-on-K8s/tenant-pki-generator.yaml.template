@@ -1,0 +1,219 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tenant-pki-generation-script
+  namespace: tenant-control-plane
+data:
+  generate-pki.sh: |
+    #!/bin/bash
+    set -ex
+    cd /work
+
+    NAMESPACE="tenant-control-plane"
+    # 0. remove old secrets
+    kubectl delete secret --ignore-not-found -n ${NAMESPACE} \
+      tenant-front-proxy-ca tenant-sa-keys tenant-apiserver-certs \
+      tenant-apiserver-kubelet-client-certs tenant-front-proxy-client-certs \
+      tenant-kcm-kubeconfig tenant-scheduler-kubeconfig  tenant-admin-kubeconfig \
+      tenant-etcd-server-tls tenant-apiserver-etcd-client-certs
+
+    # --- 1. Generate certificates for Etcd ---
+    echo "### Generating certificates for Etcd ###"
+    # 1a. Generate the server certificate for etcd nodes
+    cat > etcd-server.cnf <<EOF
+    [req]
+    distinguished_name = dn
+    req_extensions     = v3_ext
+    prompt             = no
+    [dn]
+    CN = etcd-server
+    [v3_ext]
+    subjectAltName = @alt_names
+    [alt_names]
+    DNS.1 = etcd
+    DNS.2 = etcd.${NAMESPACE}.svc
+    DNS.3 = *.etcd.${NAMESPACE}.svc
+    DNS.4 = etcd-0.etcd
+    DNS.5 = etcd-1.etcd
+    DNS.6 = etcd-2.etcd
+    IP.1 = 127.0.0.1
+    EOF
+    openssl genrsa -out etcd-server.key 2048
+    openssl req -new -key etcd-server.key -out etcd-server.csr -config etcd-server.cnf
+    # Sign with the HOST CA
+    openssl x509 -req -in etcd-server.csr -CA /host-ca/ca.crt -CAkey /host-ca/ca.key -CAcreateserial -CAserial /work/ca.srl -out etcd-server.crt -days 3650 -extensions v3_ext -extfile etcd-server.cnf
+    # Create the etcd server secret, including the host CA cert
+    kubectl create secret generic tenant-etcd-server-tls --from-file=tls.crt=./etcd-server.crt --from-file=tls.key=./etcd-server.key --from-file=ca.crt=/host-ca/ca.crt -n ${NAMESPACE}
+
+    # 1b. Generate the dedicated etcd client certificate for the API Server
+    echo "### Generating etcd client certificate for API Server ###"
+    cat > etcd-client.cnf <<EOF
+    [req]
+    distinguished_name = dn
+    req_extensions     = v3_ext
+    prompt             = no
+    [dn]
+    CN = etcd-client
+    [v3_ext]
+    subjectAltName = @alt_names
+    [alt_names]
+    DNS.1 = etcd
+    DNS.2 = etcd.${NAMESPACE}.svc
+    DNS.3 = *.etcd.${NAMESPACE}.svc
+    DNS.4 = etcd-0.etcd
+    DNS.5 = etcd-1.etcd
+    DNS.6 = etcd-2.etcd
+    IP.1 = 127.0.0.1
+    EOF
+    openssl genrsa -out apiserver-etcd-client.key 2048
+    openssl req -new -key apiserver-etcd-client.key -out apiserver-etcd-client.csr -config etcd-client.cnf
+    # Sign with the HOST CA
+    openssl x509 -req -in apiserver-etcd-client.csr -CA /host-ca/ca.crt -CAkey /host-ca/ca.key -CAcreateserial -CAserial /work/ca.srl -out apiserver-etcd-client.crt -days 3650 -extensions v3_ext -extfile etcd-server.cnf
+    kubectl create secret generic tenant-apiserver-etcd-client-certs --from-file=tls.crt=./apiserver-etcd-client.crt --from-file=tls.key=./apiserver-etcd-client.key --from-file=ca.crt=/host-ca/ca.crt -n ${NAMESPACE}
+
+    # 2. generate front-proxy-ca (self-signed)
+    echo "### Generating Front Proxy CA ###"
+    openssl genrsa -out front-proxy-ca.key 2048
+    openssl req -x509 -new -nodes -key front-proxy-ca.key -subj "/CN=front-proxy-ca" -days 3650 -out front-proxy-ca.crt
+    kubectl create secret generic tenant-front-proxy-ca --from-file=front-proxy-ca.crt --from-file=front-proxy-ca.key -n ${NAMESPACE}
+
+    # 3. generate service account keys
+    echo "### Generating Service Account keys ###"
+    openssl genrsa -out sa.key 2048
+    openssl rsa -in sa.key -pubout -out sa.pub
+    kubectl create secret generic tenant-sa-keys --from-file=sa.key --from-file=sa.pub -n ${NAMESPACE}
+
+    # 4. generate tenant-kube-apiserver certificate (use host-k8s CA)
+    echo "### Generating API Server certificate ###"
+    cat > apiserver.cnf <<EOF
+    [req]
+    default_bits       = 2048
+    prompt             = no
+    default_md         = sha256
+    distinguished_name = dn
+    req_extensions     = v3_ext
+
+    [dn]
+    CN = kube-apiserver
+
+    [v3_ext]
+    subjectAltName = @alt_names
+
+    [alt_names]
+    DNS.1 = kubernetes
+    DNS.2 = kubernetes.default
+    DNS.3 = kubernetes.default.svc
+    DNS.4 = kubernetes.default.svc.cluster.local
+    DNS.5 = tenant-apiserver.${NAMESPACE}.svc
+    IP.1 = 127.0.0.1
+    # this is tenant-K8s clusterIP service address, used for tenant kube-proxy (daemonset pod) to access tenant-apiservers
+    IP.2 = 10.96.0.1
+    # this is service address of tenant-apiserver, which is customer configuration
+    IP.3 = ${TENANT_APISERVER_SERVICE}
+    EOF
+    openssl genrsa -out apiserver.key 2048
+    openssl req -new -key apiserver.key -out apiserver.csr -config apiserver.cnf
+    openssl x509 -req -in apiserver.csr -CA /host-ca/ca.crt -CAkey /host-ca/ca.key -CAcreateserial -CAserial /work/ca.srl -out apiserver.crt -days 3650 -extensions v3_ext -extfile apiserver.cnf
+    kubectl create secret tls tenant-apiserver-certs --cert=apiserver.crt --key=apiserver.key -n ${NAMESPACE}
+
+    echo "### Generating apiserver-kubelet-client certificate ###"
+    openssl genrsa -out apiserver-kubelet-client.key 2048
+    openssl req -new -key apiserver-kubelet-client.key -subj "/CN=kube-apiserver-kubelet-client/O=system:masters" -out apiserver-kubelet-client.csr
+    openssl x509 -req -in apiserver-kubelet-client.csr -CA /host-ca/ca.crt -CAkey /host-ca/ca.key -CAcreateserial -CAserial /work/ca.srl -out apiserver-kubelet-client.crt -days 3650
+    kubectl create secret tls tenant-apiserver-kubelet-client-certs --cert=apiserver-kubelet-client.crt --key=apiserver-kubelet-client.key -n ${NAMESPACE}
+
+    echo "### Generating front-proxy-client certificate ###"
+    openssl genrsa -out front-proxy-client.key 2048
+    openssl req -new -key front-proxy-client.key -subj "/CN=front-proxy-client" -out front-proxy-client.csr
+    openssl x509 -req -in front-proxy-client.csr -CA front-proxy-ca.crt -CAkey front-proxy-ca.key -CAcreateserial -CAserial /work/front-proxy-ca.srl -out front-proxy-client.crt -days 3650
+    kubectl create secret tls tenant-front-proxy-client-certs --cert=front-proxy-client.crt --key=front-proxy-client.key -n ${NAMESPACE}
+
+    function create_kubeconfig() {
+      local component=$1 user=$2 group=$3
+      local conf_file="${component}.conf"
+      local server_url
+      echo "### Generating cert and kubeconfig for ${component} ###"
+      openssl genrsa -out ${component}.key 2048
+      openssl req -new -key ${component}.key -subj "/CN=${user}/O=${group}" -out ${component}.csr
+      openssl x509 -req -in ${component}.csr -CA /host-ca/ca.crt -CAkey /host-ca/ca.key -CAcreateserial -CAserial /work/ca.srl -out ${component}.crt -days 3650
+      
+      if [ "${component}" == "admin" ]; then
+          # this is used to generate tenant-admin.conf kubeconfig, used for kubectl to access and manage tenant-K8s
+          server_url="https://127.0.0.1:${TENANT_APISERVER_SERVICE_PORT}"
+      else
+          server_url="https://tenant-apiserver.${NAMESPACE}.svc:6443"
+      fi
+      kubectl --kubeconfig=${conf_file} config set-cluster tenant --server="${server_url}" --certificate-authority=/host-ca/ca.crt --embed-certs=true
+      kubectl --kubeconfig=${conf_file} config set-credentials ${user} --client-certificate=${component}.crt --client-key=${component}.key --embed-certs=true
+      kubectl --kubeconfig=${conf_file} config set-context default --cluster=tenant --user=${user}
+      kubectl --kubeconfig=${conf_file} config use-context default
+      kubectl create secret generic "tenant-${component}-kubeconfig" --from-file=kubeconfig=${conf_file} -n ${NAMESPACE}
+    }
+    create_kubeconfig "kcm" "system:kube-controller-manager" "system:kube-controller-manager"
+    create_kubeconfig "scheduler" "system:kube-scheduler" "system:kube-scheduler"
+    create_kubeconfig "admin" "admin" "system:masters"
+
+    echo "--- All PKI materials generated successfully! ---"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tenant-pki-generator-sa
+  namespace: tenant-control-plane
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: secret-manager
+  namespace: tenant-control-plane
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["create", "get", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tenant-pki-generator-binding
+  namespace: tenant-control-plane
+subjects:
+- kind: ServiceAccount
+  name: tenant-pki-generator-sa
+  namespace: tenant-control-plane
+roleRef:
+  kind: Role
+  name: secret-manager
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: tenant-pki-generator
+  namespace: tenant-control-plane
+spec:
+  template:
+    spec:
+      serviceAccountName: tenant-pki-generator-sa
+      restartPolicy: Never
+      containers:
+      - name: pki-generator
+        image: bitnami/kubectl:1.32
+        command: ["/bin/bash", "-c", "/scripts/generate-pki.sh"]
+        volumeMounts:
+        - name: script-volume
+          mountPath: /scripts
+        - name: host-ca-volume
+          mountPath: /host-ca
+        - name: workdir
+          mountPath: /work
+      volumes:
+      - name: script-volume
+        configMap:
+          name: tenant-pki-generation-script
+          defaultMode: 0755
+      - name: host-ca-volume
+        secret:
+          secretName: host-k8s-ca-key-pair
+      - name: workdir
+        emptyDir: {}
+  backoffLimit: 2
