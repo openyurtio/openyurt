@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -38,6 +39,7 @@ import (
 	yurtconstants "github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 	yurtadmutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/kubernetes"
+	"github.com/openyurtio/openyurt/pkg/yurtadm/util/localnode"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/yurthub"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtstaticset/util"
 )
@@ -52,6 +54,8 @@ type joinOptions struct {
 	organizations            string
 	pauseImage               string
 	yurthubImage             string
+	yurthubBinaryUrl         string
+	hostControlPlaneAddr     string // hostControlPlaneAddr is the address (ip:port) of host kubernetes cluster that used for yurthub local mode.
 	namespace                string
 	caCertHashes             []string
 	unsafeSkipCAVerification bool
@@ -124,7 +128,7 @@ func addJoinConfigFlags(flagSet *flag.FlagSet, joinOptions *joinOptions) {
 	)
 	flagSet.StringVar(
 		&joinOptions.nodeType, yurtconstants.NodeType, joinOptions.nodeType,
-		"Sets the node is edge or cloud",
+		"Sets the node is edge, cloud or local",
 	)
 	flagSet.StringVar(
 		&joinOptions.nodeName, yurtconstants.NodeName, joinOptions.nodeName,
@@ -153,6 +157,14 @@ func addJoinConfigFlags(flagSet *flag.FlagSet, joinOptions *joinOptions) {
 	flagSet.StringVar(
 		&joinOptions.yurthubImage, yurtconstants.YurtHubImage, joinOptions.yurthubImage,
 		"Sets the image version of yurthub component",
+	)
+	flagSet.StringVar(
+		&joinOptions.yurthubBinaryUrl, yurtconstants.YurtHubBinaryUrl, joinOptions.yurthubBinaryUrl,
+		"Sets the binary URL of yurthub (tar.gz), we will download and untar it automatically, then deploy local mode yurthub in systemd",
+	)
+	flagSet.StringVar(
+		&joinOptions.hostControlPlaneAddr, yurtconstants.HostControlPlaneAddr, joinOptions.hostControlPlaneAddr,
+		"Sets the address of hostControlPlaneAddr, which is the address (ip:port) of host kubernetes cluster that used for yurthub local mode",
 	)
 	flagSet.StringSliceVar(
 		&joinOptions.caCertHashes, yurtconstants.TokenDiscoveryCAHash, joinOptions.caCertHashes,
@@ -227,6 +239,8 @@ type joinData struct {
 	organizations            string
 	pauseImage               string
 	yurthubImage             string
+	yurthubBinaryUrl         string
+	hostControlPlaneAddr     string
 	yurthubTemplate          string
 	yurthubManifest          string
 	kubernetesVersion        string
@@ -257,6 +271,18 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 		apiServerEndpoint = args[0]
 	}
 
+	if opt.nodeType == yurtconstants.LocalNode {
+		// in local mode, it is necessary to prepare yurthub binary URL for downloading and deploying yurthub in systemd.
+		if len(opt.yurthubBinaryUrl) == 0 {
+			return nil, errors.New("yurthub binary URL is empty, so unable to download and run systemd yurthub in local mode.")
+		}
+
+		// in local mode, hostControlPlaneAddr is needed for systemd yurthub accessing host kubernetes cluster.
+		if len(opt.hostControlPlaneAddr) == 0 {
+			return nil, errors.New("host control plane address is empty, so unable to run systemd yurthub in local mode.")
+		}
+	}
+
 	if len(opt.token) == 0 {
 		return nil, errors.New("join token is empty, so unable to bootstrap worker node.")
 	}
@@ -265,8 +291,8 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 		return nil, errors.Errorf("the bootstrap token %s was not of the form %s", opt.token, yurtconstants.BootstrapTokenPattern)
 	}
 
-	if opt.nodeType != yurtconstants.EdgeNode && opt.nodeType != yurtconstants.CloudNode {
-		return nil, errors.Errorf("node type(%s) is invalid, only \"edge and cloud\" are supported", opt.nodeType)
+	if opt.nodeType != yurtconstants.EdgeNode && opt.nodeType != yurtconstants.CloudNode && opt.nodeType != yurtconstants.LocalNode {
+		return nil, errors.Errorf("node type(%s) is invalid, only \"edge, cloud and local\" are supported", opt.nodeType)
 	}
 
 	if opt.unsafeSkipCAVerification && len(opt.caCertHashes) != 0 {
@@ -276,11 +302,13 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 	}
 
 	ignoreErrors := sets.Set[string]{}
-	for i := range opt.ignorePreflightErrors {
-		ignoreErrors.Insert(opt.ignorePreflightErrors[i])
-	}
-	if !ignoreErrors.Has("all") {
-		ignoreErrors.Insert(yurtconstants.KubeletConfFileAvailableError, yurtconstants.ManifestsDirAvailableError)
+	if opt.nodeType != yurtconstants.LocalNode {
+		for i := range opt.ignorePreflightErrors {
+			ignoreErrors.Insert(opt.ignorePreflightErrors[i])
+		}
+		if !ignoreErrors.Has("all") {
+			ignoreErrors.Insert(yurtconstants.KubeletConfFileAvailableError, yurtconstants.ManifestsDirAvailableError)
+		}
 	}
 
 	// Either use specified nodename or get hostname from OS envs
@@ -298,6 +326,8 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 		ignorePreflightErrors: ignoreErrors,
 		pauseImage:            opt.pauseImage,
 		yurthubImage:          opt.yurthubImage,
+		yurthubBinaryUrl:      opt.yurthubBinaryUrl,
+		hostControlPlaneAddr:  opt.hostControlPlaneAddr,
 		yurthubServer:         opt.yurthubServer,
 		caCertHashes:          opt.caCertHashes,
 		organizations:         opt.organizations,
@@ -327,6 +357,27 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 		}
 	}
 
+	if opt.nodeType == yurtconstants.LocalNode {
+		// download and deploy yurthub in systemd
+		if err := localnode.DownloadAndDeployYurthubInSystemd(data.HostControlPlaneAddr(), data.ServerAddr(), data.YurtHubBinaryUrl(), data.NodeRegistration().Name); err != nil {
+			return nil, err
+		}
+		yurthubIsActive, err := localnode.CheckYurthubStatus()
+		if err != nil {
+			klog.Errorf("check yurthub status fail, %v", err)
+			return nil, err
+		}
+		if !yurthubIsActive {
+			return nil, errors.New("yurthub is not active.")
+		}
+
+		// wait until the iptables chain "LBCHAIN" and it's rules are ready
+		if err := localnode.WaitForIptablesChainReadyWithTimeout("nat", "LBCHAIN", 10*time.Second, 2*time.Minute); err != nil {
+			klog.Errorf("Failed to wait for iptables chain to be ready: %v", err)
+		}
+		klog.Infof("LBCHAIN exists, continue to join node")
+	}
+
 	// get tls bootstrap config
 	cfg, err := yurtadmutil.RetrieveBootstrapConfig(data)
 	if err != nil {
@@ -350,67 +401,69 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 	}
 	data.kubernetesVersion = k8sVersion
 
-	// check whether specified nodePool exists
-	if len(opt.nodePoolName) != 0 {
-		np, err := apiclient.GetNodePoolInfoWithRetry(cfg, opt.nodePoolName)
-		if err != nil || np == nil {
-			// the specified nodePool not exist, return
-			return nil, errors.Errorf("when --nodepool-name is specified, the specified nodePool should be exist.")
-		}
-		// add nodePool label for node by kubelet
-		data.nodeLabels[projectinfo.GetNodePoolLabel()] = opt.nodePoolName
-	}
-
-	// check static pods has value and yurtstaticset is already exist
-	if len(opt.staticPods) != 0 {
-		// check format and split data
-		yssList := strings.Split(opt.staticPods, ",")
-		if len(yssList) < 1 {
-			return nil, errors.Errorf("--static-pods (%s) format is invalid, expect yss1.ns/yss1.name,yss2.ns/yss2.name", opt.staticPods)
+	if opt.nodeType != yurtconstants.LocalNode {
+		// check whether specified nodePool exists
+		if len(opt.nodePoolName) != 0 {
+			np, err := apiclient.GetNodePoolInfoWithRetry(cfg, opt.nodePoolName)
+			if err != nil || np == nil {
+				// the specified nodePool not exist, return
+				return nil, errors.Errorf("when --nodepool-name is specified, the specified nodePool should be exist.")
+			}
+			// add nodePool label for node by kubelet
+			data.nodeLabels[projectinfo.GetNodePoolLabel()] = opt.nodePoolName
 		}
 
-		templateList := make([]string, len(yssList))
-		manifestList := make([]string, len(yssList))
-		for i, yss := range yssList {
-			info := strings.Split(yss, "/")
-			if len(info) != 2 {
+		// check static pods has value and yurtstaticset is already exist
+		if len(opt.staticPods) != 0 {
+			// check format and split data
+			yssList := strings.Split(opt.staticPods, ",")
+			if len(yssList) < 1 {
 				return nil, errors.Errorf("--static-pods (%s) format is invalid, expect yss1.ns/yss1.name,yss2.ns/yss2.name", opt.staticPods)
 			}
 
-			// yurthub is system static pod, can not operate
-			if yurthub.CheckYurtHubItself(info[0], info[1]) {
-				return nil, errors.Errorf("static-pods (%s) value is invalid, can not operate yurt-hub static pod", opt.staticPods)
-			}
+			templateList := make([]string, len(yssList))
+			manifestList := make([]string, len(yssList))
+			for i, yss := range yssList {
+				info := strings.Split(yss, "/")
+				if len(info) != 2 {
+					return nil, errors.Errorf("--static-pods (%s) format is invalid, expect yss1.ns/yss1.name,yss2.ns/yss2.name", opt.staticPods)
+				}
 
-			// get static pod template
-			manifest, staticPodTemplate, err := yurtadmutil.GetStaticPodTemplateFromConfigMap(client, info[0], util.WithConfigMapPrefix(info[1]))
-			if err != nil {
-				return nil, errors.Errorf("when --static-podsis specified, the specified yurtstaticset and configmap should be exist.")
+				// yurthub is system static pod, can not operate
+				if yurthub.CheckYurtHubItself(info[0], info[1]) {
+					return nil, errors.Errorf("static-pods (%s) value is invalid, can not operate yurt-hub static pod", opt.staticPods)
+				}
+
+				// get static pod template
+				manifest, staticPodTemplate, err := yurtadmutil.GetStaticPodTemplateFromConfigMap(client, info[0], util.WithConfigMapPrefix(info[1]))
+				if err != nil {
+					return nil, errors.Errorf("when --static-podsis specified, the specified yurtstaticset and configmap should be exist.")
+				}
+				templateList[i] = staticPodTemplate
+				manifestList[i] = manifest
 			}
-			templateList[i] = staticPodTemplate
-			manifestList[i] = manifest
+			data.staticPodTemplateList = templateList
+			data.staticPodManifestList = manifestList
 		}
-		data.staticPodTemplateList = templateList
-		data.staticPodManifestList = manifestList
+
+		// get the yurthub template from the staticpod cr
+		yurthubYurtStaticSetName := yurtconstants.YurthubYurtStaticSetName
+		if data.NodeRegistration().WorkingMode == "cloud" {
+			yurthubYurtStaticSetName = yurtconstants.YurthubCloudYurtStaticSetName
+		}
+
+		yurthubManifest, yurthubTemplate, err := yurtadmutil.GetStaticPodTemplateFromConfigMap(client, opt.namespace, util.WithConfigMapPrefix(yurthubYurtStaticSetName))
+		if err != nil {
+			klog.Errorf("hard-code yurthub manifest will be used, because could not get yurthub template from kube-apiserver, %v", err)
+			yurthubManifest = yurtconstants.YurthubStaticPodManifest
+			yurthubTemplate = yurtconstants.YurthubTemplate
+
+		}
+		data.yurthubTemplate = yurthubTemplate
+		data.yurthubManifest = yurthubManifest
 	}
+
 	klog.Infof("node join data info: %#+v", *data)
-
-	// get the yurthub template from the staticpod cr
-	yurthubYurtStaticSetName := yurtconstants.YurthubYurtStaticSetName
-	if data.NodeRegistration().WorkingMode == "cloud" {
-		yurthubYurtStaticSetName = yurtconstants.YurthubCloudYurtStaticSetName
-	}
-
-	yurthubManifest, yurthubTemplate, err := yurtadmutil.GetStaticPodTemplateFromConfigMap(client, opt.namespace, util.WithConfigMapPrefix(yurthubYurtStaticSetName))
-	if err != nil {
-		klog.Errorf("hard-code yurthub manifest will be used, because could not get yurthub template from kube-apiserver, %v", err)
-		yurthubManifest = yurtconstants.YurthubStaticPodManifest
-		yurthubTemplate = yurtconstants.YurthubTemplate
-
-	}
-	data.yurthubTemplate = yurthubTemplate
-	data.yurthubManifest = yurthubManifest
-
 	return data, nil
 }
 
@@ -437,6 +490,16 @@ func (j *joinData) PauseImage() string {
 // YurtHubImage returns the YurtHub image.
 func (j *joinData) YurtHubImage() string {
 	return j.yurthubImage
+}
+
+// YurtHubBinary returns the YurtHub binary.
+func (j *joinData) YurtHubBinaryUrl() string {
+	return j.yurthubBinaryUrl
+}
+
+// HostControlPlaneAddr returns the host-K8s control plane address.
+func (j *joinData) HostControlPlaneAddr() string {
+	return j.hostControlPlaneAddr
 }
 
 // YurtHubServer returns the YurtHub server addr.
