@@ -108,7 +108,7 @@ func RunJobAndCleanup(cliSet *kubernetes.Clientset, job *batchv1.Job, timeout, p
 	}
 }
 
-// CheckAndInstallKubelet install kubelet and kubernetes-cni, skip install if they exist.
+// CheckAndInstallKubelet install kubelet, skip install if they exist.
 func CheckAndInstallKubelet(kubernetesResourceServer, clusterVersion string) error {
 	if strings.Contains(clusterVersion, "-") {
 		clusterVersion = strings.Split(clusterVersion, "-")[0]
