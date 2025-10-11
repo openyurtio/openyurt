@@ -46,3 +46,24 @@ func TestComplete(t *testing.T) {
 		t.Errorf("expect cfg not nil, but got nil")
 	}
 }
+
+func TestCompleteWithLocalMode(t *testing.T) {
+	client, err := testdata.CreateCertFakeClient("../../../../pkg/yurthub/certificate/testdata")
+	if err != nil {
+		t.Errorf("failed to create cert fake client, %v", err)
+		return
+	}
+	options := options.NewYurtHubOptions()
+	options.ClientForTest = client
+	options.WorkingMode = "local"
+	options.HostControlPlaneAddr = "127.0.0.1:8443"
+	options.ServerAddr = "127.0.0.1:7443"
+	options.NodeName = "foo-local"
+	cfg, err := Complete(options, nil)
+	if err != nil {
+		t.Errorf("expected no error for local mode, but got %v", err)
+	}
+	if cfg == nil {
+		t.Errorf("expected cfg not to be nil for local mode, but got nil")
+	}
+}
