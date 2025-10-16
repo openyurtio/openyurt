@@ -81,7 +81,7 @@ const (
 	// YurtHubExecInstallUrlFormat = "https://alias-cn-hangzhou.oss-cn-beijing.aliyuncs.com/yurthub/v1.6.1/amd64/yurthub"
 	YurthubExecResourceServer = "alias-cn-hangzhou.oss-cn-beijing.aliyuncs.com"
 	YurthubExecUrlFormat      = "https://%s/yurthub/%s/%s/yurthub"
-	YurthubVerison            = "v1.6.1"
+	YurthubVersion            = "v1.6.1"
 
 	EdgeNode  = "edge"
 	CloudNode = "cloud"

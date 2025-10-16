@@ -28,6 +28,10 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 )
 
+var (
+	execCommand = exec.Command
+)
+
 func RunResetNode(data resetdata.YurtResetData, in io.Reader, out io.Writer, outErr io.Writer) error {
 	if _, err := exec.LookPath("kubeadm"); err != nil {
 		klog.Fatalf("kubeadm is not installed, you can refer to this link for installation: %s.", constants.KubeadmInstallUrl)
@@ -47,7 +51,7 @@ func RunResetNode(data resetdata.YurtResetData, in io.Reader, out io.Writer, out
 	if err := kubeadmCmd.Run(); err != nil {
 		return err
 	}
-	
+
 	if err := runStopYurthubService(); err != nil {
 		klog.Errorf("Failed to stop yurthub service: %v", err)
 		return err
@@ -57,14 +61,12 @@ func RunResetNode(data resetdata.YurtResetData, in io.Reader, out io.Writer, out
 }
 
 func runStopYurthubService() error {
-	// Stop yurthub systemd service if it exists
-	cmd := exec.Command("systemctl", "stop", constants.YurtHubServiceName)
+	cmd := execCommand("systemctl", "stop", constants.YurtHubServiceName)
 	if err := cmd.Run(); err != nil {
 		return err
 	}
 
-	// Disable yurthub systemd service if it exists
-	cmd = exec.Command("systemctl", "disable", constants.YurtHubServiceName)
+	cmd = execCommand("systemctl", "disable", constants.YurtHubServiceName)
 	if err := cmd.Run(); err != nil {
 		return err
 	}

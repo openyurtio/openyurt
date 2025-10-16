@@ -25,11 +25,11 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
 	"time"
-	"path/filepath"
 
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -41,7 +41,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/util/token"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
-
 	yurtadmutil "github.com/openyurtio/openyurt/pkg/yurtadm/util"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 )
@@ -137,7 +136,7 @@ func setYurthubUnitService(data joindata.YurtJoinData) error {
 		}
 	}
 
-	unitFile :=  constants.YurthubServiceConfPath
+	unitFile := constants.YurthubServiceConfPath
 	if err := os.WriteFile(unitFile, []byte(unitContent), 0644); err != nil {
 		klog.Errorf("Write file %s fail: %v", unitFile, err)
 		return err
@@ -258,15 +257,13 @@ func SetHubBootstrapConfig(serverAddr string, joinToken string, caCertHashes []s
 	return nil
 }
 
-// Check the health status of the YurtHub service
+
 func CheckYurthubServiceHealth(yurthubServer string) error {
-	// Checking the systemd service status
 	cmd := execCommand("systemctl", "is-active", constants.YurtHubServiceName)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("yurthub service is not active: %v", err)
 	}
 
-	// Check the YurtHub health endpoint
 	if err := checkYurthubHealthzFunc(yurthubServer); err != nil { // Here is the previous CheckYurthubHealthz, called in postcheck.go
 		return err
 	}

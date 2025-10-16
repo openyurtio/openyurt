@@ -69,16 +69,13 @@ func RunPrepare(data joindata.YurtJoinData) error {
 	}
 	if err := yurthub.SetHubBootstrapConfig(data.ServerAddr(), data.JoinToken(), data.CaCertHashes()); err != nil {
 		return err
-	} 
-
-	if err := yurthub.CheckAndInstallYurthub(constants.YurthubVerison); err != nil {
+	}
+	if err := yurthub.CheckAndInstallYurthub(constants.YurthubVersion); err != nil {
 		return err
-	} 
-
+	}
 	if err := yurthub.CreateYurthubSystemdService(data); err != nil {
 		return err
-	} 
-
+	}
 	if err := yurtadmutil.SetDiscoveryConfig(data); err != nil {
 		return err
 	}
