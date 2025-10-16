@@ -595,7 +595,6 @@ func TestCheckYurthubServiceHealth(t *testing.T) {
 	}()
 
 	t.Run("Service is active and healthy", func(t *testing.T) {
-		// Mock execCommand to simulate active service
 		execCommand = func(name string, arg ...string) *exec.Cmd {
 			if name == "systemctl" && len(arg) > 0 && arg[0] == "is-active" {
 				return exec.Command("echo", "active")
@@ -616,7 +615,6 @@ func TestCheckYurthubServiceHealth(t *testing.T) {
 	t.Run("Service is not active", func(t *testing.T) {
 		execCommand = func(name string, arg ...string) *exec.Cmd {
 			if name == "systemctl" && len(arg) > 0 && arg[0] == "is-active" {
-				// Create a command that will fail
 				return exec.Command("false")
 			}
 			return exec.Command("echo", "dummy")
@@ -698,7 +696,6 @@ func TestCheckYurthubServiceHealth_HealthzSuccess(t *testing.T) {
 }
 
 func Test_setYurthubMainService_CreateAndExists(t *testing.T) {
-	// Ensure any previous file is removed to test creation logic
 	_ = os.Remove(constants.YurthubServicePath)
 
 	if err := setYurthubMainService(); err != nil {
@@ -767,7 +764,6 @@ func Test_CreateYurthubSystemdService_StartFails(t *testing.T) {
 			if len(arg) > 0 && arg[0] == "start" {
 				return exec.Command("false")
 			}
-			// echo for success
 			return exec.Command("echo", "ok")
 		}
 		return exec.Command("echo", "ok")
@@ -837,7 +833,6 @@ func Test_setYurthubUnitService_NodePoolPresence(t *testing.T) {
 		t.Fatalf("read unit file failed: %v", err)
 	}
 	content2 := string(b2)
-	// 不应包含 key 名称或之前的 pool 值
 	if strings.Contains(content2, "nodePoolName") {
 		t.Errorf("unit file should not contain 'nodePoolName' when not provided, got: %s", content2)
 	}
@@ -909,7 +904,7 @@ func Test_CreateYurthubSystemdService_EnableFails(t *testing.T) {
 
 	execCommand = func(name string, arg ...string) *exec.Cmd {
 		if name == "systemctl" && len(arg) > 0 && arg[0] == "enable" {
-			return exec.Command("false") // enable fails
+			return exec.Command("false")
 		}
 		return exec.Command("echo", "ok")
 	}
@@ -923,7 +918,6 @@ func Test_CheckYurthubServiceHealth_SystemctlRunError(t *testing.T) {
 	oldExec := execCommand
 	defer func() { execCommand = oldExec }()
 
-	// make systemctl is-active return non-zero
 	execCommand = func(name string, arg ...string) *exec.Cmd {
 		if name == "systemctl" && len(arg) > 0 && arg[0] == "is-active" {
 			return exec.Command("false")
@@ -944,7 +938,6 @@ func Test_CheckYurthubServiceHealth_HealthzFuncErrorPropagation(t *testing.T) {
 		checkYurthubHealthzFunc = oldHealthz
 	}()
 
-	// make systemctl is-active succeed
 	execCommand = func(name string, arg ...string) *exec.Cmd {
 		if name == "systemctl" && len(arg) > 0 && arg[0] == "is-active" {
 			return exec.Command("echo", "active")
@@ -952,7 +945,6 @@ func Test_CheckYurthubServiceHealth_HealthzFuncErrorPropagation(t *testing.T) {
 		return exec.Command("echo", "ok")
 	}
 
-	// simulate healthz failing
 	checkYurthubHealthzFunc = func(addr string) error {
 		return errors.New("simulated healthz failure")
 	}
