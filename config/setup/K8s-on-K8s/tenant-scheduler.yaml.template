@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tenant-scheduler
+  namespace: tenant-control-plane
+  labels:
+    component: tenant-scheduler
+    tier: control-plane
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      component: tenant-scheduler
+      tier: control-plane
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        component: tenant-scheduler
+        tier: control-plane
+    spec:
+      containers:
+      - command:
+        - kube-scheduler
+        - --authentication-kubeconfig=/etc/kubernetes/scheduler.conf
+        - --authorization-kubeconfig=/etc/kubernetes/scheduler.conf
+        - --bind-address=127.0.0.1
+        - --kubeconfig=/etc/kubernetes/scheduler.conf
+        - --leader-elect=true
+        image: registry.aliyuncs.com/google_containers/kube-scheduler:${TENANT_K8S_VERSION}
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 8
+          httpGet:
+            host: 127.0.0.1
+            path: /livez
+            port: 10259
+            scheme: HTTPS
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 15
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            host: 127.0.0.1
+            path: /readyz
+            port: 10259
+            scheme: HTTPS
+          periodSeconds: 1
+          timeoutSeconds: 15
+        startupProbe:
+          failureThreshold: 24
+          httpGet:
+            host: 127.0.0.1
+            path: /livez
+            port: 10259
+            scheme: HTTPS
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 15
+        name: tenant-scheduler
+        resources:
+          requests:
+            cpu: 100m
+        volumeMounts:
+        - name: kubeconfig-volume
+          mountPath: /etc/kubernetes/scheduler.conf
+          subPath: kubeconfig
+          readOnly: true
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      priorityClassName: system-cluster-critical
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+      - name: kubeconfig-volume
+        secret:
+          secretName: tenant-scheduler-kubeconfig

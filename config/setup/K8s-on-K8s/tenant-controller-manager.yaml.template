@@ -1,0 +1,105 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tenant-controller-manager
+  namespace: tenant-control-plane
+  labels:
+    component: tenant-controller-manager
+    tier: control-plane
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      component: tenant-controller-manager
+      tier: control-plane
+  template:
+    metadata:
+      labels:
+        component: tenant-controller-manager
+        tier: control-plane
+    spec:
+      containers:
+      - command:
+        - kube-controller-manager
+        - --allocate-node-cidrs=true
+        - --authentication-kubeconfig=/etc/kubernetes/config/kubeconfig
+        - --authorization-kubeconfig=/etc/kubernetes/config/kubeconfig
+        - --bind-address=127.0.0.1
+        - --client-ca-file=/etc/kubernetes/pki/ca.crt
+        - --cluster-cidr=10.244.0.0/16
+        - --cluster-name=kubernetes
+        - --cluster-signing-cert-file=/etc/kubernetes/pki/ca.crt
+        - --cluster-signing-key-file=/etc/kubernetes/pki/ca.key
+        - --controllers=*,bootstrapsigner,tokencleaner
+        - --kubeconfig=/etc/kubernetes/config/kubeconfig
+        - --leader-elect=true
+        - --requestheader-client-ca-file=/etc/kubernetes/pki/front-proxy-ca.crt
+        - --root-ca-file=/etc/kubernetes/pki/ca.crt
+        - --service-account-private-key-file=/etc/kubernetes/pki/sa.key
+        - --service-cluster-ip-range=10.96.0.0/12
+        - --use-service-account-credentials=true
+        image: registry.aliyuncs.com/google_containers/kube-controller-manager:${TENANT_K8S_VERSION}
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 8
+          httpGet:
+            host: 127.0.0.1
+            path: /healthz
+            port: 10257
+            scheme: HTTPS
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 15
+        startupProbe:
+          failureThreshold: 24
+          httpGet:
+            host: 127.0.0.1
+            path: /healthz
+            port: 10257
+            scheme: HTTPS
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 15
+        name: tenant-controller-manager
+        resources:
+          requests:
+            cpu: 200m
+        volumeMounts:
+        - name: kubeconfig-vol
+          mountPath: /etc/kubernetes/config
+          readOnly: true
+        - name: ca-vol
+          mountPath: /etc/kubernetes/pki/ca.crt
+          subPath: ca.crt
+          readOnly: true
+        - name: ca-vol
+          mountPath: /etc/kubernetes/pki/ca.key
+          subPath: ca.key
+          readOnly: true
+        - name: sa-keys-vol
+          mountPath: /etc/kubernetes/pki/sa.key
+          subPath: sa.key
+          readOnly: true
+        - name: front-proxy-ca-vol
+          mountPath: /etc/kubernetes/pki/front-proxy-ca.crt
+          subPath: front-proxy-ca.crt
+          readOnly: true
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      priorityClassName: system-cluster-critical
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+      - name: kubeconfig-vol
+        secret:
+          secretName: tenant-kcm-kubeconfig
+      - name: ca-vol
+        secret:
+          secretName: host-k8s-ca-key-pair
+      - name: sa-keys-vol
+        secret:
+          secretName: tenant-sa-keys
+      - name: front-proxy-ca-vol
+        secret:
+          secretName: tenant-front-proxy-ca
