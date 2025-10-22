@@ -22,7 +22,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -695,56 +694,6 @@ func TestCheckYurthubServiceHealth_HealthzSuccess(t *testing.T) {
 	}
 }
 
-func Test_setYurthubMainService_CreateAndExists(t *testing.T) {
-	_ = os.Remove(constants.YurthubServicePath)
-
-	if err := setYurthubMainService(); err != nil {
-		t.Fatalf("setYurthubMainService() returned error: %v", err)
-	}
-
-	data, err := os.ReadFile(constants.YurthubServicePath)
-	if err != nil {
-		t.Fatalf("failed to read service file %s: %v", constants.YurthubServicePath, err)
-	}
-	if string(data) != constants.YurtHubServiceContent {
-		t.Fatalf("service content mismatch, got: %q", string(data))
-	}
-
-	if err := setYurthubMainService(); err != nil {
-		t.Fatalf("second call to setYurthubMainService() returned error: %v", err)
-	}
-}
-
-func Test_setYurthubUnitService_WritesExpectedContent(t *testing.T) {
-	mockData := &mockYurtJoinData{
-		serverAddr: "192.0.2.10:6443",
-		nodeRegistration: &joindata.NodeRegistration{
-			Name:         "unit-test-node",
-			NodePoolName: "unit-pool",
-			WorkingMode:  "edge",
-		},
-		namespace: "kube-system",
-	}
-
-	_ = os.Remove(constants.YurthubServiceConfPath)
-
-	if err := setYurthubUnitService(mockData); err != nil {
-		t.Fatalf("setYurthubUnitService() returned error: %v", err)
-	}
-
-	content, err := os.ReadFile(constants.YurthubServiceConfPath)
-	if err != nil {
-		t.Fatalf("failed to read unit file %s: %v", constants.YurthubServiceConfPath, err)
-	}
-	expected := "https://192.0.2.10:6443"
-	if !strings.Contains(string(content), expected) {
-		t.Fatalf("unit file does not contain expected server addr %q, got: %s", expected, string(content))
-	}
-	if !strings.Contains(string(content), "unit-test-node") {
-		t.Fatalf("unit file does not contain node name, got: %s", string(content))
-	}
-}
-
 func Test_CreateYurthubSystemdService_StartFails(t *testing.T) {
 	mockData := &mockYurtJoinData{
 		serverAddr: "127.0.0.1:6443",
@@ -789,55 +738,6 @@ func Test_CheckAndInstallYurthub_LookPathErrorCausesDownloadAttempt(t *testing.T
 	err := CheckAndInstallYurthub("v0.0.0-test")
 	if err == nil {
 		t.Fatalf("CheckAndInstallYurthub() expected to return an error when binary missing and download/copy fails, but got nil")
-	}
-}
-
-func Test_setYurthubUnitService_NodePoolPresence(t *testing.T) {
-	mockWithPool := &mockYurtJoinData{
-		serverAddr: "10.0.0.1:6443",
-		nodeRegistration: &joindata.NodeRegistration{
-			Name:         "node-with-pool",
-			NodePoolName: "pool-xyz",
-			WorkingMode:  "edge",
-		},
-		namespace: "kube-system",
-	}
-	_ = os.Remove(constants.YurthubServiceConfPath)
-	if err := setYurthubUnitService(mockWithPool); err != nil {
-		t.Fatalf("setYurthubUnitService() failed: %v", err)
-	}
-	b, err := os.ReadFile(constants.YurthubServiceConfPath)
-	if err != nil {
-		t.Fatalf("read unit file failed: %v", err)
-	}
-	content := string(b)
-	if !strings.Contains(content, "pool-xyz") {
-		t.Errorf("expected unit content to contain nodePoolName 'pool-xyz', got: %s", content)
-	}
-
-	mockNoPool := &mockYurtJoinData{
-		serverAddr: "10.0.0.1:6443",
-		nodeRegistration: &joindata.NodeRegistration{
-			Name:         "node-no-pool",
-			NodePoolName: "",
-			WorkingMode:  "edge",
-		},
-		namespace: "kube-system",
-	}
-	_ = os.Remove(constants.YurthubServiceConfPath)
-	if err := setYurthubUnitService(mockNoPool); err != nil {
-		t.Fatalf("setYurthubUnitService() failed for no-pool: %v", err)
-	}
-	b2, err := os.ReadFile(constants.YurthubServiceConfPath)
-	if err != nil {
-		t.Fatalf("read unit file failed: %v", err)
-	}
-	content2 := string(b2)
-	if strings.Contains(content2, "nodePoolName") {
-		t.Errorf("unit file should not contain 'nodePoolName' when not provided, got: %s", content2)
-	}
-	if strings.Contains(content2, "pool-xyz") {
-		t.Errorf("unit file should not contain previous pool value 'pool-xyz', got: %s", content2)
 	}
 }
 

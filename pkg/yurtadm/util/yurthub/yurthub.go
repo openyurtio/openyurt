@@ -257,7 +257,6 @@ func SetHubBootstrapConfig(serverAddr string, joinToken string, caCertHashes []s
 	return nil
 }
 
-
 func CheckYurthubServiceHealth(yurthubServer string) error {
 	cmd := execCommand("systemctl", "is-active", constants.YurtHubServiceName)
 	if err := cmd.Run(); err != nil {
