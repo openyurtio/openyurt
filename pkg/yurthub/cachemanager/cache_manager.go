@@ -49,8 +49,9 @@ import (
 )
 
 var (
-	ErrInMemoryCacheMiss = errors.New("in-memory cache miss")
-	ErrNotNodeOrLease    = errors.New("resource is not node or lease")
+	ErrInMemoryCacheMiss     = errors.New("in-memory cache miss")
+	ErrNotNodeOrLease        = errors.New("resource is not node or lease")
+	ErrCacheNotRuntimeObject = errors.New("cached object is not runtime.Object type")
 
 	nonCacheableResources = map[string]struct{}{
 		"certificatesigningrequests": {},
@@ -79,7 +80,7 @@ type cacheManager struct {
 	restMapperManager     *hubmeta.RESTMapperManager
 	configManager         *configuration.Manager
 	listSelectorCollector map[storage.Key]string
-	inMemoryCache         map[string]runtime.Object
+	inMemoryCache         sync.Map
 }
 
 // NewCacheManager creates a new CacheManager
@@ -95,7 +96,7 @@ func NewCacheManager(
 		restMapperManager:     restMapperMgr,
 		configManager:         configManager,
 		listSelectorCollector: make(map[storage.Key]string),
-		inMemoryCache:         make(map[string]runtime.Object),
+		inMemoryCache:         sync.Map{},
 	}
 	return cm
 }
@@ -259,6 +260,8 @@ func (cm *cacheManager) queryOneObject(req *http.Request) (runtime.Object, error
 			klog.V(4).Infof("in-memory cache miss when handling request %s, fall back to storage query", util.ReqString(req))
 		} else if err == ErrNotNodeOrLease {
 			klog.V(4).Infof("resource(%s) is not node or lease, it will be found in the disk not cache", info.Resource)
+		} else if err == ErrCacheNotRuntimeObject {
+			klog.V(4).Infof("resource(%s) is not runtime object", util.ReqString(req))
 		} else {
 			klog.Errorf("cannot query in-memory cache for reqInfo %s, %v,", util.ReqInfoString(info), err)
 		}
@@ -692,9 +695,7 @@ func (cm *cacheManager) storeObjectWithKey(key storage.Key, obj runtime.Object) 
 }
 
 func (cm *cacheManager) inMemoryCacheFor(key string, obj runtime.Object) {
-	cm.Lock()
-	defer cm.Unlock()
-	cm.inMemoryCache[key] = obj
+	cm.inMemoryCache.Store(key, obj)
 }
 
 // isNotAssignedPod check pod is assigned to node or not
@@ -840,13 +841,15 @@ func (cm *cacheManager) queryInMemoryCache(ctx context.Context, reqInfo *apirequ
 		return nil, err
 	}
 
-	cm.RLock()
-	defer cm.RUnlock()
-	obj, ok := cm.inMemoryCache[key]
+	runtimeObj, ok := cm.inMemoryCache.Load(key)
 	if !ok {
 		return nil, ErrInMemoryCacheMiss
 	}
 
+	obj, ok := runtimeObj.(runtime.Object)
+	if !ok {
+		return nil, ErrCacheNotRuntimeObject
+	}
 	return obj, nil
 }
 
