@@ -339,6 +339,14 @@ func (j *testData) YurtHubImage() string {
 	return ""
 }
 
+func (j *testData) YurtHubBinaryUrl() string {
+	return ""
+}
+
+func (j *testData) HostControlPlaneAddr() string {
+	return ""
+}
+
 func (j *testData) YurtHubServer() string {
 	return ""
 }

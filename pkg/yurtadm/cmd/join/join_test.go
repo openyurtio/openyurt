@@ -205,15 +205,28 @@ func TestNewJoinerWithJoinData(t *testing.T) {
 }
 
 func TestRun(t *testing.T) {
-	var nj *nodeJoiner = newJoinerWithJoinData(&joinData{}, os.Stdin, os.Stdout, os.Stderr)
-
 	tests := []struct {
-		name   string
-		expect error
+		name      string
+		inputData *joinData
+		expectErr bool
 	}{
 		{
-			"normal",
-			fmt.Errorf("Write content 1 to file /proc/sys/net/ipv4/ip_forward fail: open /proc/sys/net/ipv4/ip_forward: no such file or directory "),
+			name: "edge node",
+			inputData: &joinData{
+				joinNodeData: &joindata.NodeRegistration{
+					WorkingMode: yurtconstants.EdgeNode,
+				},
+			},
+			expectErr: true,
+		},
+		{
+			name: "local node",
+			inputData: &joinData{
+				joinNodeData: &joindata.NodeRegistration{
+					WorkingMode: yurtconstants.LocalNode,
+				},
+			},
+			expectErr: true,
 		},
 	}
 
@@ -223,23 +236,18 @@ func TestRun(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
 			{
+				var nj *nodeJoiner = newJoinerWithJoinData(tt.inputData, os.Stdin, os.Stdout, os.Stderr)
 				get := nj.Run()
-				if !reflect.DeepEqual(get, get) {
-					t.Fatalf("\t%s\texpect %v, but get %v", failed, get, get)
+				if !reflect.DeepEqual(tt.expectErr, get != nil) {
+					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expectErr, get != nil)
 				}
-				t.Logf("\t%s\texpect %v, get %v", succeed, get, get)
+				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expectErr, get != nil)
 			}
 		})
 	}
 }
 
 func TestNewJoinData(t *testing.T) {
-	jo := newJoinOptions()
-	jo2 := newJoinOptions()
-	jo2.token = "v22u0b.17490yh3xp8azpr0"
-	jo2.unsafeSkipCAVerification = true
-	jo2.nodePoolName = "nodePool2"
-
 	tests := []struct {
 		name   string
 		args   []string
@@ -249,13 +257,72 @@ func TestNewJoinData(t *testing.T) {
 		{
 			"normal",
 			[]string{"localhost:8080"},
-			jo,
+			&joinOptions{},
 			nil,
 		},
 		{
-			"norma2",
+			"normal with multiple masters",
+			[]string{"localhost:8080", "localhost:8081"},
+			&joinOptions{},
+			nil,
+		},
+		{
+			"normal with token, unsafeSkipCAVerification and nodePoolName",
 			[]string{"localhost:8080"},
-			jo2,
+			&joinOptions{
+				token:                    "v22u0b.17490yh3xp8azpr0",
+				unsafeSkipCAVerification: true,
+				nodePoolName:             "nodePool2",
+			},
+			nil,
+		},
+		{
+			"invalid token",
+			[]string{"localhost:8080"},
+			&joinOptions{
+				token: "abcdef",
+			},
+			nil,
+		},
+		{
+			"invalid nodeType",
+			[]string{"localhost:8080"},
+			&joinOptions{
+				nodeType: "non-edge, non-cloud, non-local node",
+				token:    "v22u0b.17490yh3xp8azpr0",
+			},
+			nil,
+		},
+
+		{
+			"local node without hostControlPlaneAddr",
+			[]string{"localhost:8080"},
+			&joinOptions{
+				nodeType:         yurtconstants.LocalNode,
+				yurthubBinaryUrl: "https://openyurt.io/yurthub.tar.gz",
+			},
+			nil,
+		},
+		{
+			"local node without yurthubBinaryUrl",
+			[]string{"localhost:8080"},
+			&joinOptions{
+				nodeType:             yurtconstants.LocalNode,
+				hostControlPlaneAddr: "localhost:8080",
+			},
+			nil,
+		},
+		{
+			"local node with yurthubBinaryUrl and hostControlPlaneAddr",
+			[]string{"localhost:8080"},
+			&joinOptions{
+				nodeType:                 yurtconstants.LocalNode,
+				yurthubBinaryUrl:         "https://openyurt.io/yurthub.tar.gz",
+				hostControlPlaneAddr:     "localhost:8080",
+				token:                    "v22u0b.17490yh3xp8azpr0",
+				unsafeSkipCAVerification: true,
+				nodePoolName:             "nodePool",
+			},
 			nil,
 		},
 	}
@@ -704,6 +771,191 @@ func TestStaticPodManifestList(t *testing.T) {
 			t.Logf("\tTestCase: %s", tt.name)
 			{
 				get := jd.StaticPodManifestList()
+				if !reflect.DeepEqual(tt.expect, get) {
+					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
+				}
+				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
+			}
+		})
+	}
+}
+
+func TestReuseCNIBin(t *testing.T) {
+	jd := joinData{
+		reuseCNIBin: true,
+	}
+	tests := []struct {
+		name   string
+		expect bool
+	}{
+		{
+			"normal",
+			true,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			t.Logf("\tTestCase: %s", tt.name)
+			{
+				get := jd.ReuseCNIBin()
+				if !reflect.DeepEqual(tt.expect, get) {
+					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
+				}
+				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
+			}
+		})
+	}
+}
+
+func TestNamespace(t *testing.T) {
+	jd := joinData{
+		namespace: "normal",
+	}
+
+	tests := []struct {
+		name   string
+		expect string
+	}{
+		{
+			"normal",
+			"normal",
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			t.Logf("\tTestCase: %s", tt.name)
+			{
+				get := jd.Namespace()
+				if !reflect.DeepEqual(tt.expect, get) {
+					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
+				}
+				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
+			}
+		})
+	}
+}
+
+func TestCfgPath(t *testing.T) {
+	jd := joinData{
+		cfgPath: "normal",
+	}
+
+	tests := []struct {
+		name   string
+		expect string
+	}{
+		{
+			"normal",
+			"normal",
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			t.Logf("\tTestCase: %s", tt.name)
+			{
+				get := jd.CfgPath()
+				if !reflect.DeepEqual(tt.expect, get) {
+					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
+				}
+				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
+			}
+		})
+	}
+}
+
+func TestYurtHubImage(t *testing.T) {
+	jd := joinData{
+		yurthubImage: "normal",
+	}
+
+	tests := []struct {
+		name   string
+		expect string
+	}{
+		{
+			"normal",
+			"normal",
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			t.Logf("\tTestCase: %s", tt.name)
+			{
+				get := jd.YurtHubImage()
+				if !reflect.DeepEqual(tt.expect, get) {
+					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
+				}
+				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
+			}
+		})
+	}
+}
+
+func TestYurtHubTemplate(t *testing.T) {
+	jd := joinData{
+		yurthubTemplate: "normal",
+	}
+
+	tests := []struct {
+		name   string
+		expect string
+	}{
+		{
+			"normal",
+			"normal",
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			t.Logf("\tTestCase: %s", tt.name)
+			{
+				get := jd.YurtHubTemplate()
+				if !reflect.DeepEqual(tt.expect, get) {
+					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
+				}
+				t.Logf("\t%s\texpect %v, get %v", succeed, tt.expect, get)
+			}
+		})
+	}
+}
+
+func TestYurtHubManifest(t *testing.T) {
+	jd := joinData{
+		yurthubManifest: "normal",
+	}
+
+	tests := []struct {
+		name   string
+		expect string
+	}{
+		{
+			"normal",
+			"normal",
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			t.Logf("\tTestCase: %s", tt.name)
+			{
+				get := jd.YurtHubManifest()
 				if !reflect.DeepEqual(tt.expect, get) {
 					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expect, get)
 				}

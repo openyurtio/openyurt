@@ -210,6 +210,24 @@ func TestValidate(t *testing.T) {
 			},
 			isErr: false,
 		},
+		"host-control-plane-address in local mode": {
+			options: &YurtHubOptions{
+				NodeName:             "foo",
+				WorkingMode:          "local",
+				ServerAddr:           "1.2.3.4:56",
+				HostControlPlaneAddr: "123.123.123.123",
+			},
+			isErr: false,
+		},
+		"no host-control-plane-address in local mode": {
+			options: &YurtHubOptions{
+				NodeName:             "foo",
+				WorkingMode:          "local",
+				ServerAddr:           "1.2.3.4:56",
+				HostControlPlaneAddr: "",
+			},
+			isErr: true,
+		},
 	}
 
 	for k, tc := range testcases {

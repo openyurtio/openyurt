@@ -112,14 +112,17 @@ func Complete(options *options.YurtHubOptions, stopCh <-chan struct{}) (*YurtHub
 	case util.WorkingModeLocal:
 		// if yurthub is in local mode, cfg.TenantKasService is used to represented as the service address (ip:port) of multiple apiserver daemonsets
 		cfg.TenantKasService = options.ServerAddr
-		_, sharedFactory, _, err := createClientAndSharedInformerFactories(options.HostControlPlaneAddr, "")
+		_, sharedFactory, _, err := createClientAndSharedInformerFactories(string(cfg.WorkingMode), options.HostControlPlaneAddr, "")
 		if err != nil {
 			return nil, err
 		}
 
 		// list/watch endpoints from host cluster in order to resolve tenant cluster address.
 		newEndpointsInformer := func(client kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-			informer := coreinformers.NewFilteredEndpointsInformer(client, "kube-public", resyncPeriod, nil, nil)
+			listOptions := func(options *metav1.ListOptions) {
+				options.FieldSelector = "metadata.name=tenant-apiserver"
+			}
+			informer := coreinformers.NewFilteredEndpointsInformer(client, "tenant-control-plane", resyncPeriod, nil, listOptions)
 			informer.SetTransform(pkgutil.TransformStripManagedFields())
 			return informer
 		}
@@ -150,6 +153,7 @@ func Complete(options *options.YurtHubOptions, stopCh <-chan struct{}) (*YurtHub
 		}
 
 		proxiedClient, sharedFactory, dynamicSharedFactory, err := createClientAndSharedInformerFactories(
+			string(cfg.WorkingMode),
 			fmt.Sprintf("%s:%d", options.YurtHubProxyHost, options.YurtHubProxyPort),
 			options.NodePoolName,
 		)
@@ -290,11 +294,22 @@ func parseRemoteServers(serverAddr string) ([]*url.URL, error) {
 
 // createClientAndSharedInformerFactories create client and sharedInformers from the given proxyAddr.
 func createClientAndSharedInformerFactories(
-	serverAddr, nodePoolName string,
+	workingMode, serverAddr, nodePoolName string,
 ) (kubernetes.Interface, informers.SharedInformerFactory, dynamicinformer.DynamicSharedInformerFactory, error) {
-	kubeConfig, err := clientcmd.BuildConfigFromFlags(fmt.Sprintf("http://%s", serverAddr), "")
+	var serverURL string
+	if workingMode == "local" {
+		serverURL = fmt.Sprintf("https://%s", serverAddr)
+	} else {
+		serverURL = fmt.Sprintf("http://%s", serverAddr)
+	}
+
+	kubeConfig, err := clientcmd.BuildConfigFromFlags(serverURL, "")
 	if err != nil {
 		return nil, nil, nil, err
+	}
+
+	if workingMode == "local" {
+		kubeConfig.Insecure = true
 	}
 	kubeConfig.UserAgent = projectinfo.ShortHubVersion()
 

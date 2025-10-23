@@ -123,7 +123,6 @@ func DumpPod(client kubeclientset.Interface, pod *corev1.Pod, w io.Writer) error
 	req := client.CoreV1().Pods(pod.GetNamespace()).GetLogs(pod.Name, &corev1.PodLogOptions{})
 	if err := kubectllogs.DefaultConsumeRequest(context.TODO(), req, w); err != nil {
 		klog.Errorf("failed to print logs for pod(%s/%s), %v", pod.Namespace, pod.Name, err)
-		return err
 	}
 
 	klog.Infof("start to print events for pod(%s/%s):", pod.Namespace, pod.Name)

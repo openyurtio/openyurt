@@ -35,8 +35,11 @@ const (
 	PauseImagePath                = "registry.cn-hangzhou.aliyuncs.com/google_containers/pause:3.2"
 	DefaultCertificatesDir        = "/etc/kubernetes/pki"
 	DefaultDockerCRISocket        = "/var/run/dockershim.sock"
+	YurthubServiceFilepath        = "/etc/systemd/system/yurthub.service"
+	YurthubEnvironmentFilePath    = "/etc/systemd/system/yurthub.default"
 	YurthubYamlName               = "yurthub.yaml"
 	YurthubStaticPodManifest      = "yurthub"
+	YurthubTmpDir                 = "/tmp/yurthub"
 	YurthubNamespace              = "kube-system"
 	YurthubYurtStaticSetName      = "yurt-hub"
 	YurthubCloudYurtStaticSetName = "yurt-hub-cloud"
@@ -85,6 +88,7 @@ const (
 
 	EdgeNode  = "edge"
 	CloudNode = "cloud"
+	LocalNode = "local"
 
 	// CertificatesDir
 	CertificatesDir = "cert-dir"
@@ -120,6 +124,10 @@ const (
 	Namespace = "namespace"
 	// YurtHubImage flag sets the yurthub image for worker node.
 	YurtHubImage = "yurthub-image"
+	// YurtHubBinaryUrl flag sets the yurthub Binary for worker node.
+	YurtHubBinaryUrl = "yurthub-binary-url"
+	// HostControlPlaneAddr flag sets the address of host kubernetes cluster
+	HostControlPlaneAddr = "host-control-plane-addr"
 	// YurtHubServerAddr flag set the address of yurthub server (not proxy server!)
 	YurtHubServerAddr = "yurthub-server-addr"
 	// ServerAddr flag set the address of kubernetes kube-apiserver
@@ -158,7 +166,7 @@ WantedBy=multi-user.target`
 
 	KubeletUnitConfig = `
 [Service]
-Environment="KUBELET_KUBECONFIG_ARGS=--kubeconfig=/etc/kubernetes/kubelet.conf"
+Environment="KUBELET_KUBECONFIG_ARGS={{- if .bootstrapKubeconfig}}{{.bootstrapKubeconfig}} {{end}}{{.kubeconfig}}"
 Environment="KUBELET_CONFIG_ARGS=--config=/var/lib/kubelet/config.yaml"
 EnvironmentFile=-/var/lib/kubelet/kubeadm-flags.env
 EnvironmentFile=-/etc/default/kubelet
@@ -193,14 +201,18 @@ discovery:
 nodeRegistration:
   criSocket: {{.criSocket}}
   name: {{.name}}
+  {{- if .ignorePreflightErrors}}
   ignorePreflightErrors:
     {{- range $index, $value := .ignorePreflightErrors}}
     - {{$value}}
     {{- end}}
+  {{- end}}
   kubeletExtraArgs:
-    rotate-certificates: "false"
+    rotate-certificates: "{{.rotateCertificates}}"
     pod-infra-container-image: {{.podInfraContainerImage}}
+	{{- if .nodeLabels}}
     node-labels: {{.nodeLabels}}
+    {{- end}}
     {{- if .networkPlugin}}
     network-plugin: {{.networkPlugin}}
     {{end}}
@@ -295,6 +307,18 @@ After=network.target
 Type=simple
 ExecStart=/usr/local/bin/yurthub
 Restart=always
+`
+	YurthubSyetmdServiceContent = `
+[Unit]
+Description=local mode yurthub is deployed in systemd
+Documentation=https://github.com/openyurtio/openyurt/pull/2124
+
+[Service]
+EnvironmentFile=/etc/systemd/system/yurthub.default
+ExecStart=/usr/bin/yurthub --working-mode ${WORKINGMODE} --node-name ${NODENAME} --server-addr ${SERVERADDR} --host-control-plane-address ${HOSTCONTROLPLANEADDRESS}
+Restart=always
+StartLimitInterval=0
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target

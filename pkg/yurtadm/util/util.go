@@ -25,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	pb "gopkg.in/cheggaaa/pb.v1"
@@ -101,6 +102,8 @@ func Untar(tarFile, dest string) error {
 	}
 	defer gr.Close()
 
+	// Clean the destination path for reliable comparison.
+	cleanDest := filepath.Clean(dest)
 	tr := tar.NewReader(gr)
 	for {
 		hdr, err := tr.Next()
@@ -111,6 +114,11 @@ func Untar(tarFile, dest string) error {
 			return err
 		}
 		destFile := filepath.Join(dest, hdr.Name)
+
+		// This ensures the file path does not escape the destination directory.
+		if !strings.HasPrefix(filepath.Clean(destFile), cleanDest) {
+			return fmt.Errorf("illegal file path in tar archive: %s", hdr.Name)
+		}
 		if hdr.Typeflag == tar.TypeDir {
 			if _, err := os.Stat(destFile); err != nil {
 				if os.IsNotExist(err) {
@@ -122,6 +130,10 @@ func Untar(tarFile, dest string) error {
 				return err
 			}
 		} else if hdr.Typeflag == tar.TypeReg {
+			// before OpenFile creating the file, use MkdirAll to ensure that the parent directory exists.
+			if err := os.MkdirAll(filepath.Dir(destFile), 0755); err != nil {
+				return err
+			}
 			file, err := os.OpenFile(destFile, os.O_CREATE|os.O_RDWR, os.FileMode(hdr.Mode))
 			if err != nil {
 				klog.Errorf("open file %s error: %v", destFile, err)

@@ -20,6 +20,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
+	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/kubernetes"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/yurthub"
 )
@@ -32,19 +33,18 @@ func RunPostCheck(data joindata.YurtJoinData) error {
 	}
 	klog.V(1).Infof("kubelet service is active")
 
-	klog.V(1).Infof("waiting hub agent ready.")
-	// if err := yurthub.CheckYurthubHealthz(data.YurtHubServer()); err != nil {
-	// 	return err
-	// }
-	if err := yurthub.CheckYurthubServiceHealth(data.YurtHubServer()); err != nil {
-		return err
-	} // Here need to modify it to check systemd service status
-	klog.V(1).Infof("hub agent is ready")
+	if data.NodeRegistration().WorkingMode != constants.LocalNode {
+		klog.V(1).Infof("waiting hub agent ready.")
+		if err := yurthub.CheckYurthubServiceHealth(data.YurtHubServer()); err != nil {
+			return err
+		}
+		klog.V(1).Infof("hub agent is ready")
 
-	if err := yurthub.CleanHubBootstrapConfig(); err != nil {
-		return err
+		if err := yurthub.CleanHubBootstrapConfig(); err != nil {
+			return err
+		}
+		klog.V(1).Infof("clean yurthub bootstrap config file success")
 	}
-	klog.V(1).Infof("clean yurthub bootstrap config file success")
 
 	return nil
 }

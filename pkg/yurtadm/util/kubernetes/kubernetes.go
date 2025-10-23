@@ -291,7 +291,7 @@ func EnableKubeletService() error {
 }
 
 // SetKubeletUnitConfig configure kubelet startup parameters.
-func SetKubeletUnitConfig() error {
+func SetKubeletUnitConfig(data joindata.YurtJoinData) error {
 	kubeletUnitDir := filepath.Dir(constants.KubeletServiceConfPath)
 	if _, err := os.Stat(kubeletUnitDir); err != nil {
 		if os.IsNotExist(err) {
@@ -305,7 +305,20 @@ func SetKubeletUnitConfig() error {
 		}
 	}
 
-	if err := os.WriteFile(constants.KubeletServiceConfPath, []byte(constants.KubeletUnitConfig), 0640); err != nil {
+	nodeReg := data.NodeRegistration()
+	ctx := map[string]interface{}{
+		"kubeconfig": "--kubeconfig=/etc/kubernetes/kubelet.conf",
+	}
+	if nodeReg.WorkingMode == constants.LocalNode {
+		ctx["bootstrapKubeconfig"] = "--bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf"
+	}
+
+	kubeletUnitConfigTemplate, err := templates.SubstituteTemplate(constants.KubeletUnitConfig, ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := os.WriteFile(constants.KubeletServiceConfPath, []byte(kubeletUnitConfigTemplate), 0640); err != nil {
 		return err
 	}
 
@@ -390,11 +403,20 @@ func SetKubeadmJoinConfig(data joindata.YurtJoinData) error {
 	ctx := map[string]interface{}{
 		"kubeConfigPath":         KubeadmJoinDiscoveryFilePath,
 		"tlsBootstrapToken":      data.JoinToken(),
-		"ignorePreflightErrors":  data.IgnorePreflightErrors().UnsortedList(),
 		"podInfraContainerImage": data.PauseImage(),
-		"nodeLabels":             constructNodeLabels(data.NodeLabels(), nodeReg.WorkingMode, projectinfo.GetEdgeWorkerLabelKey()),
 		"criSocket":              nodeReg.CRISocket,
 		"name":                   nodeReg.Name,
+	}
+
+	// if node isn't local node, we need to set ignorePreflightErrors and nodeLabels
+	// besides, we don't need to rotate certificates
+	if nodeReg.WorkingMode != constants.LocalNode {
+		ctx["ignorePreflightErrors"] = data.IgnorePreflightErrors().UnsortedList()
+		ctx["nodeLabels"] = constructNodeLabels(data.NodeLabels(), nodeReg.WorkingMode, projectinfo.GetEdgeWorkerLabelKey())
+		ctx["rotateCertificates"] = false
+	} else {
+		// if node is local node, we need to set rotateCertificates to true
+		ctx["rotateCertificates"] = true
 	}
 
 	v1, err := version.NewVersion(data.KubernetesVersion())
