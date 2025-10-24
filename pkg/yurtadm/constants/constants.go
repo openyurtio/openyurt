@@ -43,6 +43,13 @@ const (
 	YurthubNamespace              = "kube-system"
 	YurthubYurtStaticSetName      = "yurt-hub"
 	YurthubCloudYurtStaticSetName = "yurt-hub-cloud"
+
+	// additional constants for yurthub systemd service
+	YurtHubServiceName     = "yurthub.service"
+	YurthubServicePath     = "/etc/systemd/system/yurthub.service"
+	YurthubServiceConfPath = "/etc/systemd/system/yurthub.service.d/10-yurthub.conf"
+	YurthubExecStart       = "/usr/local/bin/yurthub"
+
 	// ManifestsSubDirName defines directory name to store manifests
 	ManifestsSubDirName = "manifests"
 	// KubeletKubeConfigFileName defines the file name for the kubeconfig that the control-plane kubelet will use for talking
@@ -72,6 +79,12 @@ const (
 	KubeletUrlFormat                = "https://%s/release/%s/bin/linux/%s/kubelet"
 	TmpDownloadDir                  = "/tmp"
 	KubeadmInstallUrl               = "https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/"
+
+	// Yurthub Exec download url, Will be modified later, After the entire download method is determined
+	// YurtHubExecInstallUrlFormat = "https://alias-cn-hangzhou.oss-cn-beijing.aliyuncs.com/yurthub/v1.6.1/amd64/yurthub"
+	YurthubExecResourceServer = "alias-cn-hangzhou.oss-cn-beijing.aliyuncs.com"
+	YurthubExecUrlFormat      = "https://%s/yurthub/%s/%s/yurthub"
+	YurthubVersion            = "v1.6.1"
 
 	EdgeNode  = "edge"
 	CloudNode = "cloud"
@@ -286,6 +299,15 @@ spec:
   priority: 2000001000
 `
 
+	YurtHubServiceContent = `[Unit]
+Description=YurtHub Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/yurthub
+Restart=always
+`
 	YurthubSyetmdServiceContent = `
 [Unit]
 Description=local mode yurthub is deployed in systemd
@@ -300,5 +322,13 @@ RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
+`
+
+	YurtHubUnitConfig = `[Service]
+Environment="YURTHUB_BOOTSTRAP_ARGS=--bootstrap-file={{.bootstrapFile}}"
+Environment="YURTHUB_CONFIG_ARGS=--bind-address={{.bindAddress}} --working-mode={{.workingMode}} --namespace={{.namespace}}"
+Environment="YURTHUB_EXTRA_ARGS=--v=2"
+ExecStart=
+ExecStart=/usr/local/bin/yurthub --node-name={{.nodeName}}{{if .nodePoolName}} --nodepool-name={{.nodePoolName}}{{end}} --server-addr={{.serverAddr}} $YURTHUB_BOOTSTRAP_ARGS $YURTHUB_CONFIG_ARGS $YURTHUB_EXTRA_ARGS
 `
 )

@@ -24,7 +24,6 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 	yurtadmutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/kubernetes"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/system"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/yurthub"
@@ -69,26 +68,23 @@ func RunPrepare(data joindata.YurtJoinData) error {
 	if err := yurtadmutil.SetKubeletUnitConfig(data); err != nil {
 		return err
 	}
+
 	if data.NodeRegistration().WorkingMode != constants.LocalNode {
-		// the following steps are only for edge/cloud node
 		if err := yurtadmutil.SetKubeletConfigForNode(); err != nil {
 			return err
 		}
 		if err := yurthub.SetHubBootstrapConfig(data.ServerAddr(), data.JoinToken(), data.CaCertHashes()); err != nil {
 			return err
 		}
-		if err := yurthub.AddYurthubStaticYaml(data, constants.StaticPodPath); err != nil {
+		if err := yurthub.CheckAndInstallYurthub(constants.YurthubVersion); err != nil {
 			return err
 		}
-		if len(data.StaticPodTemplateList()) != 0 {
-			// deploy user specified static pods
-			if err := edgenode.DeployStaticYaml(data.StaticPodManifestList(), data.StaticPodTemplateList(), constants.StaticPodPath); err != nil {
-				return err
-			}
+		if err := yurthub.CreateYurthubSystemdService(data); err != nil {
+			return err
 		}
-	}
-	if err := yurtadmutil.SetDiscoveryConfig(data); err != nil {
-		return err
+		if err := yurtadmutil.SetDiscoveryConfig(data); err != nil {
+			return err
+		}
 	}
 	if data.CfgPath() == "" {
 		if err := yurtadmutil.SetKubeadmJoinConfig(data); err != nil {

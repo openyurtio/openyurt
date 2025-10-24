@@ -32,7 +32,9 @@ func RunCleanYurtFile() error {
 		constants.KubeletSvcPath,
 		constants.KubeletServiceFilepath,
 		constants.KubeletConfigureDir,
-		constants.SysctlK8sConfig} {
+		constants.SysctlK8sConfig,
+		constants.YurthubServicePath,
+		constants.YurthubServiceConfPath} {
 		if err := os.RemoveAll(file); err != nil {
 			klog.Warningf("Clean file %s fail: %v, please clean it manually.", file, err)
 		}

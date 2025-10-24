@@ -24,8 +24,10 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
@@ -39,7 +41,136 @@ import (
 	"github.com/openyurtio/openyurt/pkg/util/token"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
+	yurtadmutil "github.com/openyurtio/openyurt/pkg/yurtadm/util"
+	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 )
+
+var (
+	execCommand             = exec.Command
+	lookPath                = exec.LookPath
+	checkYurthubHealthzFunc = CheckYurthubHealthz
+)
+
+func CheckAndInstallYurthub(yurthubVersion string) error {
+
+	klog.Infof("Check and install yurthub %s", yurthubVersion)
+	if yurthubVersion == "" {
+		return errors.New("yurthub version should not be empty")
+	}
+
+	if _, err := lookPath(constants.YurthubExecStart); err == nil {
+		klog.Infof("Yurthub binary already exists, skip install.")
+		return nil
+	}
+
+	packageUrl := fmt.Sprintf(constants.YurthubExecUrlFormat, constants.YurthubExecResourceServer, yurthubVersion, runtime.GOARCH)
+	savePath := fmt.Sprintf("%s/yurthub", constants.TmpDownloadDir)
+	klog.V(1).Infof("Download yurthub from: %s", packageUrl)
+	if err := yurtadmutil.DownloadFile(packageUrl, savePath, 3); err != nil {
+		return fmt.Errorf("download yurthub fail: %w", err)
+	}
+	if err := edgenode.CopyFile(savePath, constants.YurthubExecStart, 0755); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func setYurthubMainService() error {
+	klog.Info("Setting yurthub main service.")
+
+	serviceFile := constants.YurthubServicePath
+	serviceDir := filepath.Dir(serviceFile)
+
+	if _, err := os.Stat(serviceDir); err != nil {
+		if os.IsNotExist(err) {
+			if err := os.MkdirAll(serviceDir, os.ModePerm); err != nil {
+				klog.Errorf("Create dir %s fail: %v", serviceDir, err)
+				return err
+			}
+		} else {
+			klog.Errorf("Describe dir %s fail: %v", serviceDir, err)
+			return err
+		}
+	}
+
+	if err := os.WriteFile(serviceFile, []byte(constants.YurtHubServiceContent), 0644); err != nil {
+		klog.Errorf("Write file %s fail: %v", serviceFile, err)
+		return err
+	}
+
+	return nil
+}
+
+func setYurthubUnitService(data joindata.YurtJoinData) error {
+	klog.Info("Setting yurthub unit service.")
+
+	ctx := map[string]string{
+		"bindAddress":   "127.0.0.1",
+		"serverAddr":    fmt.Sprintf("https://%s", data.ServerAddr()),
+		"nodeName":      data.NodeRegistration().Name,
+		"bootstrapFile": constants.YurtHubBootstrapConfig,
+		"workingMode":   data.NodeRegistration().WorkingMode,
+		"namespace":     data.Namespace(),
+	}
+
+	if len(data.NodeRegistration().NodePoolName) != 0 {
+		ctx["nodePoolName"] = data.NodeRegistration().NodePoolName
+	}
+
+	unitContent, err := templates.SubstituteTemplate(constants.YurtHubUnitConfig, ctx)
+	if err != nil {
+		return err
+	}
+
+	unitDir := filepath.Dir(constants.YurthubServiceConfPath)
+	if _, err := os.Stat(unitDir); err != nil {
+		if os.IsNotExist(err) {
+			if err := os.MkdirAll(unitDir, os.ModePerm); err != nil {
+				klog.Errorf("Create dir %s fail: %v", unitDir, err)
+				return err
+			}
+		} else {
+			klog.Errorf("Describe dir %s fail: %v", unitDir, err)
+			return err
+		}
+	}
+
+	unitFile := constants.YurthubServiceConfPath
+	if err := os.WriteFile(unitFile, []byte(unitContent), 0644); err != nil {
+		klog.Errorf("Write file %s fail: %v", unitFile, err)
+		return err
+	}
+
+	return nil
+}
+
+func CreateYurthubSystemdService(data joindata.YurtJoinData) error {
+	if err := setYurthubMainService(); err != nil {
+		return err
+	}
+
+	if err := setYurthubUnitService(data); err != nil {
+		return err
+	}
+
+	cmd := execCommand("systemctl", "daemon-reload")
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	cmd = execCommand("systemctl", "enable", constants.YurtHubServiceName)
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	cmd = execCommand("systemctl", "start", constants.YurtHubServiceName)
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	return nil
+}
 
 // AddYurthubStaticYaml generate YurtHub static yaml for worker node.
 func AddYurthubStaticYaml(data joindata.YurtJoinData, podManifestPath string) error {
@@ -112,9 +243,28 @@ func SetHubBootstrapConfig(serverAddr string, joinToken string, caCertHashes []s
 			clusterInfo.CertificateAuthorityData,
 			joinToken,
 		)
+
+		// make sure the parent directory of YurtHubBootstrapConfig exists
+		if err := os.MkdirAll(filepath.Dir(constants.YurtHubBootstrapConfig), os.ModePerm); err != nil {
+			return err
+		}
+
 		if err = kubeconfigutil.WriteToDisk(constants.YurtHubBootstrapConfig, tlsBootstrapCfg); err != nil {
 			return errors.Wrap(err, "couldn't save bootstrap-hub.conf to disk")
 		}
+	}
+
+	return nil
+}
+
+func CheckYurthubServiceHealth(yurthubServer string) error {
+	cmd := execCommand("systemctl", "is-active", constants.YurtHubServiceName)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("yurthub service is not active: %v", err)
+	}
+
+	if err := checkYurthubHealthzFunc(yurthubServer); err != nil { // Here is the previous CheckYurthubHealthz, called in postcheck.go
+		return err
 	}
 
 	return nil

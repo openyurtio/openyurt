@@ -33,10 +33,9 @@ func RunPostCheck(data joindata.YurtJoinData) error {
 	}
 	klog.V(1).Infof("kubelet service is active")
 
-	// check staticpod yurthub for edge node and cloud node
 	if data.NodeRegistration().WorkingMode != constants.LocalNode {
 		klog.V(1).Infof("waiting hub agent ready.")
-		if err := yurthub.CheckYurthubHealthz(data.YurtHubServer()); err != nil {
+		if err := yurthub.CheckYurthubServiceHealth(data.YurtHubServer()); err != nil {
 			return err
 		}
 		klog.V(1).Infof("hub agent is ready")
