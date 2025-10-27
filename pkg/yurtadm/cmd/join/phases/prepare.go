@@ -82,9 +82,9 @@ func RunPrepare(data joindata.YurtJoinData) error {
 		if err := yurthub.CreateYurthubSystemdService(data); err != nil {
 			return err
 		}
-		if err := yurtadmutil.SetDiscoveryConfig(data); err != nil {
-			return err
-		}
+	}
+	if err := yurtadmutil.SetDiscoveryConfig(data); err != nil {
+		return err
 	}
 	if data.CfgPath() == "" {
 		if err := yurtadmutil.SetKubeadmJoinConfig(data); err != nil {
