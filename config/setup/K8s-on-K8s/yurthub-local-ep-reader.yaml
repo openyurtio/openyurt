@@ -1,0 +1,23 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: yurthub-local-ep-reader
+  namespace: tenant-control-plane
+rules:
+- apiGroups: [""]
+  resources: ["endpoints"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: yurthub-local-ep-reader-binding
+  namespace: tenant-control-plane
+subjects:
+- kind: User
+  name: system:anonymous
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: yurthub-local-ep-reader
+  apiGroup: rbac.authorization.k8s.io
