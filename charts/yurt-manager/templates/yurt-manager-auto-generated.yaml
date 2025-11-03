@@ -317,6 +317,13 @@ rules:
   - patch
   - update
 - apiGroups:
+  - ""
+  resources:
+  - pods/status
+  verbs:
+  - patch
+  - update
+- apiGroups:
   - apps
   resources:
   - daemonsets
