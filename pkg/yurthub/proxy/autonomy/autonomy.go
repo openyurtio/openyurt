@@ -108,7 +108,19 @@ func (ap *AutonomyProxy) updateNodeStatus(req *http.Request) (runtime.Object, er
 func (ap *AutonomyProxy) tryUpdateNodeConditions(tryNumber int, req *http.Request) (runtime.Object, error) {
 	var originalNode, updatedNode *v1.Node
 	var err error
+	var ctx = context.TODO()
+	var client kubernetes.Interface
 	info, _ := apirequest.RequestInfoFrom(req.Context())
+
+	if yurtutil.IsNil(ap.healthChecker) {
+		return originalNode, ErrDirectClientMgr
+	} else if u := ap.healthChecker.PickOneHealthyBackend(); u != nil {
+		client = ap.clientManager.GetDirectClientset(u)
+	}
+
+	if client == nil {
+		return nil, fmt.Errorf("no healthy remote server can be found for direct client")
+	}
 
 	if tryNumber == 0 {
 		// get from local cache
@@ -122,17 +134,6 @@ func (ap *AutonomyProxy) tryUpdateNodeConditions(tryNumber int, req *http.Reques
 			return nil, fmt.Errorf("could not QueryCache, node is not found")
 		}
 	} else {
-		var client kubernetes.Interface
-		if yurtutil.IsNil(ap.healthChecker) {
-			return originalNode, ErrDirectClientMgr
-		} else if u := ap.healthChecker.PickOneHealthyBackend(); u != nil {
-			client = ap.clientManager.GetDirectClientset(u)
-		}
-
-		if client == nil {
-			return nil, fmt.Errorf("no healthy remote server can be found for direct client")
-		}
-
 		// get node from cloud
 		// when tryNumber equals to 1, get from apiServer cache
 		// otherwise, get from etcd
@@ -140,7 +141,7 @@ func (ap *AutonomyProxy) tryUpdateNodeConditions(tryNumber int, req *http.Reques
 		if tryNumber == 1 {
 			util.FromApiserverCache(&opts)
 		}
-		originalNode, err = client.CoreV1().Nodes().Get(context.TODO(), info.Name, opts)
+		originalNode, err = client.CoreV1().Nodes().Get(ctx, info.Name, opts)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get node from cloud: %v", err)
 		}
@@ -155,18 +156,7 @@ func (ap *AutonomyProxy) tryUpdateNodeConditions(tryNumber int, req *http.Reques
 		return originalNode, nil
 	}
 
-	var client kubernetes.Interface
-	if yurtutil.IsNil(ap.healthChecker) {
-		return originalNode, ErrDirectClientMgr
-	} else if u := ap.healthChecker.PickOneHealthyBackend(); u != nil {
-		client = ap.clientManager.GetDirectClientset(u)
-	}
-
-	if client == nil {
-		return nil, fmt.Errorf("no healthy remote server can be found for updating node condition")
-	}
-
-	updatedNode, err = client.CoreV1().Nodes().UpdateStatus(context.TODO(), changedNode, metav1.UpdateOptions{})
+	updatedNode, err = client.CoreV1().Nodes().UpdateStatus(ctx, changedNode, metav1.UpdateOptions{})
 	if err != nil {
 		return originalNode, err
 	}
@@ -202,7 +192,7 @@ func setNodeAutonomyCondition(node *v1.Node, expectedStatus v1.ConditionStatus, 
 				node.Status.Conditions[i].Reason = reason
 				node.Status.Conditions[i].Message = message
 				node.Status.Conditions[i].LastHeartbeatTime = metav1.Now()
-				node.Status.Conditions[i].LastHeartbeatTime = metav1.Now()
+				node.Status.Conditions[i].LastTransitionTime = metav1.Now()
 				return
 			}
 		}
