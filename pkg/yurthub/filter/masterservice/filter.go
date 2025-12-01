@@ -74,23 +74,28 @@ func (msf *masterServiceFilter) SetMasterServicePort(portStr string) error {
 func (msf *masterServiceFilter) Filter(obj runtime.Object, _ <-chan struct{}) runtime.Object {
 	switch v := obj.(type) {
 	case *v1.Service:
-		msf.mutateMasterService(v)
-		return v
+		return msf.mutateMasterService(v)
 	default:
 		return v
 	}
 }
 
-func (msf *masterServiceFilter) mutateMasterService(svc *v1.Service) {
-	if svc.Namespace == MasterServiceNamespace && svc.Name == MasterServiceName {
-		svc.Spec.ClusterIP = msf.host
-		svc.Spec.ClusterIPs = []string{msf.host}
-		for j := range svc.Spec.Ports {
-			if svc.Spec.Ports[j].Name == MasterServicePortName {
-				svc.Spec.Ports[j].Port = msf.port
-				break
-			}
-		}
-		klog.Infof("mutate master service with ClusterIP:Port=%s:%d", msf.host, msf.port)
+func (msf *masterServiceFilter) mutateMasterService(svc *v1.Service) *v1.Service {
+	if svc.Namespace != MasterServiceNamespace || svc.Name != MasterServiceName {
+		return svc
 	}
+
+	newSvc := svc.DeepCopy()
+	newSvc.Spec.ClusterIP = msf.host
+	newSvc.Spec.ClusterIPs = []string{msf.host}
+
+	for j := range svc.Spec.Ports {
+		if newSvc.Spec.Ports[j].Name == MasterServicePortName {
+			newSvc.Spec.Ports[j].Port = msf.port
+			break
+		}
+	}
+	klog.Infof("mutate master service with ClusterIP:Port=%s:%d", msf.host, msf.port)
+
+	return newSvc
 }
