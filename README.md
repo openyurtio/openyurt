@@ -59,7 +59,7 @@ OpenYurt installation is divided into two parts:
 
 ## Roadmap
 
-- [OpenYurt Roadmap](https://github.com/openyurtio/community/blob/main/roadmap.md)
+- [OpenYurt Roadmap](https://github.com/openyurtio/openyurt/blob/master/ROADMAP.md)
 
 ## Community
 
@@ -67,15 +67,6 @@ OpenYurt installation is divided into two parts:
 
 If you are willing to be a contributor for the OpenYurt project, please refer to our [CONTRIBUTING](CONTRIBUTING.md) document for details.
 We have also prepared a developer [guide](https://openyurt.io/docs/developer-manuals/how-to-contribute) to help the code contributors.
-
-### Meeting
-
-| Item                               | Value                                                                                                                                                                                         |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| APAC Friendly Community meeting    | [Adjust to weekly APAC (Starting May 11, 2022), Wednesday 11:00AM GMT+8](https://calendar.google.com/calendar/u/0?cid=c3VudDRtODc2Y2c3Ymk3anN0ZDdkbHViZzRAZ3JvdXAuY2FsZW5kYXIuZ29vZ2xlLmNvbQ) |
-| Meeting link APAC Friendly meeting | https://us02web.zoom.us/j/82828315928?pwd=SVVxek01T2Z0SVYraktCcDV4RmZlUT09                                                                                                                    |
-| Meeting notes                      | [Notes and agenda](https://www.yuque.com/rambohech/intck9/yolxrybw2rofcab7)                                                                                                                                    |
-| Meeting recordings                 | [OpenYurt bilibili Channel](https://space.bilibili.com/484245424/video)                                                                                                                       |
 
 ### Contact
 
