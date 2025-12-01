@@ -33,9 +33,7 @@ echo "clear charts/yurt-coordinator in openyurtio/charts"
 if [ -d "charts/charts/yurt-coordinator" ]
 then
     echo "charts yurt-coordinator exists, remove it"
-    rm -r charts/charts/yurt-coordinator/*
-else
-    mkdir -p charts/charts/yurt-coordinator
+    rm -r charts/charts/yurt-coordinator
 fi
 
 echo "clear charts/yurt-manager in openyurtio/charts"
@@ -70,7 +68,6 @@ fi
 
 echo "copy folder openyurt/charts to openyurtio/charts/charts"
 
-cp -R openyurt/charts/yurt-coordinator/* charts/charts/yurt-coordinator/
 cp -R openyurt/charts/yurt-manager/* charts/charts/yurt-manager/
 cp -R openyurt/charts/yurthub/* charts/charts/yurthub/
 cp -R openyurt/charts/yurt-iot-dock/* charts/charts/yurt-iot-dock/
