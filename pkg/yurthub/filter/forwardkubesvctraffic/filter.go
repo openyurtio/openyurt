@@ -80,35 +80,39 @@ func (fkst *forwardKubeSVCTrafficFilter) SetMasterServicePort(portStr string) er
 func (fkst *forwardKubeSVCTrafficFilter) Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object {
 	switch v := obj.(type) {
 	case *discovery.EndpointSlice:
-		fkst.mutateDefaultKubernetesEps(v)
-		return v
+		return fkst.mutateDefaultKubernetesEps(v)
 	default:
 		return obj
 	}
 }
 
-func (fkst *forwardKubeSVCTrafficFilter) mutateDefaultKubernetesEps(eps *discovery.EndpointSlice) {
-	trueCondition := true
-	if eps.Namespace == KubeSVCNamespace && eps.Name == KubeSVCName {
-		if eps.AddressType != fkst.addressType {
-			klog.Warningf("address type of default/kubernetes endpoinstlice(%s) and hub server is different(%s), hub server address type need to be configured", eps.AddressType, fkst.addressType)
-			return
-		}
-		for j := range eps.Ports {
-			if eps.Ports[j].Name != nil && *eps.Ports[j].Name == KubeSVCPortName {
-				eps.Ports[j].Port = &fkst.port
-				break
-			}
-		}
-		eps.Endpoints = []discovery.Endpoint{
-			{
-				Addresses: []string{fkst.host},
-				Conditions: discovery.EndpointConditions{
-					Ready: &trueCondition,
-				},
-			},
-		}
-		klog.V(2).Infof("mutate default/kubernetes endpointslice to %v in forwardkubesvctraffic filter", *eps)
+func (fkst *forwardKubeSVCTrafficFilter) mutateDefaultKubernetesEps(eps *discovery.EndpointSlice) *discovery.EndpointSlice {
+	if eps.Namespace != KubeSVCNamespace || eps.Name != KubeSVCName {
+		return eps
 	}
-	return
+
+	trueCondition := true
+	if eps.AddressType != fkst.addressType {
+		klog.Warningf("address type of default/kubernetes endpoinstlice(%s) and hub server is different(%s), hub server address type need to be configured", eps.AddressType, fkst.addressType)
+		return eps
+	}
+
+	newEps := eps.DeepCopy()
+	for j := range newEps.Ports {
+		if newEps.Ports[j].Name != nil && *newEps.Ports[j].Name == KubeSVCPortName {
+			newEps.Ports[j].Port = &fkst.port
+			break
+		}
+	}
+	newEps.Endpoints = []discovery.Endpoint{
+		{
+			Addresses: []string{fkst.host},
+			Conditions: discovery.EndpointConditions{
+				Ready: &trueCondition,
+			},
+		},
+	}
+	klog.V(2).Infof("mutate default/kubernetes endpointslice to %v in forwardkubesvctraffic filter", *eps)
+
+	return newEps
 }
