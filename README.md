@@ -41,7 +41,6 @@ The above figure demonstrates the core OpenYurt architecture. The major componen
 - **[YurtHub](https://openyurt.io/docs/next/core-concepts/yurthub)**: YurtHub runs on worker nodes as static pod and serves as a node sidecar to handle requests that come from components (like Kubelet, Kubeproxy, etc.) on worker nodes to kube-apiserver.
 - **[Yurt-Manager](https://openyurt.io/docs/core-concepts/yurt-manager/)**: includes all controllers and webhooks for edge.
 - **[Raven-Agent](https://openyurt.io/docs/next/core-concepts/raven)**: It is focused on edge-edge and edge-cloud communication in OpenYurt, and provides layer 3 network connectivity among pods in different physical regions, as in a vanilla Kubernetes cluster.
-- **Yurt-Coordinator**: One instance of Yurt-Coordinator is deployed in every edge NodePool, and in conjunction with YurtHub to provide heartbeat delegation, cloud-edge traffic multiplexing capabilities, etc.
 - **[YurtIoTDock](https://openyurt.io/docs/next/core-concepts/yurt-iot-dock)**: One instance of YurtIoTDock is deployed in every edge NodePool, for bridging EdgeX Foundry platform and uses Kubernetes CRD to manage edge devices.
 
 In addition, OpenYurt also includes auxiliary controllers for integration and customization purposes.
