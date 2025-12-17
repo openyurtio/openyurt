@@ -112,7 +112,7 @@ func NewYurtHubOptions() *YurtHubOptions {
 		EnableProfiling:           true,
 		EnableDummyIf:             true,
 		EnableIptables:            false,
-		HubAgentDummyIfName:       fmt.Sprintf("%s-dummy0", projectinfo.GetHubName()),
+		HubAgentDummyIfName:       "hub-dummy0",
 		DiskCachePath:             disk.CacheBaseDir,
 		EnableResourceFilter:      true,
 		DisabledResourceFilters:   make([]string, 0),
