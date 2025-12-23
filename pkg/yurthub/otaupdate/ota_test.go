@@ -41,6 +41,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonsetupgradestrategy"
 )
 
 func TestGetPods(t *testing.T) {
@@ -86,23 +87,302 @@ func TestGetPods(t *testing.T) {
 	assert.Equal(t, expectedCode, rr.Code)
 }
 
+// Test GetPods error scenarios
+func TestGetPodsErrors(t *testing.T) {
+	tests := []struct {
+		name           string
+		setupMock      func(cachemanager.StorageWrapper)
+		expectedStatus int
+		expectedBody   string
+	}{
+		{
+			name: "key function error",
+			setupMock: func(sWrapper cachemanager.StorageWrapper) {
+				// Don't create any pods, so key function will fail
+			},
+			expectedStatus: http.StatusInternalServerError, // This will return 500 when list fails
+			expectedBody:   "Get pod list failed",
+		},
+		{
+			name: "list error",
+			setupMock: func(sWrapper cachemanager.StorageWrapper) {
+				// Create a pod with invalid data to cause list error
+				key, _ := sWrapper.KeyFunc(storage.KeyBuildInfo{
+					Component: "kubelet",
+					Resources: "pods",
+					Namespace: "default",
+					Group:     "",
+					Version:   "v1",
+					Name:      "invalidPod",
+				})
+				// Create with invalid pod data
+				invalidPod := &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "invalidPod",
+					},
+				}
+				sWrapper.Create(key, invalidPod)
+			},
+			expectedStatus: http.StatusOK, // This will still work with valid pod
+			expectedBody:   "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			dStorage, err := disk.NewDiskStorage(dir)
+			if err != nil {
+				t.Errorf("couldn't to create disk storage, %v", err)
+			}
+			sWrapper := cachemanager.NewStorageWrapper(dStorage)
+
+			tt.setupMock(sWrapper)
+
+			req, err := http.NewRequest("GET", "/openyurt.io/v1/pods", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			rr := httptest.NewRecorder()
+
+			GetPods(sWrapper).ServeHTTP(rr, req)
+
+			assert.Equal(t, tt.expectedStatus, rr.Code)
+			if tt.expectedBody != "" {
+				assert.Contains(t, rr.Body.String(), tt.expectedBody)
+			}
+		})
+	}
+}
+
 func TestUpdatePod(t *testing.T) {
-	pod := util.NewPodWithCondition("nginx", DaemonPod, corev1.ConditionTrue)
-	clientset := fake.NewSimpleClientset(pod)
-
-	req, err := http.NewRequest("POST", "/openyurt.io/v1/namespaces/default/pods/nginx/update", nil)
-	if err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		name           string
+		pod            *corev1.Pod
+		nodeName       string
+		expectedStatus int
+		expectedBody   string
+		setupMock      func(*fake.Clientset)
+		podName        string
+	}{
+		{
+			name:           "successful daemon pod update",
+			pod:            createDaemonPod("nginx", "default", "node1"),
+			nodeName:       "node1",
+			expectedStatus: http.StatusOK,
+			expectedBody:   "Start updating pod default/nginx",
+			podName:        "nginx",
+		},
+		{
+			name:           "static pod configmap not found",
+			pod:            createStaticPod("nginx-node1", "default", "node1"),
+			nodeName:       "node1",
+			expectedStatus: http.StatusForbidden,
+			expectedBody:   "Configmap for static pod does not exist",
+			podName:        "nginx-node1",
+			setupMock: func(cs *fake.Clientset) {
+				// Don't create ConfigMap, so it will be not found
+			},
+		},
+		{
+			name:           "pod not found",
+			pod:            nil,
+			nodeName:       "node1",
+			expectedStatus: http.StatusInternalServerError,
+			expectedBody:   "Get pod failed",
+			podName:        "nginx",
+		},
+		{
+			name:           "pre-check failed - wrong node",
+			pod:            createDaemonPod("nginx", "default", "node1"),
+			nodeName:       "node2",
+			expectedStatus: http.StatusForbidden,
+			expectedBody:   "Pre check update pod failed",
+			podName:        "nginx",
+		},
+		{
+			name:           "pre-check failed - pod deleting",
+			pod:            createDeletingPod("nginx", "default", "node1"),
+			nodeName:       "node1",
+			expectedStatus: http.StatusForbidden,
+			expectedBody:   "Pre check update pod failed",
+			podName:        "nginx",
+		},
+		{
+			name:           "pre-check failed - pod not updatable",
+			pod:            createNonUpdatablePod("nginx", "default", "node1"),
+			nodeName:       "node1",
+			expectedStatus: http.StatusForbidden,
+			expectedBody:   "Pre check update pod failed",
+			podName:        "nginx",
+		},
+		{
+			name:           "unsupported pod type",
+			pod:            createReplicaSetPod("nginx", "default"),
+			nodeName:       "node1",
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   "Not support ota upgrade pod type ReplicaSet",
+			podName:        "nginx",
+		},
+		{
+			name:           "static pod with configmap found but apply fails",
+			pod:            createStaticPod("nginx-node1", "default", "node1"),
+			nodeName:       "node1",
+			expectedStatus: http.StatusInternalServerError,
+			expectedBody:   "Apply update failed",
+			podName:        "nginx-node1",
+			setupMock: func(cs *fake.Clientset) {
+				// Add ConfigMap for static pod
+				cm := &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "yurt-static-set-nginx",
+						Namespace: "default",
+					},
+					Data: map[string]string{
+						"nginx.yaml": "apiVersion: v1\nkind: Pod\nmetadata:\n  name: nginx\nspec:\n  containers:\n  - name: nginx\n    image: nginx:latest",
+					},
+				}
+				cs.CoreV1().ConfigMaps("default").Create(context.TODO(), cm, metav1.CreateOptions{})
+			},
+		},
 	}
-	vars := map[string]string{
-		"ns":      "default",
-		"podname": "nginx",
-	}
-	req = mux.SetURLVars(req, vars)
-	rr := httptest.NewRecorder()
 
-	UpdatePod(clientset, "").ServeHTTP(rr, req)
-	assert.Equal(t, http.StatusOK, rr.Code)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var clientset *fake.Clientset
+			if tt.pod != nil {
+				clientset = fake.NewSimpleClientset(tt.pod)
+			} else {
+				clientset = fake.NewSimpleClientset()
+			}
+
+			if tt.setupMock != nil {
+				tt.setupMock(clientset)
+			}
+
+			req, err := http.NewRequest("POST", "/openyurt.io/v1/namespaces/default/pods/nginx/update", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			vars := map[string]string{
+				"ns":      "default",
+				"podname": tt.podName,
+			}
+			req = mux.SetURLVars(req, vars)
+			rr := httptest.NewRecorder()
+
+			UpdatePod(clientset, tt.nodeName).ServeHTTP(rr, req)
+
+			assert.Equal(t, tt.expectedStatus, rr.Code)
+			if tt.expectedBody != "" {
+				assert.Contains(t, rr.Body.String(), tt.expectedBody)
+			}
+		})
+	}
+}
+
+// Helper functions to create different types of pods for testing
+func createDaemonPod(name, namespace, nodeName string) *corev1.Pod {
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{Kind: DaemonPod},
+			},
+		},
+		Spec: corev1.PodSpec{
+			NodeName: nodeName,
+		},
+		Status: corev1.PodStatus{
+			Conditions: []corev1.PodCondition{
+				{
+					Type:   daemonsetupgradestrategy.PodNeedUpgrade,
+					Status: corev1.ConditionTrue,
+				},
+			},
+		},
+	}
+	return pod
+}
+
+func createStaticPod(name, namespace, nodeName string) *corev1.Pod {
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{Kind: StaticPod},
+			},
+		},
+		Spec: corev1.PodSpec{
+			NodeName: nodeName,
+		},
+		Status: corev1.PodStatus{
+			Conditions: []corev1.PodCondition{
+				{
+					Type:   daemonsetupgradestrategy.PodNeedUpgrade,
+					Status: corev1.ConditionTrue,
+				},
+			},
+		},
+	}
+	return pod
+}
+
+func createDeletingPod(name, namespace, nodeName string) *corev1.Pod {
+	now := metav1.Now()
+	pod := createDaemonPod(name, namespace, nodeName)
+	pod.DeletionTimestamp = &now
+	return pod
+}
+
+func createNonUpdatablePod(name, namespace, nodeName string) *corev1.Pod {
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{Kind: DaemonPod},
+			},
+		},
+		Spec: corev1.PodSpec{
+			NodeName: nodeName,
+		},
+		Status: corev1.PodStatus{
+			Conditions: []corev1.PodCondition{
+				{
+					Type:   daemonsetupgradestrategy.PodNeedUpgrade,
+					Status: corev1.ConditionFalse,
+				},
+			},
+		},
+	}
+	return pod
+}
+
+func createReplicaSetPod(name, namespace string) *corev1.Pod {
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{Kind: "ReplicaSet"},
+			},
+		},
+		Spec: corev1.PodSpec{
+			NodeName: "node1",
+		},
+		Status: corev1.PodStatus{
+			Conditions: []corev1.PodCondition{
+				{
+					Type:   daemonsetupgradestrategy.PodNeedUpgrade,
+					Status: corev1.ConditionTrue,
+				},
+			},
+		},
+	}
+	return pod
 }
 
 func TestHealthyCheck(t *testing.T) {
@@ -168,25 +448,277 @@ func TestHealthyCheck(t *testing.T) {
 func Test_preCheck(t *testing.T) {
 	pod := util.NewPodWithCondition("nginx", "", corev1.ConditionTrue)
 	pod.Spec.NodeName = "node"
-	clientset := fake.NewSimpleClientset(pod)
 
 	t.Run("Test_preCheck", func(t *testing.T) {
-		_, ok := preCheck(clientset, metav1.NamespaceDefault, "nginx", "node")
-		assert.Equal(t, true, ok)
-	})
-
-	t.Run("Test_preCheckCanNotGetPod", func(t *testing.T) {
-		_, ok := preCheck(clientset, metav1.NamespaceDefault, "nginx1", "node")
-		assert.Equal(t, false, ok)
+		err := preCheckUpdatePod(pod, "node")
+		assert.NoError(t, err)
 	})
 
 	t.Run("Test_preCheckNodeNotMatch", func(t *testing.T) {
-		_, ok := preCheck(clientset, metav1.NamespaceDefault, "nginx", "node1")
-		assert.Equal(t, false, ok)
+		err := preCheckUpdatePod(pod, "node1")
+		assert.Error(t, err)
 	})
 
 	t.Run("Test_preCheckNotUpdatable", func(t *testing.T) {
-		_, ok := preCheck(fake.NewSimpleClientset(util.NewPodWithCondition("nginx1", "", corev1.ConditionFalse)), metav1.NamespaceDefault, "nginx1", "node")
-		assert.Equal(t, false, ok)
+		err := preCheckUpdatePod(util.NewPodWithCondition("nginx1", "", corev1.ConditionFalse), "node")
+		assert.Error(t, err)
 	})
+}
+
+// Test additional edge cases and error scenarios
+func TestUpdatePodEdgeCases(t *testing.T) {
+	tests := []struct {
+		name           string
+		pod            *corev1.Pod
+		nodeName       string
+		expectedStatus int
+		expectedBody   string
+		setupMock      func(*fake.Clientset)
+		podName        string
+	}{
+		{
+			name:           "pod with image ready condition false",
+			pod:            createPodWithImageReadyFalse("nginx", "default", "node1"),
+			nodeName:       "node1",
+			expectedStatus: http.StatusForbidden,
+			expectedBody:   "Pre check update pod failed",
+			podName:        "nginx",
+		},
+		{
+			name:           "pod with image ready condition but wrong version",
+			pod:            createPodWithWrongImageVersion("nginx", "default", "node1"),
+			nodeName:       "node1",
+			expectedStatus: http.StatusForbidden,
+			expectedBody:   "Pre check update pod failed",
+			podName:        "nginx",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var clientset *fake.Clientset
+			if tt.pod != nil {
+				clientset = fake.NewSimpleClientset(tt.pod)
+			} else {
+				clientset = fake.NewSimpleClientset()
+			}
+
+			if tt.setupMock != nil {
+				tt.setupMock(clientset)
+			}
+
+			req, err := http.NewRequest("POST", "/openyurt.io/v1/namespaces/default/pods/nginx/update", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			vars := map[string]string{
+				"ns":      "default",
+				"podname": tt.podName,
+			}
+			req = mux.SetURLVars(req, vars)
+			rr := httptest.NewRecorder()
+
+			UpdatePod(clientset, tt.nodeName).ServeHTTP(rr, req)
+
+			assert.Equal(t, tt.expectedStatus, rr.Code)
+			if tt.expectedBody != "" {
+				assert.Contains(t, rr.Body.String(), tt.expectedBody)
+			}
+		})
+	}
+}
+
+// Test helper functions for edge cases
+func createPodWithImageReadyFalse(name, namespace, nodeName string) *corev1.Pod {
+	pod := createDaemonPod(name, namespace, nodeName)
+	pod.Status.Conditions = append(pod.Status.Conditions, corev1.PodCondition{
+		Type:    daemonsetupgradestrategy.PodImageReady,
+		Status:  corev1.ConditionFalse,
+		Reason:  "ImagePullBackOff",
+		Message: "Failed to pull image",
+	})
+	return pod
+}
+
+func createPodWithWrongImageVersion(name, namespace, nodeName string) *corev1.Pod {
+	pod := createDaemonPod(name, namespace, nodeName)
+	pod.Status.Conditions = append(pod.Status.Conditions, corev1.PodCondition{
+		Type:    daemonsetupgradestrategy.PodImageReady,
+		Status:  corev1.ConditionTrue,
+		Reason:  "Ready",
+		Message: daemonsetupgradestrategy.VersionPrefix + "wrong-version",
+	})
+	return pod
+}
+
+// Test helper functions directly
+func TestCheckPodStatus(t *testing.T) {
+	tests := []struct {
+		name      string
+		pod       *corev1.Pod
+		nodeName  string
+		expectErr bool
+	}{
+		{
+			name:      "valid pod",
+			pod:       createDaemonPod("nginx", "default", "node1"),
+			nodeName:  "node1",
+			expectErr: false,
+		},
+		{
+			name:      "wrong node",
+			pod:       createDaemonPod("nginx", "default", "node1"),
+			nodeName:  "node2",
+			expectErr: true,
+		},
+		{
+			name:      "deleting pod",
+			pod:       createDeletingPod("nginx", "default", "node1"),
+			nodeName:  "node1",
+			expectErr: true,
+		},
+		{
+			name:      "not updatable pod",
+			pod:       createNonUpdatablePod("nginx", "default", "node1"),
+			nodeName:  "node1",
+			expectErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := checkPodStatus(tt.pod, tt.nodeName)
+			if tt.expectErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestCheckPodImageReady(t *testing.T) {
+	tests := []struct {
+		name      string
+		pod       *corev1.Pod
+		expectErr bool
+	}{
+		{
+			name:      "no image ready condition",
+			pod:       createDaemonPod("nginx", "default", "node1"),
+			expectErr: false,
+		},
+		{
+			name:      "image ready condition false",
+			pod:       createPodWithImageReadyFalse("nginx", "default", "node1"),
+			expectErr: true,
+		},
+		{
+			name:      "image ready condition true with wrong version",
+			pod:       createPodWithWrongImageVersion("nginx", "default", "node1"),
+			expectErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := checkPodImageReady(tt.pod)
+			if tt.expectErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestGetPodImageReadyCondition(t *testing.T) {
+	pod := createDaemonPod("nginx", "default", "node1")
+
+	// Test with no image ready condition
+	cond := getPodImageReadyCondition(pod)
+	assert.Nil(t, cond)
+
+	// Test with image ready condition
+	pod.Status.Conditions = append(pod.Status.Conditions, corev1.PodCondition{
+		Type:   daemonsetupgradestrategy.PodImageReady,
+		Status: corev1.ConditionTrue,
+	})
+	cond = getPodImageReadyCondition(pod)
+	assert.NotNil(t, cond)
+	assert.Equal(t, daemonsetupgradestrategy.PodImageReady, cond.Type)
+}
+
+// Test PullPodImage function
+func TestImagePullPod(t *testing.T) {
+	tests := []struct {
+		name           string
+		pod            *corev1.Pod
+		nodeName       string
+		expectedStatus int
+		expectedBody   string
+		podName        string
+	}{
+		{
+			name:           "successful image pull request",
+			pod:            createDaemonPod("nginx", "default", "node1"),
+			nodeName:       "node1",
+			expectedStatus: http.StatusOK,
+			expectedBody:   "Image pre-pull requested for pod default/nginx",
+			podName:        "nginx",
+		},
+		{
+			name:           "pod not found",
+			pod:            nil,
+			nodeName:       "node1",
+			expectedStatus: http.StatusInternalServerError,
+			expectedBody:   "Get pod failed",
+			podName:        "nginx",
+		},
+		{
+			name:           "wrong node",
+			pod:            createDaemonPod("nginx", "default", "node1"),
+			nodeName:       "node2",
+			expectedStatus: http.StatusForbidden,
+			expectedBody:   "Failed to check pod status",
+			podName:        "nginx",
+		},
+		{
+			name:           "deleting pod",
+			pod:            createDeletingPod("nginx", "default", "node1"),
+			nodeName:       "node1",
+			expectedStatus: http.StatusForbidden,
+			expectedBody:   "Failed to check pod status",
+			podName:        "nginx",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var clientset *fake.Clientset
+			if tt.pod != nil {
+				clientset = fake.NewSimpleClientset(tt.pod)
+			} else {
+				clientset = fake.NewSimpleClientset()
+			}
+
+			req, err := http.NewRequest("POST", "/openyurt.io/v1/namespaces/default/pods/nginx/imagepull", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			vars := map[string]string{
+				"ns":      "default",
+				"podname": tt.podName,
+			}
+			req = mux.SetURLVars(req, vars)
+			rr := httptest.NewRecorder()
+
+			PullPodImage(clientset, tt.nodeName).ServeHTTP(rr, req)
+
+			assert.Equal(t, tt.expectedStatus, rr.Code)
+			if tt.expectedBody != "" {
+				assert.Contains(t, rr.Body.String(), tt.expectedBody)
+			}
+		})
+	}
 }

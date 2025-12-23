@@ -28,7 +28,7 @@ import (
 	"k8s.io/klog/v2"
 
 	yurtutil "github.com/openyurtio/openyurt/pkg/util"
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonpodupdater"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonsetupgradestrategy"
 )
 
 // Derived from kubelet encodePods
@@ -86,7 +86,7 @@ func NewPodWithCondition(podName, kind string, ready corev1.ConditionStatus) *co
 
 func SetPodUpgradeCondition(pod *corev1.Pod, ready corev1.ConditionStatus) {
 	cond := corev1.PodCondition{
-		Type:   daemonpodupdater.PodNeedUpgrade,
+		Type:   daemonsetupgradestrategy.PodNeedUpgrade,
 		Status: ready,
 	}
 	pod.Status.Conditions = append(pod.Status.Conditions, cond)

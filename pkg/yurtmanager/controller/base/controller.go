@@ -31,7 +31,8 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/csrapprover"
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonpodupdater"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonsetupgradestrategy/daemonpodupdater"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonsetupgradestrategy/imagepreheat"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/hubleader"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/hubleaderconfig"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/hubleaderrbac"
@@ -98,6 +99,8 @@ func NewControllerInitializers() map[string]InitFunc {
 	register(names.HubLeaderConfigController, hubleaderconfig.Add)
 	register(names.HubLeaderRBACController, hubleaderrbac.Add)
 
+	register(names.ImagePreheatController, imagepreheat.Add)
+
 	return controllers
 }
 
@@ -127,6 +130,7 @@ func NewControllerInitializers() map[string]InitFunc {
 // +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappdaemons,verbs=list;watch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=list;watch
 // +kubebuilder:rbac:groups=apps,resources=controllerrevisions,verbs=list;watch
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=list;watch
 // +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappsets,verbs=list;watch
 // +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=list;watch
 // +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtstaticsets,verbs=list;watch

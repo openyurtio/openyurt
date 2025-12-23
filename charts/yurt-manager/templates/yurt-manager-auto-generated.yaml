@@ -63,6 +63,12 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
+  name: yurt-manager-image-preheat-controller
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
   name: yurt-manager-load-balancer-set-controller
   namespace: {{ .Release.Namespace }}
 ---
@@ -205,6 +211,13 @@ rules:
   - tokenreviews
   verbs:
   - create
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - list
+  - watch
 - apiGroups:
   - certificates.k8s.io
   resources:
@@ -514,6 +527,33 @@ rules:
   - escalate
   - get
   - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: yurt-manager-image-preheat-controller
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - pods/status
+  verbs:
+  - update
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -1012,6 +1052,19 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: yurt-manager-hubleaderrbac-controller
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: yurt-manager-image-preheat-controller-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: yurt-manager-image-preheat-controller
+subjects:
+- kind: ServiceAccount
+  name: yurt-manager-image-preheat-controller
   namespace: {{ .Release.Namespace }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1

@@ -19,7 +19,7 @@ package options
 import (
 	"github.com/spf13/pflag"
 
-	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonpodupdater/config"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonsetupgradestrategy/daemonpodupdater/config"
 )
 
 type DaemonPodUpdaterControllerOptions struct {
