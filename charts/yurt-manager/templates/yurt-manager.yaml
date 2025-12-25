@@ -132,6 +132,12 @@ spec:
             {{- if .Values.disableIndependentWebhooks }}
             - --disable-independent-webhooks={{ .Values.disableIndependentWebhooks }}
             {{- end }}
+            {{- with .Values.nodeServant.image }}
+            - --node-servant-image={{ printf "%s/%s:%s" .registry .repository .tag }}
+            {{- end }}
+            {{- range .Values.extraArgs }}
+            - {{ . }}
+            {{- end }}
           command:
             - /usr/local/bin/yurt-manager
           image: {{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}
