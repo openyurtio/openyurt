@@ -31,6 +31,15 @@ disableIndependentWebhooks: ""
 
 leaderElectResourceName: "cloud-yurt-manager"
 
+nodeServant:
+  image:
+    registry: openyurt
+    repository: node-servant
+    tag: "latest"
+
+# support extra args of yurt-manager cmd
+extraArgs: []
+
 # resources of yurt-manager container
 resources:
   limits:
