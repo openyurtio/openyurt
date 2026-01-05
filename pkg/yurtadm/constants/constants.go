@@ -104,6 +104,8 @@ const (
 	NodeLabels = "node-labels"
 	// NodeName flag sets the node name.
 	NodeName = "node-name"
+	// NodeIp flag sets the internal ip for worker node.
+	NodeIP = "node-ip"
 	// NodePoolName flag sets the nodePool name.
 	NodePoolName = "nodepool-name"
 	// NodeType flag sets the type of worker node to edge or cloud.
@@ -213,6 +215,9 @@ nodeRegistration:
 	{{- if .nodeLabels}}
     node-labels: {{.nodeLabels}}
     {{- end}}
+	{{- if .nodeIP}}
+    node-ip: {{.nodeIP}}
+    {{- end}}
     {{- if .networkPlugin}}
     network-plugin: {{.networkPlugin}}
     {{end}}
@@ -248,6 +253,10 @@ nodeRegistration:
 	{{- if .nodeLabels}}
 	- name: node-labels
 	  value: {{.nodeLabels}}
+    {{- end}}
+	{{- if .nodeIP}}
+	- name: node-ip
+	  value: {{.nodeIP}}
     {{- end}}
     {{- if .networkPlugin}}
 	- name: network-plugin
@@ -368,6 +377,6 @@ Environment="YURTHUB_BOOTSTRAP_ARGS=--bootstrap-file={{.bootstrapFile}}"
 Environment="YURTHUB_CONFIG_ARGS=--bind-address={{.bindAddress}} --working-mode={{.workingMode}} --namespace={{.namespace}}"
 Environment="YURTHUB_EXTRA_ARGS=--v=2"
 ExecStart=
-ExecStart=/usr/local/bin/yurthub --node-name={{.nodeName}}{{if .nodePoolName}} --nodepool-name={{.nodePoolName}}{{end}} --server-addr={{.serverAddr}} $YURTHUB_BOOTSTRAP_ARGS $YURTHUB_CONFIG_ARGS $YURTHUB_EXTRA_ARGS
+ExecStart=/usr/local/bin/yurthub --node-name={{.nodeName}}{{if .nodeIP}} --node-ip={{.nodeIP}}{{end}}{{if .nodePoolName}} --nodepool-name={{.nodePoolName}}{{end}} --server-addr={{.serverAddr}} $YURTHUB_BOOTSTRAP_ARGS $YURTHUB_CONFIG_ARGS $YURTHUB_EXTRA_ARGS
 `
 )

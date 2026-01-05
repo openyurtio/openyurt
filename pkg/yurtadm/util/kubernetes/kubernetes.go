@@ -406,6 +406,7 @@ func SetKubeadmJoinConfig(data joindata.YurtJoinData) error {
 		"podInfraContainerImage": data.PauseImage(),
 		"criSocket":              nodeReg.CRISocket,
 		"name":                   nodeReg.Name,
+		"nodeIP":                 data.NodeIP(),
 	}
 
 	// if node isn't local node, we need to set ignorePreflightErrors and nodeLabels
