@@ -224,6 +224,45 @@ nodeRegistration:
     {{end}}
 `
 
+	KubeadmJoinConfV1Beta4 = `
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: JoinConfiguration
+discovery:
+  file:
+    kubeConfigPath: {{.kubeConfigPath}}
+  tlsBootstrapToken: {{.tlsBootstrapToken}}
+nodeRegistration:
+  criSocket: {{.criSocket}}
+  name: {{.name}}
+  {{- if .ignorePreflightErrors}}
+  ignorePreflightErrors:
+    {{- range $index, $value := .ignorePreflightErrors}}
+    - {{$value}}
+    {{- end}}
+  {{- end}}
+  kubeletExtraArgs:
+	- name: rotate-certificates
+ 	  value: "{{.rotateCertificates}}"
+	- name: pod-infra-container-image
+	  value: {{.podInfraContainerImage}}
+	{{- if .nodeLabels}}
+	- name: node-labels
+	  value: {{.nodeLabels}}
+    {{- end}}
+    {{- if .networkPlugin}}
+	- name: network-plugin
+	  value: {{.networkPlugin}}
+    {{end}}
+    {{- if .containerRuntime}}
+	- name: container-runtime
+	  value: {{.containerRuntime}}
+    {{end}}
+    {{- if .containerRuntimeEndpoint}}
+	- name: container-runtime-endpoint
+	  value: {{.containerRuntimeEndpoint}}
+    {{end}}
+`
+
 	YurthubTemplate = `
 apiVersion: v1
 kind: Pod
