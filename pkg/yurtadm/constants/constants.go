@@ -246,29 +246,29 @@ nodeRegistration:
     {{- end}}
   {{- end}}
   kubeletExtraArgs:
-	- name: rotate-certificates
- 	  value: "{{.rotateCertificates}}"
-	- name: pod-infra-container-image
-	  value: {{.podInfraContainerImage}}
-	{{- if .nodeLabels}}
-	- name: node-labels
-	  value: {{.nodeLabels}}
+    - name: rotate-certificates
+      value: "{{.rotateCertificates}}"
+    - name: pod-infra-container-image
+      value: {{.podInfraContainerImage}}
+    {{- if .nodeLabels}}
+    - name: node-labels
+      value: {{.nodeLabels}}
     {{- end}}
-	{{- if .nodeIP}}
-	- name: node-ip
-	  value: {{.nodeIP}}
+    {{- if .nodeIP}}
+    - name: node-ip
+      value: {{.nodeIP}}
     {{- end}}
     {{- if .networkPlugin}}
-	- name: network-plugin
-	  value: {{.networkPlugin}}
+    - name: network-plugin
+      value: {{.networkPlugin}}
     {{end}}
     {{- if .containerRuntime}}
-	- name: container-runtime
-	  value: {{.containerRuntime}}
+    - name: container-runtime
+      value: {{.containerRuntime}}
     {{end}}
     {{- if .containerRuntimeEndpoint}}
-	- name: container-runtime-endpoint
-	  value: {{.containerRuntimeEndpoint}}
+    - name: container-runtime-endpoint
+      value: {{.containerRuntimeEndpoint}}
     {{end}}
 `
 
