@@ -35,7 +35,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 )
 
-// GetServerAddr gets the service address that exposes the tunnel server for
+// GetTunnelServerAddr gets the service address that exposes the tunnel server for
 // tunnel agent to connect
 func GetTunnelServerAddr(clientset kubernetes.Interface) (string, error) {
 	var (
