@@ -355,6 +355,8 @@ After=network.target
 Type=simple
 ExecStart=/usr/local/bin/yurthub
 Restart=always
+StartLimitInterval=0
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
