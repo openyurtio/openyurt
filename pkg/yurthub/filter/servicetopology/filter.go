@@ -130,7 +130,7 @@ func (stf *serviceTopologyFilter) resolveNodePoolName() string {
 
 func (stf *serviceTopologyFilter) Filter(obj runtime.Object, stopCh <-chan struct{}) runtime.Object {
 	switch v := obj.(type) {
-	case *v1.Endpoints, *discoveryV1beta1.EndpointSlice, *discoveryv1.EndpointSlice:
+	case *discoveryV1beta1.EndpointSlice, *discoveryv1.EndpointSlice:
 		return stf.serviceTopologyHandler(v)
 	default:
 		return obj
@@ -167,9 +167,6 @@ func (stf *serviceTopologyFilter) resolveServiceTopologyType(obj runtime.Object)
 	case *discoveryv1.EndpointSlice:
 		svcNamespace = v.Namespace
 		svcName = v.Labels[discoveryv1.LabelServiceName]
-	case *v1.Endpoints:
-		svcNamespace = v.Namespace
-		svcName = v.Name
 	default:
 		return ""
 	}
@@ -192,8 +189,6 @@ func (stf *serviceTopologyFilter) nodeTopologyHandler(obj runtime.Object) runtim
 		return reassembleV1beta1EndpointSlice(v, stf.nodeName, nil)
 	case *discoveryv1.EndpointSlice:
 		return reassembleEndpointSlice(v, stf.nodeName, nil)
-	case *v1.Endpoints:
-		return reassembleEndpoints(v, stf.nodeName, nil)
 	default:
 		return obj
 	}
@@ -217,8 +212,6 @@ func (stf *serviceTopologyFilter) nodePoolTopologyHandler(obj runtime.Object) ru
 		return reassembleV1beta1EndpointSlice(v, "", nodes)
 	case *discoveryv1.EndpointSlice:
 		return reassembleEndpointSlice(v, "", nodes)
-	case *v1.Endpoints:
-		return reassembleEndpoints(v, "", nodes)
 	default:
 		return obj
 	}
@@ -276,59 +269,6 @@ func reassembleEndpointSlice(endpointSlice *discoveryv1.EndpointSlice, nodeName 
 	// even no endpoints left, empty endpoints slice should be returned
 	endpointSlice.Endpoints = newEps
 	return endpointSlice
-}
-
-// reassembleEndpoints will discard subset that are not on the same node/nodePool for v1.Endpoints
-func reassembleEndpoints(endpoints *v1.Endpoints, nodeName string, nodes []string) *v1.Endpoints {
-	if len(nodeName) != 0 && len(nodes) != 0 {
-		klog.Warningf("reassembleEndpoints: nodeName(%s) and nodePool can not be set at the same time", nodeName)
-		return endpoints
-	}
-
-	var newEpSubsets []v1.EndpointSubset
-	for i := range endpoints.Subsets {
-		if len(nodeName) != 0 {
-			endpoints.Subsets[i].Addresses = filterValidEndpointsAddr(endpoints.Subsets[i].Addresses, nodeName, nil)
-			endpoints.Subsets[i].NotReadyAddresses = filterValidEndpointsAddr(endpoints.Subsets[i].NotReadyAddresses, nodeName, nil)
-		}
-
-		if len(nodes) != 0 {
-			endpoints.Subsets[i].Addresses = filterValidEndpointsAddr(endpoints.Subsets[i].Addresses, "", nodes)
-			endpoints.Subsets[i].NotReadyAddresses = filterValidEndpointsAddr(endpoints.Subsets[i].NotReadyAddresses, "", nodes)
-		}
-
-		if len(endpoints.Subsets[i].Addresses) != 0 || len(endpoints.Subsets[i].NotReadyAddresses) != 0 {
-			newEpSubsets = append(newEpSubsets, endpoints.Subsets[i])
-		}
-	}
-
-	// even no subsets left, empty subset slice should be returned
-	endpoints.Subsets = newEpSubsets
-	return endpoints
-}
-
-func filterValidEndpointsAddr(addresses []v1.EndpointAddress, nodeName string, nodes []string) []v1.EndpointAddress {
-	var newEpAddresses []v1.EndpointAddress
-	for i := range addresses {
-		if addresses[i].NodeName == nil {
-			continue
-		}
-
-		// filter address on the same node
-		if len(nodeName) != 0 {
-			if nodeName == *addresses[i].NodeName {
-				newEpAddresses = append(newEpAddresses, addresses[i])
-			}
-		}
-
-		// filter address on the same node pool
-		if len(nodes) != 0 {
-			if inSameNodePool(*addresses[i].NodeName, nodes) {
-				newEpAddresses = append(newEpAddresses, addresses[i])
-			}
-		}
-	}
-	return newEpAddresses
 }
 
 func inSameNodePool(nodeName string, nodeList []string) bool {

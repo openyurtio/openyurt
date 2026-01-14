@@ -43,6 +43,7 @@ func (s *endpoints) GetEnqueueKeysBySvc(svc *corev1.Service) []string {
 
 func (s *endpoints) UpdateTriggerAnnotations(namespace, name string) error {
 	patch := getUpdateTriggerPatch()
+	//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated but still supported for backward compatibility
 	err := s.client.Patch(
 		context.Background(),
 		&corev1.Endpoints{
