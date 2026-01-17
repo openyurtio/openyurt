@@ -67,3 +67,12 @@ func (ep *EdgexDock) CreateDeviceServiceClient() (clients.DeviceServiceInterface
 		return nil, fmt.Errorf("unsupported Edgex version: %v", ep.Version)
 	}
 }
+
+func (ep *EdgexDock) CreateMetricsClient() (clients.MetricsInterface, error) {
+	switch ep.Version {
+	case "napa", "minnesota":
+		return edgexcliv3.NewEdgexDeviceClient(ep.CoreMetadataAddr, ep.CoreCommandAddr), nil
+	default:
+		return nil, fmt.Errorf("unsupported Edgex version: %v", ep.Version)
+	}
+}

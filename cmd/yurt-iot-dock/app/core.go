@@ -25,6 +25,9 @@ import (
 	"os/signal"
 	"syscall"
 
+	"strings"
+
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,10 +39,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-iot-dock/app/options"
 	"github.com/openyurtio/openyurt/pkg/apis"
+	"github.com/openyurtio/openyurt/pkg/yurtiotdock/clients"
 	edgexclients "github.com/openyurtio/openyurt/pkg/yurtiotdock/clients/edgex-foundry"
 	"github.com/openyurtio/openyurt/pkg/yurtiotdock/controllers"
 	"github.com/openyurtio/openyurt/pkg/yurtiotdock/controllers/util"
@@ -129,6 +134,18 @@ func Run(opts *options.YurtIoTDockOptions, stopCh <-chan struct{}) {
 	}
 
 	edgexdock := edgexclients.NewEdgexDock(opts.Version, opts.CoreMetadataAddr, opts.CoreCommandAddr)
+
+	// setup the EdgeX Metrics Collector
+	if metricsCli, err := edgexdock.CreateMetricsClient(); err != nil {
+		setupLog.Error(err, "unable to create metrics client")
+	} else {
+		collector := NewEdgeXCollector(metricsCli)
+		if err := ctrlmetrics.Registry.Register(collector); err != nil {
+			setupLog.Error(err, "unable to register edgex metrics collector")
+		} else {
+			setupLog.Info("EdgeX metrics collector registered successfully")
+		}
+	}
 
 	// setup the DeviceProfile Reconciler and Syncer
 	if err = (&controllers.DeviceProfileReconciler{
@@ -257,4 +274,69 @@ func preflightCheck(mgr ctrl.Manager, opts *options.YurtIoTDockOptions) error {
 		return err
 	}
 	return nil
+}
+
+// EdgeXCollector implements the prometheus.Collector interface.
+type EdgeXCollector struct {
+	client clients.MetricsInterface
+}
+
+// NewEdgeXCollector creates a new EdgeXCollector.
+func NewEdgeXCollector(client clients.MetricsInterface) *EdgeXCollector {
+	return &EdgeXCollector{client: client}
+}
+
+// Describe implements prometheus.Collector.
+func (c *EdgeXCollector) Describe(ch chan<- *prometheus.Desc) {
+	// Unchecked collector, so we don't need to describe metrics upfront.
+}
+
+// Collect implements prometheus.Collector.
+func (c *EdgeXCollector) Collect(ch chan<- prometheus.Metric) {
+	metrics, err := c.client.GetMetrics(context.Background())
+	if err != nil {
+		klog.Errorf("Failed to collect metrics from EdgeX: %v", err)
+		return
+	}
+
+	for service, serviceMetrics := range metrics {
+		c.processMetrics(ch, service, serviceMetrics, "edgex")
+	}
+}
+
+func (c *EdgeXCollector) processMetrics(ch chan<- prometheus.Metric, name string, metricData interface{}, prefix string) {
+	dataMap, ok := metricData.(map[string]interface{})
+	if !ok {
+		return
+	}
+
+	for key, value := range dataMap {
+		cleanKey := strings.ReplaceAll(key, "-", "_")
+		newPrefix := fmt.Sprintf("%s_%s", prefix, cleanKey)
+		if name != "" {
+			newPrefix = fmt.Sprintf("%s_%s", prefix, strings.ReplaceAll(name, "-", "_"))
+			// once prefix is set with name, clear name so it's not repeated
+			if key != "" {
+				newPrefix = fmt.Sprintf("%s_%s", newPrefix, cleanKey)
+			}
+		}
+
+		switch v := value.(type) {
+		case map[string]interface{}:
+			c.processMetrics(ch, "", v, newPrefix)
+		case float64:
+			c.emitMetric(ch, newPrefix, v)
+		case float32:
+			c.emitMetric(ch, newPrefix, float64(v))
+		case int:
+			c.emitMetric(ch, newPrefix, float64(v))
+		case int64:
+			c.emitMetric(ch, newPrefix, float64(v))
+		}
+	}
+}
+
+func (c *EdgeXCollector) emitMetric(ch chan<- prometheus.Metric, name string, value float64) {
+	desc := prometheus.NewDesc(name, "EdgeX metric", nil, nil)
+	ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, value)
 }

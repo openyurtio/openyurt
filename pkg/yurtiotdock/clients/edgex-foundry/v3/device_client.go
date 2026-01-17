@@ -384,3 +384,48 @@ func (efc *EdgexDeviceClient) GetCommandResponseByName(deviceName string) ([]dto
 	}
 	return dcr.DeviceCoreCommand.CoreCommands, nil
 }
+
+const (
+	MetricsPath = "/api/v3/metrics"
+)
+
+// GetMetrics fetches metrics from EdgeX Core Metadata and Core Command services
+func (efc *EdgexDeviceClient) GetMetrics(ctx context.Context) (map[string]interface{}, error) {
+	metrics := make(map[string]interface{})
+
+	// Fetch from Core Metadata
+	metaMetrics, err := efc.fetchMetrics(efc.CoreMetaAddr, "core-metadata")
+	if err != nil {
+		klog.Errorf("failed to fetch metrics from core-metadata: %v", err)
+	} else {
+		metrics["core-metadata"] = metaMetrics
+	}
+
+	// Fetch from Core Command
+	commandMetrics, err := efc.fetchMetrics(efc.CoreCommandAddr, "core-command")
+	if err != nil {
+		klog.Errorf("failed to fetch metrics from core-command: %v", err)
+	} else {
+		metrics["core-command"] = commandMetrics
+	}
+
+	return metrics, nil
+}
+
+func (efc *EdgexDeviceClient) fetchMetrics(addr, serviceName string) (interface{}, error) {
+	getURL := fmt.Sprintf("http://%s%s", addr, MetricsPath)
+	resp, err := efc.R().Get(getURL)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode() != http.StatusOK {
+		return nil, fmt.Errorf("failed to get metrics from %s, status: %d, body: %s", serviceName, resp.StatusCode(), resp.Body())
+	}
+
+	var result interface{}
+	if err := json.Unmarshal(resp.Body(), &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal metrics from %s: %v", serviceName, err)
+	}
+
+	return result, nil
+}
