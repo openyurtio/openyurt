@@ -133,10 +133,17 @@ func Run(opts *options.YurtIoTDockOptions, stopCh <-chan struct{}) {
 		}
 	}
 
-	edgexdock := edgexclients.NewEdgexDock(opts.Version, opts.CoreMetadataAddr, opts.CoreCommandAddr)
+	var iotDock clients.IoTDock
+	switch opts.Platform {
+	case "edgex":
+		iotDock = edgexclients.NewEdgexDock(opts.Version, opts.CoreMetadataAddr, opts.CoreCommandAddr)
+	default:
+		setupLog.Error(fmt.Errorf("unsupported platform: %s", opts.Platform), "could not find the platform")
+		os.Exit(1)
+	}
 
 	// setup the EdgeX Metrics Collector
-	if metricsCli, err := edgexdock.CreateMetricsClient(); err != nil {
+	if metricsCli, err := iotDock.CreateMetricsClient(); err != nil {
 		setupLog.Error(err, "unable to create metrics client")
 	} else {
 		collector := NewEdgeXCollector(metricsCli)
@@ -151,11 +158,11 @@ func Run(opts *options.YurtIoTDockOptions, stopCh <-chan struct{}) {
 	if err = (&controllers.DeviceProfileReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, opts, edgexdock); err != nil {
+	}).SetupWithManager(mgr, opts, iotDock); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DeviceProfile")
 		os.Exit(1)
 	}
-	dfs, err := controllers.NewDeviceProfileSyncer(mgr.GetClient(), opts, edgexdock)
+	dfs, err := controllers.NewDeviceProfileSyncer(mgr.GetClient(), opts, iotDock)
 	if err != nil {
 		setupLog.Error(err, "unable to create syncer", "syncer", "DeviceProfile")
 		os.Exit(1)
@@ -170,11 +177,11 @@ func Run(opts *options.YurtIoTDockOptions, stopCh <-chan struct{}) {
 	if err = (&controllers.DeviceReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, opts, edgexdock); err != nil {
+	}).SetupWithManager(mgr, opts, iotDock); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Device")
 		os.Exit(1)
 	}
-	ds, err := controllers.NewDeviceSyncer(mgr.GetClient(), opts, edgexdock)
+	ds, err := controllers.NewDeviceSyncer(mgr.GetClient(), opts, iotDock)
 	if err != nil {
 		setupLog.Error(err, "unable to create syncer", "controller", "Device")
 		os.Exit(1)
@@ -189,11 +196,11 @@ func Run(opts *options.YurtIoTDockOptions, stopCh <-chan struct{}) {
 	if err = (&controllers.DeviceServiceReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, opts, edgexdock); err != nil {
+	}).SetupWithManager(mgr, opts, iotDock); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DeviceService")
 		os.Exit(1)
 	}
-	dss, err := controllers.NewDeviceServiceSyncer(mgr.GetClient(), opts, edgexdock)
+	dss, err := controllers.NewDeviceServiceSyncer(mgr.GetClient(), opts, iotDock)
 	if err != nil {
 		setupLog.Error(err, "unable to create syncer", "syncer", "DeviceService")
 		os.Exit(1)
