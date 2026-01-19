@@ -287,7 +287,7 @@ func NewEdgeXCollector(client clients.MetricsInterface) *EdgeXCollector {
 }
 
 // Describe implements prometheus.Collector.
-func (c *EdgeXCollector) Describe(ch chan<- *prometheus.Desc) {
+func (c *EdgeXCollector) Describe(_ chan<- *prometheus.Desc) {
 	// Unchecked collector, so we don't need to describe metrics upfront.
 }
 

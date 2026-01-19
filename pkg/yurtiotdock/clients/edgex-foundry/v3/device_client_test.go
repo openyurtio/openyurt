@@ -246,7 +246,7 @@ func Test_GetMetrics_Errors(t *testing.T) {
 		httpmock.NewStringResponder(500, "internal error"))
 
 	metrics, err := deviceClient.GetMetrics(context.TODO())
-	assert.Nil(t, err) 
+	assert.Nil(t, err)
 	assert.Empty(t, metrics)
 
 	// Case 2: JSON Unmarshal Error
@@ -256,6 +256,6 @@ func Test_GetMetrics_Errors(t *testing.T) {
 		httpmock.NewStringResponder(200, "invalid-json"))
 
 	metrics, err = deviceClient.GetMetrics(context.TODO())
-	assert.Nil(t, err) 
+	assert.Nil(t, err)
 	assert.Empty(t, metrics)
 }

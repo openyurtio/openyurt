@@ -67,7 +67,7 @@ func (efc *EdgexDeviceClient) Create(ctx context.Context, device *iotv1alpha1.De
 	if err != nil {
 		return nil, err
 	}
-	postPath := fmt.Sprintf("http://%s%s", efc.CoreMetaAddr, DevicePath)
+	postPath := fmt.Sprintf(BaseURLFormat, efc.CoreMetaAddr, DevicePath)
 	resp, err := efc.R().
 		SetBody(reqBody).Post(postPath)
 	if err != nil {
@@ -112,7 +112,7 @@ func (efc *EdgexDeviceClient) Delete(ctx context.Context, name string, options c
 // TODO support to update other fields
 func (efc *EdgexDeviceClient) Update(ctx context.Context, device *iotv1alpha1.Device, options clients.UpdateOptions) (*iotv1alpha1.Device, error) {
 	actualDeviceName := getEdgeXName(device)
-	patchURL := fmt.Sprintf("http://%s%s", efc.CoreMetaAddr, DevicePath)
+	patchURL := fmt.Sprintf(BaseURLFormat, efc.CoreMetaAddr, DevicePath)
 	if device == nil {
 		return nil, nil
 	}
@@ -386,7 +386,8 @@ func (efc *EdgexDeviceClient) GetCommandResponseByName(deviceName string) ([]dto
 }
 
 const (
-	MetricsPath = "/api/v3/metrics"
+	MetricsPath   = "/api/v3/metrics"
+	BaseURLFormat = "http://%s%s"
 )
 
 // GetMetrics fetches metrics from EdgeX Core Metadata and Core Command services
@@ -394,7 +395,7 @@ func (efc *EdgexDeviceClient) GetMetrics(ctx context.Context) (map[string]interf
 	metrics := make(map[string]interface{})
 
 	// Fetch from Core Metadata
-	metaMetrics, err := efc.fetchMetrics(efc.CoreMetaAddr, "core-metadata")
+	metaMetrics, err := efc.fetchMetrics(ctx, efc.CoreMetaAddr, "core-metadata")
 	if err != nil {
 		klog.Errorf("failed to fetch metrics from core-metadata: %v", err)
 	} else {
@@ -402,7 +403,7 @@ func (efc *EdgexDeviceClient) GetMetrics(ctx context.Context) (map[string]interf
 	}
 
 	// Fetch from Core Command
-	commandMetrics, err := efc.fetchMetrics(efc.CoreCommandAddr, "core-command")
+	commandMetrics, err := efc.fetchMetrics(ctx, efc.CoreCommandAddr, "core-command")
 	if err != nil {
 		klog.Errorf("failed to fetch metrics from core-command: %v", err)
 	} else {
@@ -412,9 +413,9 @@ func (efc *EdgexDeviceClient) GetMetrics(ctx context.Context) (map[string]interf
 	return metrics, nil
 }
 
-func (efc *EdgexDeviceClient) fetchMetrics(addr, serviceName string) (interface{}, error) {
-	getURL := fmt.Sprintf("http://%s%s", addr, MetricsPath)
-	resp, err := efc.R().Get(getURL)
+func (efc *EdgexDeviceClient) fetchMetrics(ctx context.Context, addr, serviceName string) (interface{}, error) {
+	getURL := fmt.Sprintf(BaseURLFormat, addr, MetricsPath)
+	resp, err := efc.R().SetContext(ctx).Get(getURL)
 	if err != nil {
 		return nil, err
 	}
