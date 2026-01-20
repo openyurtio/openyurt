@@ -25,7 +25,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// MockMetricsClient mocks the MetricsInterface
+// MockMetricsClient mocks the MetricsGetter
 type MockMetricsClient struct {
 	mock.Mock
 }

@@ -68,7 +68,7 @@ func (ep *EdgexDock) CreateDeviceServiceClient() (clients.DeviceServiceInterface
 	}
 }
 
-func (ep *EdgexDock) CreateMetricsClient() (clients.MetricsInterface, error) {
+func (ep *EdgexDock) CreateMetricsClient() (clients.MetricsGetter, error) {
 	switch ep.Version {
 	case "napa", "minnesota":
 		return edgexcliv3.NewEdgexDeviceClient(ep.CoreMetadataAddr, ep.CoreCommandAddr), nil
