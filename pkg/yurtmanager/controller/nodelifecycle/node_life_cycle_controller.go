@@ -1204,19 +1204,32 @@ func (nc *ReconcileNodeLifeCycle) addPodEvictorForNewZone(node *v1.Node) {
 func (nc *ReconcileNodeLifeCycle) markNodeForTainting(node *v1.Node, status v1.ConditionStatus) bool {
 	nc.evictorLock.Lock()
 	defer nc.evictorLock.Unlock()
+
+	zone := nodetopology.GetZoneKey(node)
+	// Ensure the zone exists in the map. This can happen if a node's zone label
+	// changed after initial classification but before processing completes.
+	if _, found := nc.zoneStates[zone]; !found {
+		nc.zoneStates[zone] = stateInitial
+		nc.zoneNoExecuteTainter[zone] =
+			scheduler.NewRateLimitedTimedQueue(
+				flowcontrol.NewTokenBucketRateLimiter(nc.evictionLimiterQPS, scheduler.EvictionRateLimiterBurst))
+		klog.InfoS("Initializing eviction metric for zone during taint marking", "zone", zone)
+		evictionsTotal.WithLabelValues(zone).Add(0)
+	}
+
 	if status == v1.ConditionFalse {
 		if !taintutils.TaintExists(node.Spec.Taints, NotReadyTaintTemplate) {
-			nc.zoneNoExecuteTainter[nodetopology.GetZoneKey(node)].Remove(node.Name)
+			nc.zoneNoExecuteTainter[zone].Remove(node.Name)
 		}
 	}
 
 	if status == v1.ConditionUnknown {
 		if !taintutils.TaintExists(node.Spec.Taints, UnreachableTaintTemplate) {
-			nc.zoneNoExecuteTainter[nodetopology.GetZoneKey(node)].Remove(node.Name)
+			nc.zoneNoExecuteTainter[zone].Remove(node.Name)
 		}
 	}
 
-	return nc.zoneNoExecuteTainter[nodetopology.GetZoneKey(node)].Add(node.Name, string(node.UID))
+	return nc.zoneNoExecuteTainter[zone].Add(node.Name, string(node.UID))
 }
 
 func (nc *ReconcileNodeLifeCycle) markNodeAsReachable(ctx context.Context, node *v1.Node) (bool, error) {
@@ -1233,7 +1246,15 @@ func (nc *ReconcileNodeLifeCycle) markNodeAsReachable(ctx context.Context, node 
 	nc.evictorLock.Lock()
 	defer nc.evictorLock.Unlock()
 
-	return nc.zoneNoExecuteTainter[nodetopology.GetZoneKey(node)].Remove(node.Name), nil
+	zone := nodetopology.GetZoneKey(node)
+	// If the zone doesn't exist, the node was never queued for tainting,
+	// so there's nothing to remove. This can happen if a node's zone label
+	// changed after initial classification.
+	if _, found := nc.zoneStates[zone]; !found {
+		return false, nil
+	}
+
+	return nc.zoneNoExecuteTainter[zone].Remove(node.Name), nil
 }
 
 // ComputeZoneState returns a slice of NodeReadyConditions for all Nodes in a given zone.
