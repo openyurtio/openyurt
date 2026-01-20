@@ -296,9 +296,11 @@ func (c *EdgeXCollector) Collect(ch chan<- prometheus.Metric) {
 	metrics, err := c.client.GetMetrics(context.Background())
 	if err != nil {
 		klog.Errorf("Failed to collect metrics from EdgeX: %v", err)
+		c.emitMetric(ch, "edgex_up", 0)
 		return
 	}
 
+	c.emitMetric(ch, "edgex_up", 1)
 	for service, serviceMetrics := range metrics {
 		c.processMetrics(ch, service, serviceMetrics, "edgex")
 	}

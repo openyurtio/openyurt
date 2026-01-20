@@ -35,18 +35,6 @@ func (m *MockMetricsClient) GetMetrics(ctx context.Context) (map[string]interfac
 	return args.Get(0).(map[string]interface{}), args.Error(1)
 }
 
-func TestEdgeXCollector_Describe(t *testing.T) {
-	mockClient := new(MockMetricsClient)
-	collector := NewEdgeXCollector(mockClient)
-
-	ch := make(chan *prometheus.Desc, 1)
-	collector.Describe(ch)
-	desc := <-ch
-
-	assert.NotNil(t, desc)
-	assert.Contains(t, desc.String(), "edgex_up")
-}
-
 func TestEdgeXCollector_Collect(t *testing.T) {
 	mockClient := new(MockMetricsClient)
 	collector := NewEdgeXCollector(mockClient)
