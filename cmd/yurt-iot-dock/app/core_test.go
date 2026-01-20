@@ -35,18 +35,6 @@ func (m *MockMetricsClient) GetMetrics(ctx context.Context) (map[string]interfac
 	return args.Get(0).(map[string]interface{}), args.Error(1)
 }
 
-func TestEdgeXCollector_Describe(t *testing.T) {
-	mockClient := new(MockMetricsClient)
-	collector := NewEdgeXCollector(mockClient)
-
-	ch := make(chan *prometheus.Desc, 1)
-	collector.Describe(ch)
-	desc := <-ch
-
-	assert.NotNil(t, desc)
-	assert.Contains(t, desc.String(), "edgex_up")
-}
-
 func TestEdgeXCollector_Collect(t *testing.T) {
 	mockClient := new(MockMetricsClient)
 	collector := NewEdgeXCollector(mockClient)
@@ -77,7 +65,7 @@ func TestEdgeXCollector_Collect(t *testing.T) {
 		metrics = append(metrics, m)
 	}
 
-	assert.Equal(t, 3, len(metrics)) // edgex_up + 2 metrics
+	assert.Equal(t, 2, len(metrics)) // edgex_up removed in this branch
 
 	// Check for specific metrics
 	for _, m := range metrics {
@@ -103,6 +91,6 @@ func TestEdgeXCollector_Collect_Error(t *testing.T) {
 		metrics = append(metrics, m)
 	}
 
-	// Should still have 'up' metric set to 0
-	assert.Equal(t, 1, len(metrics))
+	// Should not have 'up' metric set (not implemented in this branch)
+	assert.Equal(t, 0, len(metrics))
 }

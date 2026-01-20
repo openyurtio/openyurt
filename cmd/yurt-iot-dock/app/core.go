@@ -22,9 +22,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
-
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -36,7 +33,6 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
@@ -228,50 +224,6 @@ func Run(opts *options.YurtIoTDockOptions, stopCh <-chan struct{}) {
 	}
 }
 
-func deleteCRsOnControllerShutdown(ctx context.Context, cli client.Client, opts *options.YurtIoTDockOptions) error {
-	setupLog.Info("[deleteCRsOnControllerShutdown] start delete device crd")
-	if err := controllers.DeleteDevicesOnControllerShutdown(ctx, cli, opts); err != nil {
-		setupLog.Error(err, "could not shutdown device cr")
-		return err
-	}
-
-	setupLog.Info("[deleteCRsOnControllerShutdown] start delete deviceprofile crd")
-	if err := controllers.DeleteDeviceProfilesOnControllerShutdown(ctx, cli, opts); err != nil {
-		setupLog.Error(err, "could not shutdown deviceprofile cr")
-		return err
-	}
-
-	setupLog.Info("[deleteCRsOnControllerShutdown] start delete deviceservice crd")
-	if err := controllers.DeleteDeviceServicesOnControllerShutdown(ctx, cli, opts); err != nil {
-		setupLog.Error(err, "could not shutdown deviceservice cr")
-		return err
-	}
-
-	return nil
-}
-
-var onlyOneSignalHandler = make(chan struct{})
-var shutdownSignals = []os.Signal{syscall.SIGTERM}
-
-func SetupSignalHandler(client client.Client, opts *options.YurtIoTDockOptions) context.Context {
-	close(onlyOneSignalHandler) // panics when called twice
-
-	ctx, cancel := context.WithCancel(context.Background())
-	setupLog.Info("[SetupSignalHandler] shutdown controller with crd")
-	c := make(chan os.Signal, 2)
-	signal.Notify(c, shutdownSignals...)
-	go func() {
-		<-c
-		setupLog.Info("[SetupSignalHandler] shutdown signal concur")
-		deleteCRsOnControllerShutdown(ctx, client, opts)
-		cancel()
-		<-c
-		os.Exit(1) // second signal. Exit directly.
-	}()
-
-	return ctx
-}
-
 func preflightCheck(mgr ctrl.Manager, opts *options.YurtIoTDockOptions) error {
 	client, err := kubernetes.NewForConfig(mgr.GetConfig())
 	if err != nil {
@@ -285,11 +237,11 @@ func preflightCheck(mgr ctrl.Manager, opts *options.YurtIoTDockOptions) error {
 
 // EdgeXCollector implements the prometheus.Collector interface.
 type EdgeXCollector struct {
-	client clients.MetricsInterface
+	client clients.MetricsGetter
 }
 
 // NewEdgeXCollector creates a new EdgeXCollector.
-func NewEdgeXCollector(client clients.MetricsInterface) *EdgeXCollector {
+func NewEdgeXCollector(client clients.MetricsGetter) *EdgeXCollector {
 	return &EdgeXCollector{client: client}
 }
 
