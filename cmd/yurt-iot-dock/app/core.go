@@ -22,9 +22,9 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
+	"strings"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,13 +33,14 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/openyurtio/openyurt/cmd/yurt-iot-dock/app/options"
 	"github.com/openyurtio/openyurt/pkg/apis"
+	"github.com/openyurtio/openyurt/pkg/yurtiotdock/clients"
 	edgexclients "github.com/openyurtio/openyurt/pkg/yurtiotdock/clients/edgex-foundry"
 	"github.com/openyurtio/openyurt/pkg/yurtiotdock/controllers"
 	"github.com/openyurtio/openyurt/pkg/yurtiotdock/controllers/util"
@@ -128,17 +129,36 @@ func Run(opts *options.YurtIoTDockOptions, stopCh <-chan struct{}) {
 		}
 	}
 
-	edgexdock := edgexclients.NewEdgexDock(opts.Version, opts.CoreMetadataAddr, opts.CoreCommandAddr)
+	var iotDock clients.IoTDock
+	switch opts.Platform {
+	case "edgex":
+		iotDock = edgexclients.NewEdgexDock(opts.Version, opts.CoreMetadataAddr, opts.CoreCommandAddr)
+	default:
+		setupLog.Error(fmt.Errorf("unsupported platform: %s", opts.Platform), "could not find the platform")
+		os.Exit(1)
+	}
+
+	// setup the EdgeX Metrics Collector
+	if metricsCli, err := iotDock.CreateMetricsClient(); err != nil {
+		setupLog.Error(err, "unable to create metrics client")
+	} else {
+		collector := NewEdgeXCollector(metricsCli)
+		if err := ctrlmetrics.Registry.Register(collector); err != nil {
+			setupLog.Error(err, "unable to register edgex metrics collector")
+		} else {
+			setupLog.Info("EdgeX metrics collector registered successfully")
+		}
+	}
 
 	// setup the DeviceProfile Reconciler and Syncer
 	if err = (&controllers.DeviceProfileReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, opts, edgexdock); err != nil {
+	}).SetupWithManager(mgr, opts, iotDock); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DeviceProfile")
 		os.Exit(1)
 	}
-	dfs, err := controllers.NewDeviceProfileSyncer(mgr.GetClient(), opts, edgexdock)
+	dfs, err := controllers.NewDeviceProfileSyncer(mgr.GetClient(), opts, iotDock)
 	if err != nil {
 		setupLog.Error(err, "unable to create syncer", "syncer", "DeviceProfile")
 		os.Exit(1)
@@ -153,11 +173,11 @@ func Run(opts *options.YurtIoTDockOptions, stopCh <-chan struct{}) {
 	if err = (&controllers.DeviceReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, opts, edgexdock); err != nil {
+	}).SetupWithManager(mgr, opts, iotDock); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Device")
 		os.Exit(1)
 	}
-	ds, err := controllers.NewDeviceSyncer(mgr.GetClient(), opts, edgexdock)
+	ds, err := controllers.NewDeviceSyncer(mgr.GetClient(), opts, iotDock)
 	if err != nil {
 		setupLog.Error(err, "unable to create syncer", "controller", "Device")
 		os.Exit(1)
@@ -172,11 +192,11 @@ func Run(opts *options.YurtIoTDockOptions, stopCh <-chan struct{}) {
 	if err = (&controllers.DeviceServiceReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, opts, edgexdock); err != nil {
+	}).SetupWithManager(mgr, opts, iotDock); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DeviceService")
 		os.Exit(1)
 	}
-	dss, err := controllers.NewDeviceServiceSyncer(mgr.GetClient(), opts, edgexdock)
+	dss, err := controllers.NewDeviceServiceSyncer(mgr.GetClient(), opts, iotDock)
 	if err != nil {
 		setupLog.Error(err, "unable to create syncer", "syncer", "DeviceService")
 		os.Exit(1)
@@ -204,50 +224,6 @@ func Run(opts *options.YurtIoTDockOptions, stopCh <-chan struct{}) {
 	}
 }
 
-func deleteCRsOnControllerShutdown(ctx context.Context, cli client.Client, opts *options.YurtIoTDockOptions) error {
-	setupLog.Info("[deleteCRsOnControllerShutdown] start delete device crd")
-	if err := controllers.DeleteDevicesOnControllerShutdown(ctx, cli, opts); err != nil {
-		setupLog.Error(err, "could not shutdown device cr")
-		return err
-	}
-
-	setupLog.Info("[deleteCRsOnControllerShutdown] start delete deviceprofile crd")
-	if err := controllers.DeleteDeviceProfilesOnControllerShutdown(ctx, cli, opts); err != nil {
-		setupLog.Error(err, "could not shutdown deviceprofile cr")
-		return err
-	}
-
-	setupLog.Info("[deleteCRsOnControllerShutdown] start delete deviceservice crd")
-	if err := controllers.DeleteDeviceServicesOnControllerShutdown(ctx, cli, opts); err != nil {
-		setupLog.Error(err, "could not shutdown deviceservice cr")
-		return err
-	}
-
-	return nil
-}
-
-var onlyOneSignalHandler = make(chan struct{})
-var shutdownSignals = []os.Signal{syscall.SIGTERM}
-
-func SetupSignalHandler(client client.Client, opts *options.YurtIoTDockOptions) context.Context {
-	close(onlyOneSignalHandler) // panics when called twice
-
-	ctx, cancel := context.WithCancel(context.Background())
-	setupLog.Info("[SetupSignalHandler] shutdown controller with crd")
-	c := make(chan os.Signal, 2)
-	signal.Notify(c, shutdownSignals...)
-	go func() {
-		<-c
-		setupLog.Info("[SetupSignalHandler] shutdown signal concur")
-		deleteCRsOnControllerShutdown(ctx, client, opts)
-		cancel()
-		<-c
-		os.Exit(1) // second signal. Exit directly.
-	}()
-
-	return ctx
-}
-
 func preflightCheck(mgr ctrl.Manager, opts *options.YurtIoTDockOptions) error {
 	client, err := kubernetes.NewForConfig(mgr.GetConfig())
 	if err != nil {
@@ -257,4 +233,69 @@ func preflightCheck(mgr ctrl.Manager, opts *options.YurtIoTDockOptions) error {
 		return err
 	}
 	return nil
+}
+
+// EdgeXCollector implements the prometheus.Collector interface.
+type EdgeXCollector struct {
+	client clients.MetricsGetter
+}
+
+// NewEdgeXCollector creates a new EdgeXCollector.
+func NewEdgeXCollector(client clients.MetricsGetter) *EdgeXCollector {
+	return &EdgeXCollector{client: client}
+}
+
+// Describe implements prometheus.Collector.
+func (c *EdgeXCollector) Describe(_ chan<- *prometheus.Desc) {
+	// Unchecked collector, so we don't need to describe metrics upfront.
+}
+
+// Collect implements prometheus.Collector.
+func (c *EdgeXCollector) Collect(ch chan<- prometheus.Metric) {
+	metrics, err := c.client.GetMetrics(context.Background())
+	if err != nil {
+		klog.Errorf("Failed to collect metrics from EdgeX: %v", err)
+		return
+	}
+
+	for service, serviceMetrics := range metrics {
+		c.processMetrics(ch, service, serviceMetrics, "edgex")
+	}
+}
+
+func (c *EdgeXCollector) processMetrics(ch chan<- prometheus.Metric, name string, metricData interface{}, prefix string) {
+	dataMap, ok := metricData.(map[string]interface{})
+	if !ok {
+		return
+	}
+
+	for key, value := range dataMap {
+		cleanKey := strings.ReplaceAll(key, "-", "_")
+		newPrefix := fmt.Sprintf("%s_%s", prefix, cleanKey)
+		if name != "" {
+			newPrefix = fmt.Sprintf("%s_%s", prefix, strings.ReplaceAll(name, "-", "_"))
+			// once prefix is set with name, clear name so it's not repeated
+			if key != "" {
+				newPrefix = fmt.Sprintf("%s_%s", newPrefix, cleanKey)
+			}
+		}
+
+		switch v := value.(type) {
+		case map[string]interface{}:
+			c.processMetrics(ch, "", v, newPrefix)
+		case float64:
+			c.emitMetric(ch, newPrefix, v)
+		case float32:
+			c.emitMetric(ch, newPrefix, float64(v))
+		case int:
+			c.emitMetric(ch, newPrefix, float64(v))
+		case int64:
+			c.emitMetric(ch, newPrefix, float64(v))
+		}
+	}
+}
+
+func (c *EdgeXCollector) emitMetric(ch chan<- prometheus.Metric, name string, value float64) {
+	desc := prometheus.NewDesc(name, "EdgeX metric", nil, nil)
+	ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, value)
 }

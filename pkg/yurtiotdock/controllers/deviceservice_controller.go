@@ -33,7 +33,6 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurt-iot-dock/app/options"
 	iotv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/yurtiotdock/clients"
-	edgexobj "github.com/openyurtio/openyurt/pkg/yurtiotdock/clients/edgex-foundry"
 	util "github.com/openyurtio/openyurt/pkg/yurtiotdock/controllers/util"
 )
 
@@ -107,8 +106,8 @@ func (r *DeviceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *DeviceServiceReconciler) SetupWithManager(mgr ctrl.Manager, opts *options.YurtIoTDockOptions, edgexdock *edgexobj.EdgexDock) error {
-	deviceserviceclient, err := edgexdock.CreateDeviceServiceClient()
+func (r *DeviceServiceReconciler) SetupWithManager(mgr ctrl.Manager, opts *options.YurtIoTDockOptions, edgeDock clients.IoTDock) error {
+	deviceserviceclient, err := edgeDock.CreateDeviceServiceClient()
 	if err != nil {
 		return err
 	}
