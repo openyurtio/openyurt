@@ -18,8 +18,6 @@ package main
 
 import (
 	"flag"
-	"math/rand"
-	"time"
 
 	"k8s.io/apiserver/pkg/server"
 
@@ -27,9 +25,6 @@ import (
 )
 
 func main() {
-	newRand := rand.New(rand.NewSource(time.Now().UnixNano()))
-	newRand.Seed(time.Now().UnixNano())
-
 	cmd := app.NewCmdStartYurtHub(server.SetupSignalContext())
 	cmd.Flags().AddGoFlagSet(flag.CommandLine)
 	if err := cmd.Execute(); err != nil {

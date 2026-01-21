@@ -17,10 +17,8 @@ limitations under the License.
 package main
 
 import (
-	"math/rand"
 	_ "net/http/pprof"
 	"os"
-	"time"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/component-base/logs"
@@ -30,9 +28,6 @@ import (
 )
 
 func main() {
-	newRand := rand.New(rand.NewSource(time.Now().UnixNano()))
-	newRand.Seed(time.Now().UnixNano())
-
 	command := app.NewYurtManagerCommand()
 
 	// TODO: once we switch everything over to Cobra commands, we can go back to calling
