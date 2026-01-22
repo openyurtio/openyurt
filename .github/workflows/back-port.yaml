@@ -30,7 +30,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Create Backport PR
-        uses: zeebe-io/backport-action@v1.4.0
+        uses: zeebe-io/backport-action@v3.4.1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           github_workspace: ${{ github.workspace }}
