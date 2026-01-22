@@ -1,0 +1,26 @@
+---
+# Example: Install YurtHub on a node by adding a label
+# kubectl apply -f examples/yurthub-auto-install-example.yaml
+
+apiVersion: v1
+kind: Node
+metadata:
+  name: edge-node-1
+  labels:
+    # Add this label to trigger YurtHub installation
+    openyurt.io/is-edge-worker: "true"
+    # Optional: Specify the node pool (recommended)
+    apps.openyurt.io/nodepool: "beijing"
+  annotations:
+    # Optional: Specify a custom YurtHub version
+    openyurt.io/yurthub-version: "latest"
+    
+---
+# Example: Multiple nodes with batch labeling
+# Use kubectl to label multiple nodes at once:
+#
+# kubectl label nodes node-1 node-2 node-3 openyurt.io/is-edge-worker=true
+#
+# To uninstall YurtHub from nodes:
+#
+# kubectl label nodes node-1 node-2 node-3 openyurt.io/is-edge-worker-

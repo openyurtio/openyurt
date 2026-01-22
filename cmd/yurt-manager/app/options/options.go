@@ -45,6 +45,7 @@ type YurtManagerOptions struct {
 	HubLeaderController          *HubLeaderControllerOptions
 	HubLeaderConfigController    *HubLeaderConfigControllerOptions
 	HubLeaderRBACController      *HubLeaderRBACControllerOptions
+	YurtHubInstallerController   *YurtHubInstallerControllerOptions
 }
 
 // NewYurtManagerOptions creates a new YurtManagerOptions with a default config.
@@ -71,6 +72,7 @@ func NewYurtManagerOptions() (*YurtManagerOptions, error) {
 		HubLeaderController:          NewHubLeaderControllerOptions(),
 		HubLeaderConfigController:    NewHubLeaderConfigControllerOptions(genericOptions.WorkingNamespace),
 		HubLeaderRBACController:      NewHubLeaderRBACControllerOptions(),
+		YurtHubInstallerController:   NewYurtHubInstallerControllerOptions(),
 	}
 
 	return &s, nil
@@ -98,6 +100,7 @@ func (y *YurtManagerOptions) Flags(allControllers, disabledByDefaultControllers 
 	y.HubLeaderController.AddFlags(fss.FlagSet("hubleader controller"))
 	y.HubLeaderConfigController.AddFlags(fss.FlagSet("hubleaderconfig controller"))
 	y.HubLeaderRBACController.AddFlags(fss.FlagSet("hubleaderrbac controller"))
+	y.YurtHubInstallerController.AddFlags(fss.FlagSet("yurthubinstaller controller"))
 	return fss
 }
 
@@ -123,6 +126,7 @@ func (y *YurtManagerOptions) Validate(allControllers []string, controllerAliases
 	errs = append(errs, y.GatewayPublicSvcController.Validate()...)
 	errs = append(errs, y.HubLeaderController.Validate()...)
 	errs = append(errs, y.HubLeaderConfigController.Validate()...)
+	errs = append(errs, y.YurtHubInstallerController.Validate()...)
 	errs = append(errs, y.HubLeaderRBACController.Validate()...)
 	return utilerrors.NewAggregate(errs)
 }
@@ -188,6 +192,9 @@ func (y *YurtManagerOptions) ApplyTo(c *config.Config, controllerAliases map[str
 	}
 	if err := y.HubLeaderRBACController.ApplyTo(&c.ComponentConfig.HubLeaderRBACController); err != nil {
 		return err
+	if err := y.YurtHubInstallerController.ApplyTo(&c.ComponentConfig.YurtHubInstallerController); err != nil {
+		return err
+	}
 	}
 	return nil
 }
