@@ -246,6 +246,32 @@ var _ = Describe("Test DiskStorage Setup", func() {
 		})
 	})
 
+	Context("Test restoreReplaceFromBackup", func() {
+		It("should move tmpPath to absPath and return restoreErr", func() {
+			tmpPath := filepath.Join(baseDir, "kubelet/configmaps.v1.core/tmp_default")
+			absPath := filepath.Join(baseDir, "kubelet/configmaps.v1.core/default")
+			tmpData := []byte("tmp")
+			err = fileGenerator(tmpPath, tmpData)
+			Expect(err).To(BeNil())
+
+			restoreErr := fmt.Errorf("replace failed: create dir error")
+			err = store.restoreReplaceFromBackup(tmpPath, absPath, restoreErr)
+			Expect(err).To(Equal(restoreErr))
+			Expect(fs.IfExists(tmpPath)).To(BeFalse())
+			err = fileChecker(absPath, tmpData)
+			Expect(err).To(BeNil())
+		})
+		It("should return combined error when Rename fails", func() {
+			tmpPath := filepath.Join(baseDir, "nonexistent/tmp_backup")
+			absPath := filepath.Join(baseDir, "nonexistent/backup")
+			restoreErr := fmt.Errorf("create failed")
+			err = store.restoreReplaceFromBackup(tmpPath, absPath, restoreErr)
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("replace failed"))
+			Expect(err.Error()).To(ContainSubstring("restore from backup failed"))
+		})
+	})
+
 	Context("Test Recover", func() {
 		It("should recover cache", func() {
 			tmpResourcesDir := filepath.Join(baseDir, "kubelet/tmp_configmaps")
