@@ -109,6 +109,7 @@ func setYurthubUnitService(data joindata.YurtJoinData) error {
 		"bindAddress":   "127.0.0.1",
 		"serverAddr":    fmt.Sprintf("https://%s", data.ServerAddr()),
 		"nodeName":      data.NodeRegistration().Name,
+		"nodeIP":        data.NodeIP(),
 		"bootstrapFile": constants.YurtHubBootstrapConfig,
 		"workingMode":   data.NodeRegistration().WorkingMode,
 		"namespace":     data.Namespace(),
