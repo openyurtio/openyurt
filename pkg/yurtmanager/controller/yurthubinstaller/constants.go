@@ -40,4 +40,13 @@ const (
 	
 	// JobTTLSecondsAfterFinished defines how long to keep finished jobs
 	JobTTLSecondsAfterFinished = 3600
+	
+	// NodeServantConvertJobPrefix is the prefix for node-servant convert job names
+	NodeServantConvertJobPrefix = "node-servant-convert-"
+	
+	// NodeServantRevertJobPrefix is the prefix for node-servant revert job names
+	NodeServantRevertJobPrefix = "node-servant-revert-"
+	
+	// KubeSystemNamespace is the kube-system namespace name
+	KubeSystemNamespace = "kube-system"
 )

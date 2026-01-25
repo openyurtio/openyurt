@@ -295,7 +295,7 @@ func (r *ReconcileYurtHubInstaller) checkInstallationProgress(ctx context.Contex
 	// List jobs for this node
 	jobList := &batchv1.JobList{}
 	listOpts := []client.ListOption{
-		client.InNamespace("kube-system"),
+		client.InNamespace(KubeSystemNamespace),
 		client.MatchingLabels(map[string]string{
 			"node": node.Name,
 		}),
@@ -391,7 +391,7 @@ func (r *ReconcileYurtHubInstaller) getOrCreateBootstrapToken(ctx context.Contex
 	// Check if a secret with bootstrap token already exists for this node
 	secretName := fmt.Sprintf("yurthub-bootstrap-%s", nodeName)
 	secret := &corev1.Secret{}
-	err := r.Get(ctx, types.NamespacedName{Name: secretName, Namespace: "kube-system"}, secret)
+	err := r.Get(ctx, types.NamespacedName{Name: secretName, Namespace: KubeSystemNamespace}, secret)
 	
 	if err == nil {
 		// Secret exists, return the token
@@ -410,7 +410,7 @@ func (r *ReconcileYurtHubInstaller) getOrCreateBootstrapToken(ctx context.Contex
 	secret = &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
-			Namespace: "kube-system",
+			Namespace: KubeSystemNamespace,
 		},
 		StringData: map[string]string{
 			"token": "placeholder-token-" + nodeName, // This should be a real bootstrap token

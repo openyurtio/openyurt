@@ -83,8 +83,8 @@ func (e *EnqueueNodeForJob) Generic(ctx context.Context, evt event.GenericEvent,
 func isYurtHubJob(job *batchv1.Job) bool {
 	return strings.HasPrefix(job.Name, YurtHubInstallJobPrefix) ||
 		strings.HasPrefix(job.Name, YurtHubUninstallJobPrefix) ||
-		strings.HasPrefix(job.Name, "node-servant-convert-") ||
-		strings.HasPrefix(job.Name, "node-servant-revert-")
+		strings.HasPrefix(job.Name, NodeServantConvertJobPrefix) ||
+		strings.HasPrefix(job.Name, NodeServantRevertJobPrefix)
 }
 
 // getNodeNameFromJob extracts the node name from a job
@@ -95,11 +95,11 @@ func getNodeNameFromJob(job *batchv1.Job) string {
 	}
 
 	// Fallback: try to extract from job name
-	if strings.HasPrefix(job.Name, "node-servant-convert-") {
-		return strings.TrimPrefix(job.Name, "node-servant-convert-")
+	if strings.HasPrefix(job.Name, NodeServantConvertJobPrefix) {
+		return strings.TrimPrefix(job.Name, NodeServantConvertJobPrefix)
 	}
-	if strings.HasPrefix(job.Name, "node-servant-revert-") {
-		return strings.TrimPrefix(job.Name, "node-servant-revert-")
+	if strings.HasPrefix(job.Name, NodeServantRevertJobPrefix) {
+		return strings.TrimPrefix(job.Name, NodeServantRevertJobPrefix)
 	}
 
 	return ""

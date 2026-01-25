@@ -192,9 +192,9 @@ func (y *YurtManagerOptions) ApplyTo(c *config.Config, controllerAliases map[str
 	}
 	if err := y.HubLeaderRBACController.ApplyTo(&c.ComponentConfig.HubLeaderRBACController); err != nil {
 		return err
+	}
 	if err := y.YurtHubInstallerController.ApplyTo(&c.ComponentConfig.YurtHubInstallerController); err != nil {
 		return err
-	}
 	}
 	return nil
 }
