@@ -694,7 +694,15 @@ func (cm *cacheManager) storeObjectWithKey(key storage.Key, obj runtime.Object) 
 func (cm *cacheManager) inMemoryCacheFor(key string, obj runtime.Object) {
 	cm.Lock()
 	defer cm.Unlock()
-	cm.inMemoryCache[key] = obj
+	// Deep copy before storing to ensure cached objects are independent.
+	// This prevents race conditions where the original object might be modified
+	// by other goroutines after being stored in the cache.
+	if obj == nil {
+		// If obj is nil, store nil (should not happen in practice, but handle gracefully)
+		cm.inMemoryCache[key] = nil
+		return
+	}
+	cm.inMemoryCache[key] = obj.DeepCopyObject()
 }
 
 // isNotAssignedPod check pod is assigned to node or not
@@ -841,13 +849,23 @@ func (cm *cacheManager) queryInMemoryCache(ctx context.Context, reqInfo *apirequ
 	}
 
 	cm.RLock()
-	defer cm.RUnlock()
 	obj, ok := cm.inMemoryCache[key]
 	if !ok {
+		cm.RUnlock()
 		return nil, ErrInMemoryCacheMiss
 	}
 
-	return obj, nil
+	// Deep copy the object while holding the lock to prevent race conditions
+	// where the map entry might be replaced after we release the lock.
+	// This ensures callers get an independent copy that won't be affected
+	// by concurrent updates to the cache.
+	var objCopy runtime.Object
+	if obj != nil {
+		objCopy = obj.DeepCopyObject()
+	}
+	cm.RUnlock()
+
+	return objCopy, nil
 }
 
 func isKubeletPodRequest(req *http.Request) bool {
