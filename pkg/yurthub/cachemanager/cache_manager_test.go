@@ -2866,6 +2866,174 @@ func TestQueryCacheForList(t *testing.T) {
 	}
 }
 
+func TestInMemoryCacheDeepCopy(t *testing.T) {
+	dStorage, err := disk.NewDiskStorage(rootDir)
+	if err != nil {
+		t.Errorf("failed to create disk storage, %v", err)
+	}
+	sWrapper := NewStorageWrapper(dStorage)
+	serializerM := serializer.NewSerializerManager()
+	restRESTMapperMgr, err := hubmeta.NewRESTMapperManager(rootDir)
+	if err != nil {
+		t.Errorf("failed to create RESTMapper manager, %v", err)
+	}
+
+	fakeSharedInformerFactory := informers.NewSharedInformerFactory(fake.NewSimpleClientset(), 0)
+	configManager := configuration.NewConfigurationManager("node1", fakeSharedInformerFactory)
+	yurtCM := NewCacheManager(sWrapper, serializerM, restRESTMapperMgr, configManager)
+
+	testcases := map[string]struct {
+		inputObj     runtime.Object
+		header       map[string]string
+		verb         string
+		path         string
+		expectResult struct {
+			rv   string
+			name string
+		}
+	}{
+		"deep copy node on in-memory cache": {
+			inputObj: runtime.Object(&v1.Node{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "v1",
+					Kind:       "Node",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "mynode1",
+					ResourceVersion: "1",
+				},
+			}),
+			header: map[string]string{
+				"User-Agent": "kubelet",
+				"Accept":     "application/json",
+			},
+			verb: "GET",
+			path: "/api/v1/nodes/mynode1",
+			expectResult: struct {
+				rv   string
+				name string
+			}{
+				rv:   "1",
+				name: "mynode1",
+			},
+		},
+	}
+
+	accessor := meta.NewAccessor()
+	resolver := newTestRequestInfoResolver()
+	for k, tt := range testcases {
+		t.Run(k, func(t *testing.T) {
+			originalNode := tt.inputObj.(*v1.Node)
+			originalName := originalNode.Name
+
+			req, _ := http.NewRequest(tt.verb, tt.path, nil)
+			for key, value := range tt.header {
+				req.Header.Set(key, value)
+			}
+			req.RemoteAddr = "127.0.0.1"
+
+			var cacheErr error
+			var info *request.RequestInfo
+			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				ctx := req.Context()
+				info, _ = request.RequestInfoFrom(ctx)
+				_, _ = util.TruncatedClientComponentFrom(ctx)
+
+				reqContentType, _ := util.ReqContentTypeFrom(ctx)
+				ctx = util.WithRespContentType(ctx, reqContentType)
+				req = req.WithContext(ctx)
+
+				gvr := schema.GroupVersionResource{
+					Group:    info.APIGroup,
+					Version:  info.APIVersion,
+					Resource: info.Resource,
+				}
+
+				s := serializerM.CreateSerializer(reqContentType, gvr.Group, gvr.Version, gvr.Resource)
+				encoder, err := s.Encoder(reqContentType, nil)
+				if err != nil {
+					t.Fatalf("could not create encoder, %v", err)
+				}
+				buf := bytes.NewBuffer([]byte{})
+				if tt.inputObj != nil {
+					err = encoder.Encode(tt.inputObj, buf)
+					if err != nil {
+						t.Fatalf("could not encode input object, %v", err)
+					}
+				}
+				prc := io.NopCloser(buf)
+				cacheErr = yurtCM.CacheResponse(req, prc, nil)
+			})
+
+			handler = proxyutil.WithRequestContentType(handler)
+			handler = proxyutil.WithRequestClientComponent(handler)
+			handler = filters.WithRequestInfo(handler, resolver)
+			handler.ServeHTTP(httptest.NewRecorder(), req)
+
+			if cacheErr != nil {
+				t.Errorf("Got error when cache response, %v", cacheErr)
+			}
+
+			req2, _ := http.NewRequest(tt.verb, tt.path, nil)
+			for key, value := range tt.header {
+				req2.Header.Set(key, value)
+			}
+			req2.RemoteAddr = "127.0.0.1"
+
+			var obj runtime.Object
+			var err error
+			var handler2 http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				obj, err = yurtCM.QueryCache(req)
+			})
+
+			handler2 = proxyutil.WithRequestClientComponent(handler2)
+			handler2 = filters.WithRequestInfo(handler2, resolver)
+			handler2.ServeHTTP(httptest.NewRecorder(), req2)
+
+			if err != nil {
+				t.Errorf("Got error %v", err)
+			}
+
+			if obj == nil {
+				t.Errorf("Got nil obj, but expect obj")
+				return
+			}
+
+			retrievedNode, ok := obj.(*v1.Node)
+			if !ok {
+				t.Errorf("Got obj type %T, but expect *v1.Node", obj)
+				return
+			}
+
+			name, _ := accessor.Name(retrievedNode)
+			rv, _ := accessor.ResourceVersion(retrievedNode)
+
+			if tt.expectResult.name != name {
+				t.Errorf("Got name %s, but expect name %s", name, tt.expectResult.name)
+			}
+
+			if tt.expectResult.rv != rv {
+				t.Errorf("Got rv %s, but expect rv %s", rv, tt.expectResult.rv)
+			}
+
+			originalNode.Name = "modified-node"
+			retrievedNameAfterModify, _ := accessor.Name(retrievedNode)
+			if retrievedNameAfterModify == "modified-node" {
+				t.Errorf("Got cached name %s after modify original, but expect %s", retrievedNameAfterModify, originalName)
+			}
+
+			err = sWrapper.DeleteComponentResources("kubelet")
+			if err != nil {
+				t.Errorf("failed to delete collection: kubelet, %v", err)
+			}
+		})
+	}
+
+	if err = os.RemoveAll(rootDir); err != nil {
+		t.Errorf("Got error %v, unable to remove path %s", err, rootDir)
+	}
+}
+
 func compareObjectsAndKeys(t *testing.T, objs []runtime.Object, keys map[string]struct{}) bool {
 	if len(objs) != len(keys) {
 		t.Errorf("expect %d keys, but got %d objects", len(keys), len(objs))
