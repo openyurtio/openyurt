@@ -71,7 +71,7 @@ var _ = ginkgo.Describe("edge-autonomy"+constants.YurtE2ENamespaceName, ginkgo.O
 		})
 	})
 
-		var _ = ginkgo.Describe("flannel"+constants.YurtE2ENamespaceName, func() {
+	var _ = ginkgo.Describe("flannel"+constants.YurtE2ENamespaceName, func() {
 		ginkgo.It("flannel edge-autonomy test", ginkgo.Label("edge-autonomy"), func() {
 			// obtain flannel containerID with crictl
 			cmd := `docker exec -t openyurt-e2e-test-worker /bin/bash -c "crictl ps | grep kube-flannel | awk '{print \$1}'"`
