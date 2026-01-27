@@ -628,12 +628,29 @@ func (r *ReconcileYurtAppSet) conciliateYurtAppSetStatus(
 	// calculate yas current status
 	readyWorkloads, updatedWorkloads := 0, 0
 	for _, workload := range curWorkloads {
-		workloadObj := workload.(*appsv1.Deployment)
-		if workloadObj.Status.ReadyReplicas == workloadObj.Status.Replicas {
+		var readyReplicas, replicas, updatedReplicas int32
+		var hash string
+
+		switch w := workload.(type) {
+		case *appsv1.Deployment:
+			readyReplicas = w.Status.ReadyReplicas
+			replicas = w.Status.Replicas
+			updatedReplicas = w.Status.UpdatedReplicas
+			hash = workloadmanager.GetWorkloadHash(w)
+		case *appsv1.StatefulSet:
+			readyReplicas = w.Status.ReadyReplicas
+			replicas = w.Status.Replicas
+			updatedReplicas = w.Status.UpdatedReplicas
+			hash = workloadmanager.GetWorkloadHash(w)
+		default:
+			klog.Warningf("YurtAppSet[%s/%s] unknown workload type: %T", yas.GetNamespace(), yas.GetName(), workload)
+			continue
+		}
+
+		if readyReplicas == replicas {
 			readyWorkloads++
 		}
-		if workloadmanager.GetWorkloadHash(workloadObj) == expectedRevision.GetName() &&
-			workloadObj.Status.UpdatedReplicas == workloadObj.Status.Replicas {
+		if hash == expectedRevision.GetName() && updatedReplicas == replicas {
 			updatedWorkloads++
 		}
 	}
