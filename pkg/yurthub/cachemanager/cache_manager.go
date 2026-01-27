@@ -698,8 +698,8 @@ func (cm *cacheManager) inMemoryCacheFor(key string, obj runtime.Object) {
 	// This prevents race conditions where the original object might be modified
 	// by other goroutines after being stored in the cache.
 	if obj == nil {
-		// If obj is nil, store nil (should not happen in practice, but handle gracefully)
-		cm.inMemoryCache[key] = nil
+		// If obj is nil, don't store anything - queryInMemoryCache should return
+		// ErrInMemoryCacheMiss for non-existent keys, not return a nil object.
 		return
 	}
 	cm.inMemoryCache[key] = obj.DeepCopyObject()
@@ -859,10 +859,7 @@ func (cm *cacheManager) queryInMemoryCache(ctx context.Context, reqInfo *apirequ
 	// where the map entry might be replaced after we release the lock.
 	// This ensures callers get an independent copy that won't be affected
 	// by concurrent updates to the cache.
-	var objCopy runtime.Object
-	if obj != nil {
-		objCopy = obj.DeepCopyObject()
-	}
+	objCopy := obj.DeepCopyObject()
 	cm.RUnlock()
 
 	return objCopy, nil
