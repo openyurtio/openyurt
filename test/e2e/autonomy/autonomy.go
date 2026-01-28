@@ -79,9 +79,15 @@ var _ = ginkgo.Describe("edge-autonomy"+constants.YurtE2ENamespaceName, ginkgo.O
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to get flannel container ID")
 			flannelContainerID = strings.TrimSpace(string(opBytes))
 
-			// restart flannel
-			_, err = exec.Command("/bin/bash", "-c", "docker exec -t openyurt-e2e-test-worker /bin/bash -c 'crictl stop "+flannelContainerID+"'").CombinedOutput()
-			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to stop flannel")
+			// restart flannel - check if container is already stopped before attempting to stop
+			checkCmd := `docker exec -t openyurt-e2e-test-worker /bin/bash -c "crictl ps | grep ` + flannelContainerID + ` || true"`
+			checkBytes, _ := exec.Command("/bin/bash", "-c", checkCmd).CombinedOutput()
+			if strings.Contains(string(checkBytes), flannelContainerID) {
+				// Container is running, stop it
+				_, err = exec.Command("/bin/bash", "-c", "docker exec -t openyurt-e2e-test-worker /bin/bash -c 'crictl stop "+flannelContainerID+"'").CombinedOutput()
+				gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to stop flannel")
+			}
+			// If container is already stopped, that's acceptable - continue with test
 
 			// obtain nginx containerID with crictl
 			cmd = `docker exec -t openyurt-e2e-test-worker /bin/bash -c "crictl ps | grep yurt-e2e-test-nginx | awk '{print \$1}'"`
