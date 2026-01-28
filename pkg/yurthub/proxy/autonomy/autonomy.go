@@ -202,7 +202,7 @@ func setNodeAutonomyCondition(node *v1.Node, expectedStatus v1.ConditionStatus, 
 				node.Status.Conditions[i].Reason = reason
 				node.Status.Conditions[i].Message = message
 				node.Status.Conditions[i].LastHeartbeatTime = metav1.Now()
-				node.Status.Conditions[i].LastHeartbeatTime = metav1.Now()
+				node.Status.Conditions[i].LastTransitionTime = metav1.Now()
 				return
 			}
 		}
