@@ -38,6 +38,7 @@ const (
 	HubLeaderConfigController              = "hubleaderconfig-controller"
 	HubLeaderRBACController                = "hubleaderrbac-controller"
 	ImagePreheatController                 = "image-preheat-controller"
+	YurtHubInstallerController             = "yurthub-installer-controller"
 )
 
 func YurtManagerControllerAliases() map[string]string {
@@ -64,5 +65,6 @@ func YurtManagerControllerAliases() map[string]string {
 		"hubleaderconfig":               HubLeaderConfigController,
 		"hubleaderrbac":                 HubLeaderRBACController,
 		"imagepreheat":                  ImagePreheatController,
+		"yurthubinstaller":              YurtHubInstallerController,
 	}
 }
