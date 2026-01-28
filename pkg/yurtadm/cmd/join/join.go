@@ -405,7 +405,11 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 		// check whether specified nodePool exists
 		if len(opt.nodePoolName) != 0 {
 			np, err := apiclient.GetNodePoolInfoWithRetry(cfg, opt.nodePoolName)
-			if err != nil || np == nil {
+			if err != nil {
+				klog.Errorf("failed to get nodePool %s, %v", opt.nodePoolName, err)
+				return nil, err
+			}
+			if np == nil {
 				// the specified nodePool not exist, return
 				return nil, errors.Errorf("when --nodepool-name is specified, the specified nodePool should be exist.")
 			}
