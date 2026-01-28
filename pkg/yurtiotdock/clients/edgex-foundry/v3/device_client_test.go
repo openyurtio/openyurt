@@ -216,3 +216,46 @@ func Test_ConvertDeviceSystemEvents(t *testing.T) {
 	assert.Equal(t, "my-camera-device", device.Name)
 	assert.Equal(t, "device-onvif-camera", device.Spec.Service)
 }
+
+func Test_GetMetrics(t *testing.T) {
+	httpmock.ActivateNonDefault(deviceClient.Client.GetClient())
+	defer httpmock.DeactivateAndReset()
+
+	metricsData := `{"SysStats":{"CpuUsage":0.5,"Memory":1024}}`
+	httpmock.RegisterResponder("GET", "http://edgex-core-metadata:59881/api/v3/metrics",
+		httpmock.NewStringResponder(200, metricsData))
+	httpmock.RegisterResponder("GET", "http://edgex-core-command:59882/api/v3/metrics",
+		httpmock.NewStringResponder(200, metricsData))
+
+	metrics, err := deviceClient.GetMetrics(context.TODO())
+	assert.Nil(t, err)
+	assert.NotNil(t, metrics)
+	assert.Contains(t, metrics, "core-metadata")
+	assert.Contains(t, metrics, "core-command")
+	assert.Equal(t, float64(0.5), metrics["core-metadata"].(map[string]interface{})["SysStats"].(map[string]interface{})["CpuUsage"])
+}
+
+func Test_GetMetrics_Errors(t *testing.T) {
+	httpmock.ActivateNonDefault(deviceClient.Client.GetClient())
+	defer httpmock.DeactivateAndReset()
+
+	// Case 1: HTTP Error
+	httpmock.RegisterResponder("GET", "http://edgex-core-metadata:59881/api/v3/metrics",
+		httpmock.NewStringResponder(500, "internal error"))
+	httpmock.RegisterResponder("GET", "http://edgex-core-command:59882/api/v3/metrics",
+		httpmock.NewStringResponder(500, "internal error"))
+
+	metrics, err := deviceClient.GetMetrics(context.TODO())
+	assert.Nil(t, err)
+	assert.Empty(t, metrics)
+
+	// Case 2: JSON Unmarshal Error
+	httpmock.RegisterResponder("GET", "http://edgex-core-metadata:59881/api/v3/metrics",
+		httpmock.NewStringResponder(200, "invalid-json"))
+	httpmock.RegisterResponder("GET", "http://edgex-core-command:59882/api/v3/metrics",
+		httpmock.NewStringResponder(200, "invalid-json"))
+
+	metrics, err = deviceClient.GetMetrics(context.TODO())
+	assert.Nil(t, err)
+	assert.Empty(t, metrics)
+}

@@ -100,9 +100,15 @@ type DeviceProfileInterface interface {
 	Convert(ctx context.Context, systemEvent dtos.SystemEvent, options GetOptions) (*iotv1alpha1.DeviceProfile, error)
 }
 
+// MetricsGetter defines the interfaces which used to get metrics from edge-side platform
+type MetricsGetter interface {
+	GetMetrics(ctx context.Context) (map[string]interface{}, error)
+}
+
 // IoTDock defines the interfaces which used to create deviceclient, deviceprofileclient, deviceserviceclient
 type IoTDock interface {
 	CreateDeviceClient() (DeviceInterface, error)
 	CreateDeviceProfileClient() (DeviceProfileInterface, error)
 	CreateDeviceServiceClient() (DeviceServiceInterface, error)
+	CreateMetricsClient() (MetricsGetter, error)
 }
