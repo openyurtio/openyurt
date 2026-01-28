@@ -225,6 +225,14 @@ func TestUpdatePod(t *testing.T) {
 			podName:        "nginx",
 		},
 		{
+			name:           "pod with no owner references",
+			pod:            createPodWithNoOwnerReferences("nginx", "default", "node1"),
+			nodeName:       "node1",
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   "Pod has no owner references",
+			podName:        "nginx",
+		},
+		{
 			name:           "static pod with configmap found but apply fails",
 			pod:            createStaticPod("nginx-node1", "default", "node1"),
 			nodeName:       "node1",
@@ -372,6 +380,27 @@ func createReplicaSetPod(name, namespace string) *corev1.Pod {
 		},
 		Spec: corev1.PodSpec{
 			NodeName: "node1",
+		},
+		Status: corev1.PodStatus{
+			Conditions: []corev1.PodCondition{
+				{
+					Type:   daemonsetupgradestrategy.PodNeedUpgrade,
+					Status: corev1.ConditionTrue,
+				},
+			},
+		},
+	}
+	return pod
+}
+
+func createPodWithNoOwnerReferences(name, namespace, nodeName string) *corev1.Pod {
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: corev1.PodSpec{
+			NodeName: nodeName,
 		},
 		Status: corev1.PodStatus{
 			Conditions: []corev1.PodCondition{
