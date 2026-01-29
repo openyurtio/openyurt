@@ -153,7 +153,7 @@ func (webhook *YurtAppSetHandler) validateStatefulSet(yas *v1beta1.YurtAppSet) e
 		if err := v1.Convert_v1_StatefulSet_To_apps_StatefulSet(state, out, nil); err != nil {
 			return err
 		}
-		allErrs := appsvalidation.ValidateStatefulSetSpec(&out.Spec, field.NewPath("spec"), validation.PodValidationOptions{})
+		allErrs := appsvalidation.ValidateStatefulSetSpec(&out.Spec, field.NewPath("spec"), validation.PodValidationOptions{}, appsvalidation.StatefulSetValidationOptions{})
 		if len(allErrs) != 0 {
 			return allErrs.ToAggregate()
 		}
@@ -171,7 +171,7 @@ func (webhook *YurtAppSetHandler) validateStatefulSet(yas *v1beta1.YurtAppSet) e
 		if err := v1.Convert_v1_StatefulSet_To_apps_StatefulSet(state, out, nil); err != nil {
 			return err
 		}
-		allErrs := appsvalidation.ValidateStatefulSetSpec(&out.Spec, field.NewPath("spec"), validation.PodValidationOptions{})
+		allErrs := appsvalidation.ValidateStatefulSetSpec(&out.Spec, field.NewPath("spec"), validation.PodValidationOptions{}, appsvalidation.StatefulSetValidationOptions{})
 		if len(allErrs) != 0 {
 			return allErrs.ToAggregate()
 		}

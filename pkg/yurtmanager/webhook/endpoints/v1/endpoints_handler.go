@@ -41,6 +41,7 @@ func (webhook *EndpointsHandler) SetupWebhookWithManager(mgr ctrl.Manager) (stri
 	// init
 	webhook.Client = yurtClient.GetClientByControllerNameOrDie(mgr, names.NodeLifeCycleController)
 
+	//nolint:staticcheck // SA1019: v1.Endpoints is deprecated but still supported for backward compatibility
 	return util.RegisterWebhook(mgr, &v1.Endpoints{}, webhook)
 }
 

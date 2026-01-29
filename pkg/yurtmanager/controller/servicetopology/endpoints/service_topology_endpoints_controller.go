@@ -97,6 +97,7 @@ func (r *ReconcileServicetopologyEndpoints) Reconcile(_ context.Context, request
 	klog.Info(Format("Reconcile Endpoints %s/%s", request.Namespace, request.Name))
 
 	// Fetch the Endpoints instance
+	//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated but still supported for backward compatibility
 	instance := &corev1.Endpoints{}
 	if err := r.Get(context.TODO(), request.NamespacedName, instance); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
