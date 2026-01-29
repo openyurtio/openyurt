@@ -21,9 +21,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"time"
-
 	"sync"
+	"time"
 
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/wait"
