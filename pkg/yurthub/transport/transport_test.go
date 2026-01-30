@@ -189,3 +189,104 @@ func TestListDirectClientsetReturnsCopy(t *testing.T) {
 		t.Errorf("expect same clientset in both maps, but got different values")
 	}
 }
+
+func TestTransportAndClientManager_GetDirectClientset(t *testing.T) {
+	client1 := clientfake.NewSimpleClientset()
+	client2 := clientfake.NewSimpleClientset()
+
+	tcm := &transportAndClientManager{
+		serverToClientset: map[string]kubernetes.Interface{
+			testServer1.String(): client1,
+			testServer2.String(): client2,
+		},
+	}
+
+	testcases := map[string]struct {
+		url      *url.URL
+		expected kubernetes.Interface
+	}{
+		"nil url should return nil": {
+			url:      nil,
+			expected: nil,
+		},
+		"valid server1 should return client1": {
+			url:      testServer1,
+			expected: client1,
+		},
+		"valid server2 should return client2": {
+			url:      testServer2,
+			expected: client2,
+		},
+		"non-existent server should return nil": {
+			url:      testServer3,
+			expected: nil,
+		},
+	}
+
+	for k, tc := range testcases {
+		t.Run(k, func(t *testing.T) {
+			result := tcm.GetDirectClientset(tc.url)
+			if result != tc.expected {
+				t.Errorf("expect %v, but got %v", tc.expected, result)
+			}
+		})
+	}
+}
+
+func TestTransportAndClientManager_GetDirectClientsetAtRandom(t *testing.T) {
+	client1 := clientfake.NewSimpleClientset()
+	client2 := clientfake.NewSimpleClientset()
+
+	tcm := &transportAndClientManager{
+		serverToClientset: map[string]kubernetes.Interface{
+			testServer1.String(): client1,
+			testServer2.String(): client2,
+		},
+	}
+
+	result := tcm.GetDirectClientsetAtRandom()
+	if result == nil {
+		t.Errorf("expect a clientset, but got nil")
+	}
+	if result != client1 && result != client2 {
+		t.Errorf("expect one of the clientsets, but got %v", result)
+	}
+
+	emptyTcm := &transportAndClientManager{
+		serverToClientset: map[string]kubernetes.Interface{},
+	}
+	emptyResult := emptyTcm.GetDirectClientsetAtRandom()
+	if emptyResult != nil {
+		t.Errorf("expect nil for empty map, but got %v", emptyResult)
+	}
+}
+
+func TestTransportAndClientManager_ListDirectClientset(t *testing.T) {
+	client1 := clientfake.NewSimpleClientset()
+	client2 := clientfake.NewSimpleClientset()
+
+	tcm := &transportAndClientManager{
+		serverToClientset: map[string]kubernetes.Interface{
+			testServer1.String(): client1,
+			testServer2.String(): client2,
+		},
+	}
+
+	result := tcm.ListDirectClientset()
+
+	if len(result) != 2 {
+		t.Errorf("expect 2 clientsets, but got %d", len(result))
+	}
+	if result[testServer1.String()] != client1 {
+		t.Errorf("expect client1 for server1, but got %v", result[testServer1.String()])
+	}
+	if result[testServer2.String()] != client2 {
+		t.Errorf("expect client2 for server2, but got %v", result[testServer2.String()])
+	}
+
+	result[testServer3.String()] = clientfake.NewSimpleClientset()
+	secondResult := tcm.ListDirectClientset()
+	if len(secondResult) != 2 {
+		t.Errorf("mutating returned map should not affect internal map, expect 2, but got %d", len(secondResult))
+	}
+}
