@@ -32,8 +32,8 @@ import (
 )
 
 const (
-	SustainabilityNamespace     = "green-computing-test"
-	TargetEnergyBudgetWh        = 1000.0  // 1000 Watt-hours budget for IoT scenario
+	SustainabilityNamespace      = "green-computing-test"
+	TargetEnergyBudgetWh         = 1000.0 // 1000 Watt-hours budget for IoT scenario
 	TargetCarbonReductionPercent = 30.0   // 30% carbon footprint reduction target
 	TargetPowerEfficiencyScore   = 0.85   // 85% power efficiency score
 	BatteryNodeCount             = 50     // Number of battery-powered edge nodes
@@ -255,11 +255,11 @@ var _ = ginkgo.Describe("Sustainability and Energy Efficiency Tests for 2026", f
 // Helper functions and types for sustainability testing
 
 type EdgeNode struct {
-	Name              string
-	BatteryLevel      float64 // Percentage
-	PowerSourceType   string  // "battery", "solar", "grid"
-	EnergyCapacityWh  float64
-	CarbonIntensity   float64 // gCO2/kWh
+	Name             string
+	BatteryLevel     float64 // Percentage
+	PowerSourceType  string  // "battery", "solar", "grid"
+	EnergyCapacityWh float64
+	CarbonIntensity  float64 // gCO2/kWh
 }
 
 func createBatteryPoweredNodes(count int) []EdgeNode {
@@ -423,7 +423,7 @@ func calculateEnergyUsage(pods []ScheduledPod, nodes []EdgeNode) EnergyMetrics {
 }
 
 type PeakEnergyMetrics struct {
-	PeakPowerWatts         float64
+	PeakPowerWatts          float64
 	EnergyVarianceReduction float64
 }
 
@@ -433,7 +433,7 @@ func measurePeakEnergyConsumption(pods []ScheduledPod, nodes []EdgeNode) PeakEne
 		totalPower += pod.PowerW
 	}
 	return PeakEnergyMetrics{
-		PeakPowerWatts:         totalPower / float64(len(nodes)) * 1.2, // Simulated peak
+		PeakPowerWatts:          totalPower / float64(len(nodes)) * 1.2, // Simulated peak
 		EnergyVarianceReduction: 45.5,
 	}
 }
@@ -521,8 +521,8 @@ func simulate24HourOperation(ctx context.Context, namespace, podName string) Ene
 }
 
 type IoTDevice struct {
-	Name     string
-	PowerW   float64
+	Name   string
+	PowerW float64
 }
 
 func createIoTEdgeDevices(namespace string, count int) []IoTDevice {
@@ -577,8 +577,8 @@ func createBatteryOptimizedPod(namespace, nodeName string) *corev1.Pod {
 			NodeName: nodeName,
 			Containers: []corev1.Container{
 				{
-					Name:  "low-power-workload",
-					Image: "alpine:latest",
+					Name:    "low-power-workload",
+					Image:   "alpine:latest",
 					Command: []string{"sleep", "infinity"},
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
@@ -593,14 +593,14 @@ func createBatteryOptimizedPod(namespace, nodeName string) *corev1.Pod {
 }
 
 type BatteryLife struct {
-	RemainingPercent      float64
+	RemainingPercent       float64
 	ProjectedDaysRemaining float64
 }
 
 func simulateWeekLongBatteryOperation(ctx context.Context, namespace string, node EdgeNode, podName string) BatteryLife {
 	// Optimized power management extends battery life
 	return BatteryLife{
-		RemainingPercent:      65.0, // 65% after 7 days
+		RemainingPercent:       65.0, // 65% after 7 days
 		ProjectedDaysRemaining: 13.5,
 	}
 }

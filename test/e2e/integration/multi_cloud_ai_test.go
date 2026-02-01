@@ -397,13 +397,13 @@ func createMultiRegionEdgeNodes(ctx context.Context, namespace string, regions [
 }
 
 type WriteMetrics struct {
-	Success     bool
+	Success        bool
 	RecordsWritten int
 }
 
 func writeDataToEdgeNode(ctx context.Context, namespace, nodeName string, records int) WriteMetrics {
 	return WriteMetrics{
-		Success:     true,
+		Success:        true,
 		RecordsWritten: records,
 	}
 }
