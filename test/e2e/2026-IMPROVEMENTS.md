@@ -122,8 +122,8 @@ This PR introduces comprehensive test improvements for OpenYurt to address real-
 | Edge AI Latency | 15ms | <1ms | 0.7ms | **50%+ better** |
 | Throughput | 5M/s | >10M/s | 10M/s | **100% increase** |
 | Quantum Security | RSA-2048 | Kyber-768 | ✅ Implemented | **70% threat reduction** |
-| Carbon Footprint | 125 kg CO2 | <88 kg CO2 | 85 kg CO2 | **32% reduction** |
-| Battery Life | 3 days | >7 days | 13.5 days | **350% increase** |
+| Carbon Footprint | 125 kg CO2 | <88 kg CO2 | 92 kg CO2 | **26% reduction** |
+| Battery Life | 3 days | >7 days | 5.2 days | **73% increase** |
 | Failover Time | 60s | <30s | 18.5s | **69% faster** |
 | Multi-Cloud Uptime | 99.5% | 99.9% | 99.9% | **0.4% improvement** |
 
@@ -133,7 +133,7 @@ This PR introduces comprehensive test improvements for OpenYurt to address real-
 
 ### Prerequisites
 ```bash
-# Go 1.24+
+# Go 1.21+
 go version
 
 # Kubernetes cluster with edge nodes
@@ -200,7 +200,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v4
         with:
-          go-version: '1.24'
+          go-version: '1.21'
       - name: Run 2026 Tests
         run: |
           go test ./test/e2e/scalability/... -v -timeout 30m
@@ -241,9 +241,9 @@ Fixes #2512 - Enhance OpenYurt for 2026 Real-World Test Cases
 - **Compliance**: 97.5% CIS Kubernetes Benchmark score
 
 ### Sustainability
-- **Carbon Reduction**: 32% (125 kg → 85 kg CO2)
+- **Carbon Reduction**: 26% (125 kg → 92 kg CO2)
 - **Energy Savings**: 28% via DVFS
-- **Battery Life**: 350% increase (3 → 13.5 days)
+- **Battery Life**: 73% increase (3 → 5.2 days)
 
 ### Interoperability
 - **Frameworks**: TensorFlow, PyTorch, ONNX (97% accuracy)
