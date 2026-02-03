@@ -40,7 +40,11 @@ func WithFakeTokenInject(handler http.Handler, serializerManager *serializer.Ser
 	tokenRequestGVR := authv1.SchemeGroupVersion.WithResource("tokenrequests")
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
-		info, _ := apirequest.RequestInfoFrom(ctx)
+		info, ok := apirequest.RequestInfoFrom(ctx)
+		if !ok || info == nil {
+			handler.ServeHTTP(w, req)
+			return
+		}
 		if info.Resource == "serviceaccounts" && info.Subresource == "token" {
 			klog.Infof("find serviceaccounts token request when cluster is unhealthy, try to write fake token to response.")
 			var buf bytes.Buffer

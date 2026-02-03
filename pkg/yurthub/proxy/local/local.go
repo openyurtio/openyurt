@@ -94,7 +94,12 @@ func (lp *LocalProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 // localDelete handles Delete requests when remote servers are unhealthy
 func localDelete(w http.ResponseWriter, req *http.Request) error {
 	ctx := req.Context()
-	info, _ := apirequest.RequestInfoFrom(ctx)
+	info, ok := apirequest.RequestInfoFrom(ctx)
+	if !ok || info == nil {
+		klog.Errorf("request info not found for delete request %s", hubutil.ReqString(req))
+		return apierrors.NewInternalError(fmt.Errorf("request info not found"))
+	}
+
 	s := &metav1.Status{
 		Status: metav1.StatusFailure,
 		Code:   http.StatusForbidden,
@@ -115,7 +120,11 @@ func (lp *LocalProxy) localPost(w http.ResponseWriter, req *http.Request) error 
 	var buf bytes.Buffer
 
 	ctx := req.Context()
-	info, _ := apirequest.RequestInfoFrom(ctx)
+	info, ok := apirequest.RequestInfoFrom(ctx)
+	if !ok || info == nil {
+		klog.Errorf("request info not found for post request %s", hubutil.ReqString(req))
+		return apierrors.NewInternalError(fmt.Errorf("request info not found"))
+	}
 	reqContentType, _ := hubutil.ReqContentTypeFrom(ctx)
 	if info.Resource == "events" && len(reqContentType) != 0 {
 		ctx = hubutil.WithRespContentType(ctx, reqContentType)
@@ -212,7 +221,10 @@ func (lp *LocalProxy) localReqCache(w http.ResponseWriter, req *http.Request) er
 	obj, err := lp.cacheMgr.QueryCache(req)
 	if errors.Is(err, storage.ErrStorageNotFound) || errors.Is(err, hubmeta.ErrGVRNotRecognized) {
 		klog.Errorf("object not found for %s", hubutil.ReqString(req))
-		reqInfo, _ := apirequest.RequestInfoFrom(req.Context())
+		reqInfo, ok := apirequest.RequestInfoFrom(req.Context())
+		if !ok || reqInfo == nil {
+			return apierrors.NewInternalError(fmt.Errorf("request info not found"))
+		}
 		return apierrors.NewNotFound(schema.GroupResource{Group: reqInfo.APIGroup, Resource: reqInfo.Resource}, reqInfo.Name)
 	} else if err != nil {
 		klog.Errorf("could not query cache for %s, %v", hubutil.ReqString(req), err)
