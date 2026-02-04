@@ -26,6 +26,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -839,6 +840,88 @@ func TestServeHTTPForListReqCache(t *testing.T) {
 			err = sWrapper.DeleteComponentResources("kubelet")
 			if err != nil {
 				t.Errorf("failed to delete collection: kubelet, %v", err)
+			}
+		})
+	}
+
+	if err = os.RemoveAll(rootDir); err != nil {
+		t.Errorf("Got error %v, unable to remove path %s", err, rootDir)
+	}
+}
+
+func TestLocalDeleteWithNilRequestInfo(t *testing.T) {
+	testcases := map[string]struct {
+		verb string
+		path string
+	}{
+		"delete request without RequestInfo": {
+			verb: "DELETE",
+			path: "/api/v1/nodes/mynode",
+		},
+	}
+
+	for k, tt := range testcases {
+		t.Run(k, func(t *testing.T) {
+			req, _ := http.NewRequest(tt.verb, tt.path, nil)
+			w := httptest.NewRecorder()
+
+			err := localDelete(w, req)
+
+			if err == nil {
+				t.Error("expected error when RequestInfo is nil, got nil")
+				return
+			}
+			statusErr, ok := err.(apierrors.APIStatus)
+			if !ok {
+				t.Errorf("expected APIStatus error, got %T", err)
+				return
+			}
+			if statusErr.Status().Code != http.StatusInternalServerError {
+				t.Errorf("expected 500 InternalServerError, got %d", statusErr.Status().Code)
+			}
+		})
+	}
+}
+
+func TestLocalPostWithNilRequestInfo(t *testing.T) {
+	dStorage, err := disk.NewDiskStorage(rootDir)
+	if err != nil {
+		t.Errorf("failed to create disk storage, %v", err)
+		return
+	}
+	sWrapper := cachemanager.NewStorageWrapper(dStorage)
+	serializerM := serializer.NewSerializerManager()
+	fakeSharedInformerFactory := informers.NewSharedInformerFactory(fake.NewSimpleClientset(), 0)
+	configManager := configuration.NewConfigurationManager("node1", fakeSharedInformerFactory)
+	cacheM := cachemanager.NewCacheManager(sWrapper, serializerM, nil, configManager)
+
+	fn := func() bool {
+		return false
+	}
+	lp := NewLocalProxy(cacheM, fn, 0)
+
+	testcases := map[string]struct {
+		verb string
+		path string
+		data string
+	}{
+		"post request without RequestInfo": {
+			verb: "POST",
+			path: "/api/v1/nodes/mynode",
+			data: "test",
+		},
+	}
+
+	for k, tt := range testcases {
+		t.Run(k, func(t *testing.T) {
+			req, _ := http.NewRequest(tt.verb, tt.path, bytes.NewBufferString(tt.data))
+			req.Header.Set("Content-Length", fmt.Sprintf("%d", len(tt.data)))
+			w := httptest.NewRecorder()
+
+			err := lp.localPost(w, req)
+
+			if err == nil {
+				t.Error("expected error when RequestInfo is nil, got nil")
 			}
 		})
 	}
