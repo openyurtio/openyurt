@@ -127,6 +127,55 @@ func TestUndoAppendConfig_Idempotent(t *testing.T) {
 	}
 }
 
+func TestUndoWriteYurthubKubeletConfig_FileNotExists(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "kubelet-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	op := NewKubeletOperator(tmpDir)
+
+	// When the config file doesn't exist, undoWriteYurthubKubeletConfig should return nil
+	err = op.undoWriteYurthubKubeletConfig()
+	if err != nil {
+		t.Errorf("undoWriteYurthubKubeletConfig() should return nil when file doesn't exist, got: %v", err)
+	}
+}
+
+func TestUndoWriteYurthubKubeletConfig_FileExists(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "kubelet-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	op := NewKubeletOperator(tmpDir)
+
+	// First create the config file
+	_, err = op.writeYurthubKubeletConfig()
+	if err != nil {
+		t.Fatalf("writeYurthubKubeletConfig() failed: %v", err)
+	}
+
+	// Verify file exists
+	fullPath := filepath.Join(tmpDir, constants.KubeletKubeConfigFileName)
+	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+		t.Fatal("Config file should exist after writeYurthubKubeletConfig()")
+	}
+
+	// Now undo should remove the file
+	err = op.undoWriteYurthubKubeletConfig()
+	if err != nil {
+		t.Errorf("undoWriteYurthubKubeletConfig() failed: %v", err)
+	}
+
+	// Verify file is removed
+	if _, err := os.Stat(fullPath); !os.IsNotExist(err) {
+		t.Error("Config file should be removed after undoWriteYurthubKubeletConfig()")
+	}
+}
+
 // contains is a helper function to check string containment
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
