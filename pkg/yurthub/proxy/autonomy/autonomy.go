@@ -108,7 +108,11 @@ func (ap *AutonomyProxy) updateNodeStatus(req *http.Request) (runtime.Object, er
 func (ap *AutonomyProxy) tryUpdateNodeConditions(tryNumber int, req *http.Request) (runtime.Object, error) {
 	var originalNode, updatedNode *v1.Node
 	var err error
-	info, _ := apirequest.RequestInfoFrom(req.Context())
+	info, ok := apirequest.RequestInfoFrom(req.Context())
+	if !ok || info == nil {
+		return nil, fmt.Errorf("failed to resolve request info")
+	}
+	nodeName := info.Name
 
 	if tryNumber == 0 {
 		// get from local cache
@@ -140,14 +144,14 @@ func (ap *AutonomyProxy) tryUpdateNodeConditions(tryNumber int, req *http.Reques
 		if tryNumber == 1 {
 			util.FromApiserverCache(&opts)
 		}
-		originalNode, err = client.CoreV1().Nodes().Get(context.TODO(), info.Name, opts)
+		originalNode, err = client.CoreV1().Nodes().Get(context.TODO(), nodeName, opts)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get node from cloud: %v", err)
 		}
 	}
 
 	if originalNode == nil {
-		return nil, fmt.Errorf("get nil node object: %s", info.Name)
+		return nil, fmt.Errorf("get nil node object: %s", nodeName)
 	}
 
 	changedNode, changed := ap.updateNodeConditions(originalNode)

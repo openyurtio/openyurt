@@ -19,6 +19,7 @@ package autonomy
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
@@ -189,5 +190,24 @@ func TestSetNodeAutonomyCondition(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestTryUpdateNodeConditionsWithNilRequestInfo(t *testing.T) {
+	ap := &AutonomyProxy{}
+
+	req, err := http.NewRequest("GET", "/", nil)
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+
+	obj, err := ap.tryUpdateNodeConditions(1, req)
+	if obj != nil {
+		t.Errorf("expected nil object when RequestInfo is nil, got %#v", obj)
+	}
+	if err == nil {
+		t.Error("expected error when RequestInfo is nil, got nil")
+	} else if !strings.Contains(err.Error(), "failed to resolve request info") {
+		t.Errorf("unexpected error message: %v", err)
 	}
 }
