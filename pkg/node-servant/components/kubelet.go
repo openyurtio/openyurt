@@ -51,32 +51,45 @@ func NewKubeletOperator(openyurtDir string) *kubeletOperator {
 
 // RedirectTrafficToYurtHub
 // add env config leads kubelet to visit yurtHub as apiServer
+// This function is idempotent: if kubelet is already redirected, it will not restart kubelet.
 func (op *kubeletOperator) RedirectTrafficToYurtHub() error {
 	// 1. create a working dir to store revised kubelet.conf
-	_, err := op.writeYurthubKubeletConfig()
+	configChanged, err := op.writeYurthubKubeletConfig()
 	if err != nil {
 		return err
 	}
 
 	// 2. append /var/lib/kubelet/kubeadm-flags.env
-	if err := op.appendConfig(); err != nil {
+	envChanged, err := op.appendConfig()
+	if err != nil {
 		return err
 	}
 
-	// 3. restart
-	return restartKubeletService()
+	// 3. restart only if configuration was actually changed
+	if configChanged || envChanged {
+		return restartKubeletService()
+	}
+
+	klog.Info("kubelet already configured to use YurtHub, skipping restart")
+	return nil
 }
 
 // UndoRedirectTrafficToYurtHub
 // undo what's done to kubelet and restart
-// to compatible the old convert way for a while , so do renameSvcBk
+// This function is idempotent: if kubelet is already using the original config, it will not restart kubelet.
 func (op *kubeletOperator) UndoRedirectTrafficToYurtHub() error {
-	if err := op.undoAppendConfig(); err != nil {
+	envChanged, err := op.undoAppendConfig()
+	if err != nil {
 		return err
 	}
 
-	if err := restartKubeletService(); err != nil {
-		return err
+	// Only restart kubelet if the environment config was actually changed
+	if envChanged {
+		if err := restartKubeletService(); err != nil {
+			return err
+		}
+	} else {
+		klog.Info("kubelet config already reverted, skipping restart")
 	}
 
 	if err := op.undoWriteYurthubKubeletConfig(); err != nil {
@@ -87,18 +100,28 @@ func (op *kubeletOperator) UndoRedirectTrafficToYurtHub() error {
 	return nil
 }
 
-func (op *kubeletOperator) writeYurthubKubeletConfig() (string, error) {
+// writeYurthubKubeletConfig writes the YurtHub kubelet config file.
+// Returns (changed, error) where changed indicates if the file content was actually modified.
+func (op *kubeletOperator) writeYurthubKubeletConfig() (bool, error) {
 	err := os.MkdirAll(op.openyurtDir, dirMode)
 	if err != nil {
-		return "", err
+		return false, err
 	}
 	fullPath := op.getYurthubKubeletConf()
+
+	// Check if file already exists with the correct content
+	existingContent, err := os.ReadFile(fullPath)
+	if err == nil && string(existingContent) == constants.KubeletConfForNode {
+		klog.Infof("kubeconfig %s already has correct content, skipping write", fullPath)
+		return false, nil
+	}
+
 	err = os.WriteFile(fullPath, []byte(constants.KubeletConfForNode), fileMode)
 	if err != nil {
-		return "", err
+		return false, err
 	}
 	klog.Infof("revised kubeconfig %s is generated", fullPath)
-	return fullPath, nil
+	return true, nil
 }
 
 func (op *kubeletOperator) undoWriteYurthubKubeletConfig() error {
@@ -110,54 +133,66 @@ func (op *kubeletOperator) undoWriteYurthubKubeletConfig() error {
 	return os.Remove(yurtKubeletConf)
 }
 
-func (op *kubeletOperator) appendConfig() error {
+// appendConfig appends the YurtHub kubeconfig setting to kubelet's kubeadm-flags.env.
+// Returns (changed, error) where changed indicates if the file was actually modified.
+func (op *kubeletOperator) appendConfig() (bool, error) {
 	// set env KUBELET_KUBEADM_ARGS, args set later will override before
 	// ExecStart: kubelet $KUBELET_KUBECONFIG_ARGS $KUBELET_CONFIG_ARGS $KUBELET_KUBEADM_ARGS $KUBELET_EXTRA_ARGS
 	// append setup: " --kubeconfig=$yurthubKubeletConf -bootstrap-kubeconfig= "
 	kubeConfigSetup := op.getAppendSetting()
 
-	// if wrote, return
+	// if already configured, return false (no change needed)
 	content, err := os.ReadFile(kubeAdmFlagsEnvFile)
 	if err != nil {
-		return err
+		return false, err
 	}
 	args := string(content)
 	if strings.Contains(args, kubeConfigSetup) {
-		klog.Info("kubeConfigSetup has wrote before")
-		return nil
+		klog.Info("kubeConfigSetup has been written before, no change needed")
+		return false, nil
 	}
 
 	// append KUBELET_KUBEADM_ARGS
 	argsRegexp := regexp.MustCompile(`KUBELET_KUBEADM_ARGS="(.+)"`)
 	finding := argsRegexp.FindStringSubmatch(args)
 	if len(finding) != 2 {
-		return fmt.Errorf("kubeadm-flags.env error format. %s", args)
+		return false, fmt.Errorf("kubeadm-flags.env error format. %s", args)
 	}
 
 	r := strings.Replace(args, finding[1], fmt.Sprintf("%s %s", finding[1], kubeConfigSetup), 1)
 	err = os.WriteFile(kubeAdmFlagsEnvFile, []byte(r), fileMode)
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	return nil
+	klog.Info("kubeConfigSetup has been appended to kubeadm-flags.env")
+	return true, nil
 }
 
-func (op *kubeletOperator) undoAppendConfig() error {
+// undoAppendConfig removes the YurtHub kubeconfig setting from kubelet's kubeadm-flags.env.
+// Returns (changed, error) where changed indicates if the file was actually modified.
+func (op *kubeletOperator) undoAppendConfig() (bool, error) {
 	kubeConfigSetup := op.getAppendSetting()
 	contentbyte, err := os.ReadFile(kubeAdmFlagsEnvFile)
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	content := strings.ReplaceAll(string(contentbyte), kubeConfigSetup, "")
+	originalContent := string(contentbyte)
+	// Check if the config is present before removing
+	if !strings.Contains(originalContent, kubeConfigSetup) {
+		klog.Info("revertKubelet: kubeConfigSetup not present, no change needed")
+		return false, nil
+	}
+
+	content := strings.ReplaceAll(originalContent, kubeConfigSetup, "")
 	err = os.WriteFile(kubeAdmFlagsEnvFile, []byte(content), fileMode)
 	if err != nil {
-		return err
+		return false, err
 	}
 	klog.Info("revertKubelet: undoAppendConfig finished")
 
-	return nil
+	return true, nil
 }
 
 func (op *kubeletOperator) getAppendSetting() string {
