@@ -41,7 +41,7 @@ jobs:
           publish_results: true
 
       - name: "Upload artifact"
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: my-artifact-${{ matrix.runs-on }}
           path: file-${{ matrix.runs-on }}.txt
