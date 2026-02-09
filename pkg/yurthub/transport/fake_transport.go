@@ -19,6 +19,7 @@ package transport
 import (
 	"net/http"
 	"net/url"
+	"sync"
 
 	"k8s.io/client-go/kubernetes"
 )
@@ -35,14 +36,21 @@ func (n *nopRoundTrip) RoundTrip(r *http.Request) (*http.Response, error) {
 }
 
 type fakeTransportManager struct {
-	nop               *nopRoundTrip
+	nop *nopRoundTrip
+
+	mu                sync.RWMutex
 	serverToClientset map[string]kubernetes.Interface
 }
 
 func NewFakeTransportManager(code int, fakeClients map[string]kubernetes.Interface) Interface {
+	serverToClientset := make(map[string]kubernetes.Interface, len(fakeClients))
+	for k, v := range fakeClients {
+		serverToClientset[k] = v
+	}
+
 	return &fakeTransportManager{
 		nop:               &nopRoundTrip{code: code},
-		serverToClientset: fakeClients,
+		serverToClientset: serverToClientset,
 	}
 }
 
@@ -57,21 +65,36 @@ func (f *fakeTransportManager) BearerTransport() http.RoundTripper {
 func (f *fakeTransportManager) Close(_ string) {}
 
 func (f *fakeTransportManager) GetDirectClientset(url *url.URL) kubernetes.Interface {
-	if url != nil {
-		return f.serverToClientset[url.String()]
+	if url == nil {
+		return nil
 	}
-	return nil
+
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	return f.serverToClientset[url.String()]
 }
 
 func (f *fakeTransportManager) GetDirectClientsetAtRandom() kubernetes.Interface {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
 	// iterating map uses random order
-	for server := range f.serverToClientset {
-		return f.serverToClientset[server]
+	for _, client := range f.serverToClientset {
+		return client
 	}
 
 	return nil
 }
 
 func (f *fakeTransportManager) ListDirectClientset() map[string]kubernetes.Interface {
-	return f.serverToClientset
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	serverToClientset := make(map[string]kubernetes.Interface, len(f.serverToClientset))
+	for k, v := range f.serverToClientset {
+		serverToClientset[k] = v
+	}
+
+	return serverToClientset
 }
