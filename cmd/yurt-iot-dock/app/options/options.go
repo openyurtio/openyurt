@@ -35,6 +35,7 @@ type YurtIoTDockOptions struct {
 	CoreMetadataAddr     string
 	CoreCommandAddr      string
 	EdgeSyncPeriod       uint
+	Platform             string
 }
 
 func NewYurtIoTDockOptions() *YurtIoTDockOptions {
@@ -49,12 +50,15 @@ func NewYurtIoTDockOptions() *YurtIoTDockOptions {
 		CoreMetadataAddr:     "edgex-core-metadata:59881",
 		CoreCommandAddr:      "edgex-core-command:59882",
 		EdgeSyncPeriod:       5,
+		Platform:             "edgex",
 	}
 }
 
 func ValidateOptions(options *YurtIoTDockOptions) error {
-	if err := ValidateEdgePlatformAddress(options); err != nil {
-		return err
+	if options.Platform == "edgex" {
+		if err := ValidateEdgePlatformAddress(options); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -70,6 +74,7 @@ func (o *YurtIoTDockOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.CoreMetadataAddr, "core-metadata-address", "edgex-core-metadata:59881", "The address of edge core-metadata service.")
 	fs.StringVar(&o.CoreCommandAddr, "core-command-address", "edgex-core-command:59882", "The address of edge core-command service.")
 	fs.UintVar(&o.EdgeSyncPeriod, "edge-sync-period", 5, "The period of the device management platform synchronizing the device status to the cloud.(in seconds,not less than 5 seconds)")
+	fs.StringVar(&o.Platform, "platform", o.Platform, "The IoT platform to connect to (default: edgex).")
 }
 
 func ValidateEdgePlatformAddress(options *YurtIoTDockOptions) error {
