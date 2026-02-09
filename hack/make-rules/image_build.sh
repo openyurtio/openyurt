@@ -72,7 +72,7 @@ fi
 # same user:group as the current user:group of host.
 docker run \
     --rm --name openyurt-build \
-    --mount type=bind,dst=/build/,src=${YURT_ROOT} \
+    --mount type=bind,dst=/build/,src=${YURT_ROOT},z \
     --workdir=/build/ \
     --env GOPROXY=${BUILD_GOPROXY} \
     --env GOOS=${TARGETOS} \
