@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	testcore "k8s.io/client-go/testing"
+	"k8s.io/client-go/util/flowcontrol"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 	kubeletapis "k8s.io/kubelet/pkg/apis"
@@ -3455,5 +3456,131 @@ func Test_isNodeExcludedFromDisruptionChecks(t *testing.T) {
 				t.Errorf("isNodeExcludedFromDisruptionChecks() = %v, want %v", result, tt.want)
 			}
 		})
+	}
+}
+
+// TestHandleDisruptionExitingFullDisruptionWithNilNodeHealth tests the scenario where
+// the controller exits full disruption mode and a node is not yet in the nodeHealthMap.
+// This can happen when tryUpdateNodeHealth failed for a node during previous iterations.
+func TestHandleDisruptionExitingFullDisruptionWithNilNodeHealth(t *testing.T) {
+	fakeNow := metav1.Date(2015, 1, 1, 12, 0, 0, 0, time.UTC)
+	zone := testutil.CreateZoneID("region1", "zone1")
+
+	// Create a node that will be in the nodes slice but NOT in nodeHealthMap
+	nodeWithoutHealthData := &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "node-without-health-data",
+			CreationTimestamp: fakeNow,
+			Labels: map[string]string{
+				v1.LabelTopologyRegion:          "region1",
+				v1.LabelTopologyZone:            "zone1",
+				v1.LabelFailureDomainBetaRegion: "region1",
+				v1.LabelFailureDomainBetaZone:   "zone1",
+			},
+		},
+		Status: v1.NodeStatus{
+			Conditions: []v1.NodeCondition{
+				{
+					Type:               v1.NodeReady,
+					Status:             v1.ConditionTrue,
+					LastHeartbeatTime:  fakeNow,
+					LastTransitionTime: fakeNow,
+				},
+			},
+		},
+	}
+
+	// Create a second node that WILL be in nodeHealthMap
+	nodeWithHealthData := &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "node-with-health-data",
+			CreationTimestamp: fakeNow,
+			Labels: map[string]string{
+				v1.LabelTopologyRegion:          "region1",
+				v1.LabelTopologyZone:            "zone1",
+				v1.LabelFailureDomainBetaRegion: "region1",
+				v1.LabelFailureDomainBetaZone:   "zone1",
+			},
+		},
+		Status: v1.NodeStatus{
+			Conditions: []v1.NodeCondition{
+				{
+					Type:               v1.NodeReady,
+					Status:             v1.ConditionTrue,
+					LastHeartbeatTime:  fakeNow,
+					LastTransitionTime: fakeNow,
+				},
+			},
+		},
+	}
+
+	nodes := []*v1.Node{nodeWithoutHealthData, nodeWithHealthData}
+
+	fakeNodeHandler := testutil.NewImprovedFakeNodeHandler(nodes, nil)
+	nodeController, _ := newNodeLifecycleControllerFromClient(
+		context.TODO(),
+		fakeNodeHandler,
+		testRateLimiterQPS,
+		testRateLimiterQPS,
+		testLargeClusterThreshold,
+		testUnhealthyThreshold,
+		testNodeMonitorGracePeriod,
+		testNodeStartupGracePeriod,
+		testNodeMonitorPeriod,
+	)
+	nodeController.now = func() metav1.Time { return fakeNow }
+
+	// Set up zone state to be in full disruption (allWasFullyDisrupted = true)
+	nodeController.zoneStates[zone] = stateFullDisruption
+
+	// Set up the rate limiter for the zone (required by setLimiterInZone)
+	nodeController.zoneNoExecuteTainter[zone] = scheduler.NewRateLimitedTimedQueue(
+		flowcontrol.NewTokenBucketRateLimiter(testRateLimiterQPS, scheduler.EvictionRateLimiterBurst))
+
+	// Only add health data for nodeWithHealthData, NOT for nodeWithoutHealthData
+	// This simulates the case where tryUpdateNodeHealth failed for nodeWithoutHealthData
+	nodeController.nodeHealthMap.set(nodeWithHealthData.Name, &nodeHealthData{
+		probeTimestamp:           fakeNow,
+		readyTransitionTimestamp: fakeNow,
+		status:                   &nodeWithHealthData.Status,
+	})
+
+	// zoneToNodeConditions that produces a normal state (allAreFullyDisrupted = false)
+	// Having at least one Ready=True node means the zone is not fully disrupted
+	zoneToNodeConditions := map[string][]*v1.NodeCondition{
+		zone: {
+			{Type: v1.NodeReady, Status: v1.ConditionTrue},  // node1
+			{Type: v1.NodeReady, Status: v1.ConditionTrue},  // node2
+		},
+	}
+
+	// Call handleDisruption - this should NOT panic even though nodeWithoutHealthData
+	// is not in the nodeHealthMap
+	nodeController.handleDisruption(context.TODO(), zoneToNodeConditions, nodes)
+
+	// Verify that health data was created for the node that didn't have it
+	healthData := nodeController.nodeHealthMap.getDeepCopy(nodeWithoutHealthData.Name)
+	if healthData == nil {
+		t.Fatal("expected node health data to be set for node-without-health-data, got nil")
+	}
+	if !healthData.probeTimestamp.Equal(&fakeNow) {
+		t.Errorf("expected probeTimestamp to be %v, got %v", fakeNow, healthData.probeTimestamp)
+	}
+	if !healthData.readyTransitionTimestamp.Equal(&fakeNow) {
+		t.Errorf("expected readyTransitionTimestamp to be %v, got %v", fakeNow, healthData.readyTransitionTimestamp)
+	}
+
+	// Verify that existing health data was also updated
+	existingHealthData := nodeController.nodeHealthMap.getDeepCopy(nodeWithHealthData.Name)
+	if existingHealthData == nil {
+		t.Fatal("expected node health data to still exist for node-with-health-data, got nil")
+	}
+	if !existingHealthData.probeTimestamp.Equal(&fakeNow) {
+		t.Errorf("expected probeTimestamp to be %v, got %v", fakeNow, existingHealthData.probeTimestamp)
+	}
+
+	// Verify zone state was updated from full disruption to normal
+	if nodeController.zoneStates[zone] != stateNormal {
+		t.Errorf("expected zone state to be %v, got %v", stateNormal, nodeController.zoneStates[zone])
 	}
 }

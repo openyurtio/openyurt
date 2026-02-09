@@ -1016,8 +1016,17 @@ func (nc *ReconcileNodeLifeCycle) handleDisruption(ctx context.Context, zoneToNo
 			now := nc.now()
 			for i := range nodes {
 				v := nc.nodeHealthMap.getDeepCopy(nodes[i].Name)
-				v.probeTimestamp = now
-				v.readyTransitionTimestamp = now
+				if v == nil {
+					// Node is not yet in the health map (e.g., tryUpdateNodeHealth failed for this node).
+					// Initialize with current timestamps to avoid nil pointer dereference.
+					v = &nodeHealthData{
+						probeTimestamp:           now,
+						readyTransitionTimestamp: now,
+					}
+				} else {
+					v.probeTimestamp = now
+					v.readyTransitionTimestamp = now
+				}
 				nc.nodeHealthMap.set(nodes[i].Name, v)
 			}
 			// We reset all rate limiters to settings appropriate for the given state.
