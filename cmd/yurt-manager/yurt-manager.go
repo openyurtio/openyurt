@@ -39,6 +39,7 @@ func main() {
 	defer klog.Flush()
 
 	if err := command.Execute(); err != nil {
+		klog.Errorf("yurt-manager failed: %v", err)
 		os.Exit(1)
 	}
 }
