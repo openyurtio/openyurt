@@ -104,6 +104,8 @@ const (
 	NodeLabels = "node-labels"
 	// NodeName flag sets the node name.
 	NodeName = "node-name"
+	// NodeIp flag sets the internal ip for worker node.
+	NodeIP = "node-ip"
 	// NodePoolName flag sets the nodePool name.
 	NodePoolName = "nodepool-name"
 	// NodeType flag sets the type of worker node to edge or cloud.
@@ -213,6 +215,9 @@ nodeRegistration:
 	{{- if .nodeLabels}}
     node-labels: {{.nodeLabels}}
     {{- end}}
+	{{- if .nodeIP}}
+    node-ip: {{.nodeIP}}
+    {{- end}}
     {{- if .networkPlugin}}
     network-plugin: {{.networkPlugin}}
     {{end}}
@@ -221,6 +226,49 @@ nodeRegistration:
     {{end}}
     {{- if .containerRuntimeEndpoint}}
     container-runtime-endpoint: {{.containerRuntimeEndpoint}}
+    {{end}}
+`
+
+	KubeadmJoinConfV1Beta4 = `
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: JoinConfiguration
+discovery:
+  file:
+    kubeConfigPath: {{.kubeConfigPath}}
+  tlsBootstrapToken: {{.tlsBootstrapToken}}
+nodeRegistration:
+  criSocket: {{.criSocket}}
+  name: {{.name}}
+  {{- if .ignorePreflightErrors}}
+  ignorePreflightErrors:
+    {{- range $index, $value := .ignorePreflightErrors}}
+    - {{$value}}
+    {{- end}}
+  {{- end}}
+  kubeletExtraArgs:
+    - name: rotate-certificates
+      value: "{{.rotateCertificates}}"
+    - name: pod-infra-container-image
+      value: {{.podInfraContainerImage}}
+    {{- if .nodeLabels}}
+    - name: node-labels
+      value: {{.nodeLabels}}
+    {{- end}}
+    {{- if .nodeIP}}
+    - name: node-ip
+      value: {{.nodeIP}}
+    {{- end}}
+    {{- if .networkPlugin}}
+    - name: network-plugin
+      value: {{.networkPlugin}}
+    {{end}}
+    {{- if .containerRuntime}}
+    - name: container-runtime
+      value: {{.containerRuntime}}
+    {{end}}
+    {{- if .containerRuntimeEndpoint}}
+    - name: container-runtime-endpoint
+      value: {{.containerRuntimeEndpoint}}
     {{end}}
 `
 
@@ -307,7 +355,13 @@ After=network.target
 Type=simple
 ExecStart=/usr/local/bin/yurthub
 Restart=always
+StartLimitInterval=0
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
 `
+
 	YurthubSyetmdServiceContent = `
 [Unit]
 Description=local mode yurthub is deployed in systemd
@@ -329,6 +383,6 @@ Environment="YURTHUB_BOOTSTRAP_ARGS=--bootstrap-file={{.bootstrapFile}}"
 Environment="YURTHUB_CONFIG_ARGS=--bind-address={{.bindAddress}} --working-mode={{.workingMode}} --namespace={{.namespace}}"
 Environment="YURTHUB_EXTRA_ARGS=--v=2"
 ExecStart=
-ExecStart=/usr/local/bin/yurthub --node-name={{.nodeName}}{{if .nodePoolName}} --nodepool-name={{.nodePoolName}}{{end}} --server-addr={{.serverAddr}} $YURTHUB_BOOTSTRAP_ARGS $YURTHUB_CONFIG_ARGS $YURTHUB_EXTRA_ARGS
+ExecStart=/usr/local/bin/yurthub --node-name={{.nodeName}}{{if .nodeIP}} --node-ip={{.nodeIP}}{{end}}{{if .nodePoolName}} --nodepool-name={{.nodePoolName}}{{end}} --server-addr={{.serverAddr}} $YURTHUB_BOOTSTRAP_ARGS $YURTHUB_CONFIG_ARGS $YURTHUB_EXTRA_ARGS
 `
 )

@@ -49,6 +49,7 @@ type joinOptions struct {
 	token                    string
 	nodeType                 string
 	nodeName                 string
+	nodeIP                   string
 	nodePoolName             string
 	criSocket                string
 	organizations            string
@@ -133,6 +134,10 @@ func addJoinConfigFlags(flagSet *flag.FlagSet, joinOptions *joinOptions) {
 	flagSet.StringVar(
 		&joinOptions.nodeName, yurtconstants.NodeName, joinOptions.nodeName,
 		`Specify the node name. if not specified, hostname will be used.`,
+	)
+	flagSet.StringVar(
+		&joinOptions.nodeIP, yurtconstants.NodeIP, joinOptions.nodeIP,
+		"Specify the node internal ip address. if unset, node's default IPv4 address will be used",
 	)
 	flagSet.StringVar(
 		&joinOptions.namespace, yurtconstants.Namespace, joinOptions.namespace,
@@ -245,6 +250,7 @@ type joinData struct {
 	yurthubManifest          string
 	kubernetesVersion        string
 	caCertHashes             []string
+	nodeIP                   string
 	nodeLabels               map[string]string
 	kubernetesResourceServer string
 	yurthubServer            string
@@ -331,6 +337,7 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 		yurthubServer:         opt.yurthubServer,
 		caCertHashes:          opt.caCertHashes,
 		organizations:         opt.organizations,
+		nodeIP:                opt.nodeIP,
 		nodeLabels:            make(map[string]string),
 		joinNodeData: &joindata.NodeRegistration{
 			Name:          name,
@@ -542,6 +549,10 @@ func (j *joinData) IgnorePreflightErrors() sets.Set[string] {
 
 func (j *joinData) CaCertHashes() []string {
 	return j.caCertHashes
+}
+
+func (j *joinData) NodeIP() string {
+	return j.nodeIP
 }
 
 func (j *joinData) NodeLabels() map[string]string {

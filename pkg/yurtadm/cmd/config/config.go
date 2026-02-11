@@ -104,10 +104,9 @@ func getDefaultNodeConfigBytes() (string, error) {
 		"criSocket":              constants.DefaultDockerCRISocket,
 		"name":                   name,
 		"networkPlugin":          "cni",
-		"apiVersion":             "kubeadm.k8s.io/v1beta3",
 	}
 
-	kubeadmJoinTemplate, err := templates.SubstituteTemplate(constants.KubeadmJoinConf, ctx)
+	kubeadmJoinTemplate, err := templates.SubstituteTemplate(constants.KubeadmJoinConfV1Beta4, ctx)
 	if err != nil {
 		return "", err
 	}
