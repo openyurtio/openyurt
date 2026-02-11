@@ -48,6 +48,11 @@ import (
 const (
 	originalNotReadyTolerationDurationAnnotation    = "apps.openyurt.io/original-not-ready-toleration-duration"
 	originalUnreachableTolerationDurationAnnotation = "apps.openyurt.io/original-unreachable-toleration-duration"
+
+	// infiniteTolerationValue is the annotation value used to indicate that the original
+	// TolerationSeconds was nil (meaning infinite/no timeout). This allows proper
+	// round-trip restoration when autonomy is disabled.
+	infiniteTolerationValue = "infinite"
 )
 
 var (
@@ -241,7 +246,13 @@ func (r *ReconcilePodBinding) reconcilePod(pod *corev1.Pod) error {
 					pod.Annotations = make(map[string]string)
 				}
 				if _, ok := pod.Annotations[TolerationKeyToAnnotation[pod.Spec.Tolerations[i].Key]]; !ok {
-					pod.Annotations[TolerationKeyToAnnotation[pod.Spec.Tolerations[i].Key]] = fmt.Sprintf("%d", *pod.Spec.Tolerations[i].TolerationSeconds)
+					// Store original TolerationSeconds value. If nil (infinite tolerance),
+					// store a sentinel value to enable proper restoration later.
+					if pod.Spec.Tolerations[i].TolerationSeconds != nil {
+						pod.Annotations[TolerationKeyToAnnotation[pod.Spec.Tolerations[i].Key]] = fmt.Sprintf("%d", *pod.Spec.Tolerations[i].TolerationSeconds)
+					} else {
+						pod.Annotations[TolerationKeyToAnnotation[pod.Spec.Tolerations[i].Key]] = infiniteTolerationValue
+					}
 				}
 				pod.Spec.Tolerations[i].TolerationSeconds = duration
 			}
@@ -252,11 +263,16 @@ func (r *ReconcilePodBinding) reconcilePod(pod *corev1.Pod) error {
 			if (pod.Spec.Tolerations[i].Key == corev1.TaintNodeNotReady || pod.Spec.Tolerations[i].Key == corev1.TaintNodeUnreachable) &&
 				(pod.Spec.Tolerations[i].Effect == corev1.TaintEffectNoExecute) {
 				if durationStr, ok := pod.Annotations[TolerationKeyToAnnotation[pod.Spec.Tolerations[i].Key]]; ok {
-					duration, err := strconv.ParseInt(durationStr, 10, 64)
-					if err != nil {
-						continue
+					// Handle restoration: if original was infinite, restore to nil
+					if durationStr == infiniteTolerationValue {
+						pod.Spec.Tolerations[i].TolerationSeconds = nil
+					} else {
+						duration, err := strconv.ParseInt(durationStr, 10, 64)
+						if err != nil {
+							continue
+						}
+						pod.Spec.Tolerations[i].TolerationSeconds = &duration
 					}
-					pod.Spec.Tolerations[i].TolerationSeconds = &duration
 				}
 			}
 		}
