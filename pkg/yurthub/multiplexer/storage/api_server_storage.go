@@ -107,3 +107,27 @@ func (rs *apiServerStorage) ReadinessCheck() error {
 func (rs *apiServerStorage) RequestWatchProgress(ctx context.Context) error {
 	return ErrNoSupport
 }
+
+// CompactRevision returns latest observed revision that was compacted.
+// This is required by storage.Interface in k8s v1.34+
+func (rs *apiServerStorage) CompactRevision() int64 {
+	return 0
+}
+
+// GetCurrentResourceVersion gets the current resource version from storage.
+// This is required by storage.Interface in k8s v1.34+
+func (rs *apiServerStorage) GetCurrentResourceVersion(ctx context.Context) (uint64, error) {
+	return 0, ErrNoSupport
+}
+
+// SetKeysFunc allows to override the function used to get keys from storage.
+// This is required by storage.Interface in k8s v1.34+
+func (rs *apiServerStorage) SetKeysFunc(storage.KeysFunc) {
+	// No-op for API server storage
+}
+
+// Stats returns storage statistics.
+// This is required by storage.Interface in k8s v1.34+
+func (rs *apiServerStorage) Stats(ctx context.Context) (storage.Stats, error) {
+	return storage.Stats{}, ErrNoSupport
+}

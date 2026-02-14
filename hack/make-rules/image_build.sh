@@ -70,9 +70,17 @@ fi
 # --user $(id -u ${USER}):$(id -g ${USER})
 # to enable the docker container to build binaries with the
 # same user:group as the current user:group of host.
+
+# Use bind-mount with SELinux relabel (,z) only when running under Podman,
+# as Docker's --mount syntax does not support the 'z' field.
+MOUNT_OPT="type=bind,dst=/build/,src=${YURT_ROOT}"
+if command -v podman &> /dev/null && docker --version 2>&1 | grep -qi podman; then
+    MOUNT_OPT="${MOUNT_OPT},z"
+fi
+
 docker run \
     --rm --name openyurt-build \
-    --mount type=bind,dst=/build/,src=${YURT_ROOT} \
+    --mount "${MOUNT_OPT}" \
     --workdir=/build/ \
     --env GOPROXY=${BUILD_GOPROXY} \
     --env GOOS=${TARGETOS} \

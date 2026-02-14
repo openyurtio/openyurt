@@ -448,7 +448,7 @@ func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platfor
 
 			for _, poolName := range platformAdmin.Spec.NodePools {
 				if slices.Contains(yas.Spec.Pools, poolName) {
-					if yas.Status.ReadyWorkloads == yas.Status.TotalWorkloads {
+					if yas.Status.TotalWorkloads > 0 && yas.Status.ReadyWorkloads == yas.Status.TotalWorkloads {
 						readyDeployment = true
 						if readyDeployment && readyService {
 							readyComponent++

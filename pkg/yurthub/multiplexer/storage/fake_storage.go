@@ -68,6 +68,30 @@ func (fs *CommonFakeStorage) RequestWatchProgress(ctx context.Context) error {
 	return nil
 }
 
+// CompactRevision returns latest observed revision that was compacted.
+// Required by storage.Interface in k8s v1.34+
+func (fs *CommonFakeStorage) CompactRevision() int64 {
+	return 0
+}
+
+// GetCurrentResourceVersion gets the current resource version from storage.
+// Required by storage.Interface in k8s v1.34+
+func (fs *CommonFakeStorage) GetCurrentResourceVersion(ctx context.Context) (uint64, error) {
+	return 0, nil
+}
+
+// SetKeysFunc allows to override the function used to get keys from storage.
+// Required by storage.Interface in k8s v1.34+
+func (fs *CommonFakeStorage) SetKeysFunc(storage.KeysFunc) {
+	// No-op for fake storage
+}
+
+// Stats returns storage statistics.
+// Required by storage.Interface in k8s v1.34+
+func (fs *CommonFakeStorage) Stats(ctx context.Context) (storage.Stats, error) {
+	return storage.Stats{}, nil
+}
+
 type FakeServiceStorage struct {
 	*CommonFakeStorage
 	items   []v1.Service
