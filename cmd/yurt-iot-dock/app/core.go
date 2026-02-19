@@ -118,11 +118,16 @@ func Run(opts *options.YurtIoTDockOptions, stopCh <-chan struct{}) {
 	}
 
 	// register the field indexers
-	setupLog.Info("[preflight] Registering the field indexers")
-	if err := util.RegisterFieldIndexers(mgr.GetFieldIndexer()); err != nil {
-		setupLog.Error(err, "could not register field indexers")
-		os.Exit(1)
+	if opts.SkipPreflightChecks {
+	    setupLog.Info("[preflight] Skipping field indexers registration")
+	} else {
+	    setupLog.Info("[preflight] Registering the field indexers")
+	    if err := util.RegisterFieldIndexers(mgr.GetFieldIndexer()); err != nil {
+	        setupLog.Error(err, "could not register field indexers")
+	        os.Exit(1)
+	    }
 	}
+
 	// get nodepool where yurt-iot-dock run
 	if opts.Nodepool == "" {
 		opts.Nodepool, err = util.GetNodePool(mgr.GetConfig())
