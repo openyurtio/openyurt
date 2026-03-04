@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -45,30 +46,34 @@ type resourceCacheConfig struct {
 func newResourceCache(
 	s kstorage.Interface,
 	resource *schema.GroupVersionResource,
-	config *resourceCacheConfig) (*cacher.Cacher, func(), error) {
+	config *resourceCacheConfig) (kstorage.Interface, func(), error) {
 
 	cacheConfig := cacher.Config{
-		Storage:       s,
-		Versioner:     kstorage.APIObjectVersioner{},
-		GroupResource: resource.GroupResource(),
-		KeyFunc:       config.KeyFunc,
-		NewFunc:       config.NewFunc,
-		NewListFunc:   config.NewListFunc,
-		GetAttrsFunc:  config.GetAttrsFunc,
-		Codec:         scheme.Codecs.LegacyCodec(resource.GroupVersion()),
+		Storage:             s,
+		Versioner:           kstorage.APIObjectVersioner{},
+		GroupResource:       resource.GroupResource(),
+		KeyFunc:             config.KeyFunc,
+		NewFunc:             config.NewFunc,
+		NewListFunc:         config.NewListFunc,
+		GetAttrsFunc:        config.GetAttrsFunc,
+		Codec:               scheme.Codecs.LegacyCodec(resource.GroupVersion()),
+		EventsHistoryWindow: 3 * time.Minute, // Required in k8s v1.34+
 	}
 
-	cacher, err := cacher.NewCacherFromConfig(cacheConfig)
+	c, err := cacher.NewCacherFromConfig(cacheConfig)
 	if err != nil {
 		return nil, func() {}, fmt.Errorf("failed to new cacher from config, error: %v", err)
 	}
 
+	// Wrap cacher with CacheDelegator to implement full storage.Interface
+	cacheDelegator := cacher.NewCacheDelegator(c, s)
+
 	var once sync.Once
 	destroyFunc := func() {
 		once.Do(func() {
-			cacher.Stop()
+			cacheDelegator.Stop()
 		})
 	}
 
-	return cacher, destroyFunc, nil
+	return cacheDelegator, destroyFunc, nil
 }

@@ -31,6 +31,7 @@ import (
 
 // Default satisfies the defaulting webhook interface.
 func (webhook *EndpointsHandler) Default(ctx context.Context, obj runtime.Object) error {
+	//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated but still supported for backward compatibility
 	endpoints, ok := obj.(*corev1.Endpoints)
 	if !ok {
 		apierrors.NewBadRequest(fmt.Sprintf("expected an Endpoints object but got %T", obj))
@@ -74,6 +75,8 @@ func isPodCrashLoopBackOff(ctx context.Context, c client.Client, podName, namesp
 // for the subsets scheduled to nodes that have autonomy annotations.
 // The function checks the pod status and if the pod is not in crashloopbackoff,
 // it remaps the address to readyAddresses.
+//
+//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated but still supported for backward compatibility
 func remapAutonomyEndpoints(ctx context.Context, client client.Client, endpoints *corev1.Endpoints) error {
 	// Track nodes with autonomy to avoid repeated checks
 	nodesWithAutonomy := make(map[string]bool)

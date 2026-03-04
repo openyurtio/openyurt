@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated but still supported for backward compatibility
 package config
 
 import (
@@ -126,6 +127,7 @@ func Complete(options *options.YurtHubOptions, stopCh <-chan struct{}) (*YurtHub
 			informer.SetTransform(pkgutil.TransformStripManagedFields())
 			return informer
 		}
+		//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated but still supported for backward compatibility
 		sharedFactory.InformerFor(&corev1.Endpoints{}, newEndpointsInformer)
 		cfg.SharedFactory = sharedFactory
 	case util.WorkingModeCloud, util.WorkingModeEdge:

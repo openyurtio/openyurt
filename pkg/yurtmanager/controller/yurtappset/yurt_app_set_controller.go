@@ -629,7 +629,7 @@ func (r *ReconcileYurtAppSet) conciliateYurtAppSetStatus(
 	readyWorkloads, updatedWorkloads := 0, 0
 	for _, workload := range curWorkloads {
 		workloadObj := workload.(*appsv1.Deployment)
-		if workloadObj.Status.ReadyReplicas == workloadObj.Status.Replicas {
+		if workloadObj.Status.Replicas > 0 && workloadObj.Status.ReadyReplicas == workloadObj.Status.Replicas {
 			readyWorkloads++
 		}
 		if workloadmanager.GetWorkloadHash(workloadObj) == expectedRevision.GetName() &&
