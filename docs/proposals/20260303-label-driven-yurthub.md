@@ -12,17 +12,19 @@
         * [Non-Goals/Future Work](#non-goalsfuture-work)
     * [Proposal](#proposal)
       * [Overall Architecture Design](#overall-architecture-design)
-      * [YurtHubInstallController Core Logic](#yurthubinstallcontroller-core-logic)
-        * [Controller Wiring and RBAC](#controller-wiring-and-rbac)
-        * [State Machine Workflow (Executable Rules)](#state-machine-workflow-executable-rules)
-      * [Node-Servant Installation and Uninstallation Extensions](#node-servant-installation-and-uninstallation-extensions)
+      * [Controller Surface](#controller-surface)
+      * [High-level Workflow](#high-level-workflow)
+      * [Installation Steps (node-servant install)](#installation-steps-node-servant-install)
+      * [Uninstallation Steps (node-servant uninstall)](#uninstallation-steps-node-servant-uninstall)
+      * [Configuration and State Model](#configuration-and-state-model)
+      * [Examples](#examples)
+      * [Compatibility and Risks](#compatibility-and-risks)
+    * [Alternatives](#alternatives)
     * [Implementation History](#implementation-history)
 <!-- TOC -->
 
 ## Summary
-OpenYurt's core edge node component, **YurtHub**, is primarily installed and deployed as a systemd service using the community-provided `yurtadm` tool when a node joins the cluster. Although migrating an existing standard Kubernetes node to an OpenYurt node can be achieved by manually configuring and pulling up YurtHub (e.g., manually adding `/etc/kubernetes/manifests/yurt-hub.yaml` to start it in StaticPod mode), this highly intrusive and tedious operation poses a significant hurdle to achieving smooth migration and automated lifecycle management of existing nodes in large-scale clusters.
-
-This proposal aims to introduce a **Label-Driven** declarative automated deployment mechanism. Users simply need to apply a specific label (e.g., `openyurt.io/is-edge-worker=true` along with a valid NodePool label) on the corresponding Kubernetes Node. The OpenYurt control plane (via a newly added Controller) will automatically listen for these changes and dispatch a privileged Job to schedule `node-servant`, automatically installing YurtHub as a Systemd Service on the corresponding Node. Conversely, when the label is removed, it automatically performs resource cleanup and uninstalls YurtHub.
+This proposal aims to introduce a **Label-Driven** declarative automated deployment mechanism aligned with the current systemd-based direction. Users simply need to apply a specific label (e.g., `openyurt.io/is-edge-worker=true` along with a valid NodePool label) on the corresponding Kubernetes Node. The OpenYurt control plane (via a newly added Controller) will automatically listen for these changes and dispatch a privileged Job to schedule `node-servant`, automatically installing YurtHub as a host-level systemd service on the corresponding Node. Conversely, when the label is removed, it automatically performs resource cleanup and uninstalls YurtHub.
 
 ## Motivation
 
@@ -43,93 +45,151 @@ This feature will greatly simplify the difficulty of migrating Kubernetes nodes 
 
 ### Non-Goals/Future Work
 1. This proposal currently focuses solely on **YurtHub component deployment and lifecycle management**. It does not currently involve transforming the dispatch and deployment logic of other OpenYurt core system components (like raven-agent, yurt-manager, etc.).
-2. The current scheme temporarily does not support dynamically generating and dispatching the Bootstrap Token required for node management by the Controller. The deployment phase will rely on externally configured or manually specified valid fixed Tokens. In future planning, deep integration with the Kubernetes API to automatically dispatch Tokens can be considered to further enhance security and usability.
+2. This proposal does not introduce controller-side token lifecycle management. The current install path reuses kubelet certificate bootstrap mode (`--bootstrap-mode=kubeletcertificate`) and does not add additional Bootstrap Token issuance/rotation logic.
 
 ## Proposal
 
 ### Overall Architecture Design
 This proposal adopts a **Controller + Job** approach to implement a task dispatch mechanism triggered by Labels.
 
-- **Control Plane (YurtManager)**: A new `YurtHubInstallController` is added to listen to all Node events with specific Labels and their corresponding Annotation updates. When a state change is required, it creates and dispatches a `node-servant-install/uninstall` Job in the `kube-system` Namespace.
-- **Target Node (Node)**: The deployed Job carries a NodeSelector/NodeName pointing to the target Node, and starts a privileged `node-servant` container on the node with HostNetwork/HostPID. This container mounts the host filesystem to write directly to `/usr/local/bin`, systemd service units, and related configurations, pulling it up as a host service.
+- **Control Plane (YurtManager)**: a new `YurtHubInstallController` watches Node and Job events. It determines whether a node should have YurtHub installed or uninstalled, and creates the corresponding `node-servant` Job in `kube-system`.
+- **Target Node (Node)**: the Job is pinned to the target node and runs a privileged `node-servant` container. It mounts host rootfs, installs or removes the `yurthub` binary and systemd files, and updates kubelet traffic redirection on the host.
+- **Execution Primitive (`node-servant`)**: `node-servant` is the node-side executor for privileged lifecycle actions. In this proposal it is responsible for the host-level `systemd + binary` installation path rather than Static Pod deployment.
 
-### YurtHubInstallController Core Logic
+**High-level End-to-End Flow:**
 
-#### Controller Wiring and RBAC
-The controller is wired into the `yurt-manager` control plane through the existing registration chain:
-1. Add a controller name/alias in `cmd/yurt-manager/names/controller_names.go`.
-2. Add controller configuration and options in `pkg/yurtmanager/controller/apis/config/types.go` and `cmd/yurt-manager/app/options/...`.
-3. Register the controller initializer in `pkg/yurtmanager/controller/base/controller.go`.
+```mermaid
+sequenceDiagram
+    participant Admin as Administrator
+    participant API as APIServer
+    participant Ctrl as YurtHubInstall<br/>Controller
+    participant Job as node-servant<br/>Job
+    participant Node as Target Node
 
-The controller requires the following core control permissions:
-- **Node (corev1)**: `get`, `list`, `watch`, `update`, `patch`
-- **Job (batchv1)**: `get`, `list`, `watch`, `create`, `update`, `patch`, `delete`
+    Admin->>API: 1. Label Node with is-edge-worker=true
+    API-->>Ctrl: 2. Watch event triggers Reconcile
+    Ctrl->>API: 3. Create install Job, set Node status=installing
+    API-->>Job: 4. Schedule Job on target Node
+    Job->>Node: 5. Install yurthub systemd service and redirect kubelet traffic
+    Job-->>API: 6. Report Job completion status
+    API-->>Ctrl: 7. Job event triggers Reconcile
+    Ctrl->>API: 8. Update Node status to installed or failed
 
-**Event Watch Strategy**:
-1. **Watch Node**:
-   - Listen for Node change events where the specific identity label `openyurt.io/is-edge-worker=true` is added or removed.
-   - Listen for changes to deployment status annotations, including:
-     - `openyurt.io/yurthub-install-status`
-     - `openyurt.io/yurthub-install-retry-count`
-     - `openyurt.io/yurthub-install-active-job`
-     - `openyurt.io/yurthub-install-locked`
-2. **Watch Job**:
-   - Listen for install/uninstall Jobs containing the label `openyurt.io/yurthub-install-node=<NodeName>`.
-   - Job results are mapped back to Node Reconcile to drive state transitions.
+    Note over Admin,Node: Uninstall: remove is-edge-worker label, symmetric flow
+```
 
-#### State Machine Workflow (Executable Rules)
-To ensure fault tolerance and traceability, the controller records state and execution metadata on Node annotations.
+### Controller Surface
 
-**State and metadata annotations**:
+The controller surface introduced by this proposal is intentionally small:
+
+- Watched objects: `Node` and `Job`
+- Node-side state: `openyurt.io/yurthub-install-status`, `openyurt.io/yurthub-install-job`, and `openyurt.io/yurthub-install-retry-count`
+- Required control-plane permissions: `Node` `get/list/watch/update/patch`; `Job` `get/list/watch/create/update/patch/delete`
+- Convergence principle: desired state comes from Node labels, observed progress comes from Node annotations plus Job status, and each reconcile round drives at most one install or uninstall Job for a given node
+
+### High-level Workflow
+
+1. The controller watches Node events relevant to YurtHub lifecycle and Job events belonging to YurtHub installation.
+2. Desired state is derived from Node labels, while current lifecycle state is recorded in Node annotations.
+3. If installation is needed, the controller validates prerequisites such as API server address and NodePool label, then creates an install Job and marks the Node as `installing`.
+4. If uninstallation is needed, the controller creates an uninstall Job and marks the Node as `uninstalling`.
+5. The Job runs `node-servant` on the target node, and `node-servant` performs host-level operations such as downloading `yurthub`, writing/removing systemd unit files, and switching kubelet traffic redirection.
+6. When the Job succeeds, the controller updates the Node to `installed` or `uninstalled`. When the Job fails, the controller enters a bounded retry flow with backoff, or leaves the Node in `failed` state for manual intervention after the retry limit is reached.
+
+### Installation Steps (node-servant install)
+
+The install Job mounts the host root filesystem (`/`) into the container at `/openyurt`. The entrypoint script copies `node-servant` to the host and executes it via `chroot /openyurt`, so all file writes and `systemctl` commands act directly on the host.
+
+1. **Download yurthub binary** — fetch the binary for the specified version from the default OSS URL or a custom URL provided by `--yurthub-install-binary-url`. Place it at `/usr/local/bin/yurthub` on the host.
+2. **Write systemd unit file** — render and write `yurthub.service` to `/etc/systemd/system/`.
+3. **Write systemd drop-in** — render `10-yurthub.conf` into `/etc/systemd/system/yurthub.service.d/`, injecting runtime parameters including:
+   - `--server-addr=https://<apiserver-addr>`
+   - `--bootstrap-mode=kubeletcertificate`
+   - `--working-mode=edge`
+   - `--nodepool-name=<pool>`
+4. **Enable and start the service** — execute `systemctl daemon-reload`, `systemctl enable yurthub.service`, and `systemctl start yurthub.service` on the host.
+5. **Redirect kubelet traffic** — modify the kubelet configuration so that API requests are redirected to YurtHub at `127.0.0.1:10261`, making YurtHub the transparent proxy between kubelet and the real API server.
+
+### Uninstallation Steps (node-servant uninstall)
+
+The uninstall Job uses the same host-mount and `chroot` approach as the install Job.
+
+1. **Restore kubelet traffic** — revert the kubelet configuration to point directly at the original API server address, removing the YurtHub proxy redirect. This is done first to minimize disruption.
+2. **Stop and disable the service** — execute `systemctl stop yurthub.service` and `systemctl disable yurthub.service`. If the service is already `not loaded` or `not found`, the error is ignored (idempotent).
+3. **Remove systemd files** — delete the unit file and drop-in directory, then run `systemctl daemon-reload`.
+4. **Remove binary and bootstrap config** — delete `/usr/local/bin/yurthub` and related bootstrap configuration files.
+5. **Optional data cleanup** — if the `--clean-data` flag is set, also remove the YurtHub data and cache directory.
+
+### Configuration and State Model
+
+**Required inputs**
+
+- Edge label: `openyurt.io/is-edge-worker=true`
+- NodePool label: `apps.openyurt.io/nodepool=<pool-name>`
+- Controller flag: `--yurthub-install-server-addr`
+
+**Optional inputs**
+
+- `--yurthub-install-version`
+- `--yurthub-install-binary-url`
+- `--yurthub-install-node-servant-image`
+
+**Node annotations**
+
 - `openyurt.io/yurthub-install-status`: `installing`, `installed`, `uninstalling`, `uninstalled`, `failed`
-- `openyurt.io/yurthub-install-last-action`: `install` or `uninstall`
-- `openyurt.io/yurthub-install-active-job`: current active Job name
-- `openyurt.io/yurthub-install-retry-count`: integer retry counter
-- `openyurt.io/yurthub-install-locked`: `true` or `false`
-- `openyurt.io/yurthub-install-lock-reason`: e.g. `max-retries-exceeded`
+- `openyurt.io/yurthub-install-job`: current Job name, for example `node-servant-install-<node>`
+- `openyurt.io/yurthub-install-retry-count`: consecutive failure retry counter
 
-**Workflow rules (state machine)**:
-1. **Precheck and lock gate**:
-   - If `openyurt.io/yurthub-install-locked=true`, do not create new Jobs.
-   - Unlock is manual: operators clear `locked/lock-reason` and reset `retry-count` after remediation.
-   - If `wantInstall=true` but `apps.openyurt.io/nodepool` is missing, mark `status=failed`, `last-action=install`, and set a failure reason. No install Job is created until the NodePool label appears.
-2. **Active Job processing**:
-   - If `active-job` exists and the Job is still running, requeue and wait.
-   - If Job succeeds:
-     - `last-action=install` -> set `status=installed`
-     - `last-action=uninstall` -> set `status=uninstalled`
-     - clear `active-job` and reset `retry-count`
-   - If Job fails:
-     - set `status=failed`
-     - clear `active-job`
-     - increment `retry-count`
-     - if `retry-count >= maxRetry` (default 3), set `locked=true` and `lock-reason=max-retries-exceeded`
-3. **Desired-state convergence (only when no active Job and not locked)**:
-   - If `wantInstall=true` and `status!=installed`, create an Install Job and set `status=installing`, `last-action=install`, `active-job=<jobName>`.
-   - If `wantInstall=false` and `status` is not `""`/`uninstalled`, create an Uninstall Job and set `status=uninstalling`, `last-action=uninstall`, `active-job=<jobName>`.
-4. **Backoff and retry**:
-   - Retry only when `status=failed`, `locked=false`, and `retry-count < maxRetry`.
-   - Use bounded backoff (example: 30s -> 60s -> 120s).
-5. **Label flapping**:
-   - Running Jobs are not interrupted.
-   - If the edge-worker label flips during `installing`/`uninstalling`, the controller waits for current Job completion, then runs the next reconcile based on desired state.
-   - Per-node execution remains serial by design: at most one active Job is tracked in `openyurt.io/yurthub-install-active-job`.
+**Job identity**
 
-### Node-Servant Installation and Uninstallation Extensions
-Using `node-servant` as the edge operative executor, providing `install` and `uninstall` CLI support.
-**Installation Workflow**:
-Inside the container, mount the host root directory (`/`) to `/openyurt`, and write various resources to their host paths:
-1. Download a specified version of the `yurthub` binary.
-2. Construct the `bootstrap-hub.conf` file to inject authentication parameters.
-3. Render configurations and generate the `yurthub.service` and its `10-yurthub.conf` parameter-injected Systemd Unit, writing them to the host.
-4. Call `nsenter --mount=/proc/1/ns/mnt -- systemctl daemon-reload`, then `enable yurthub.service`, then `start yurthub.service` under the privileged container to manage the host service layer.
-5. Transfer the Server API redirect in the node's Kubelet configuration to `127.0.0.1:10261`, meaning all requests sent to the APIServer are forcibly routed to YurtHub.
+- Install Job name: `node-servant-install-<node>`
+- Uninstall Job name: `node-servant-uninstall-<node>`
+- Shared Job label: `openyurt.io/yurthub-install-node=<NodeName>`
+- Finished Jobs use `ttlSecondsAfterFinished: 7200`
 
-**Uninstallation Workflow**:
-1. Top priority is to rollback and restore the ApiServer proxy address configuration in the Kubelet.
-2. Likewise, use `nsenter` to directly stop and disable the corresponding Service on the host. If the system prompts that the service itself is `not loaded` or `not found`, this phase's error is skipped over directly.
-3. Clear various resource paths previously created and persisted via `node-servant`.
-4. Determine whether to simultaneously remove historical residual resources and caches generated by the YurtHub working state according to the trusted `--clean-data` directive.
+### Examples
+
+**Example 1: label a node for installation**
+
+```yaml
+apiVersion: v1
+kind: Node
+metadata:
+  name: node-1
+  labels:
+    openyurt.io/is-edge-worker: "true"
+    apps.openyurt.io/nodepool: edge-pool
+```
+
+**Example 2: key part of the install Job command**
+
+```yaml
+args:
+  - "/usr/local/bin/entry.sh install --server-addr=10.0.0.1:6443 --yurthub-version=v1.6.1 --working-mode=edge --node-name=node-1 --namespace=kube-system --nodepool-name=edge-pool"
+```
+
+**Example 3: yurt-manager flags**
+
+```bash
+yurt-manager \
+  --controllers=*,yurthubinstall \
+  --yurthub-install-server-addr=10.0.0.1:6443 \
+  --yurthub-install-version=v1.6.1 \
+  --yurthub-install-node-servant-image=openyurt/node-servant:latest
+```
+
+If a custom binary source is needed, `--yurthub-install-binary-url=http://<server>/yurthub` can be provided as well.
+
+### Compatibility and Risks
+
+- This proposal targets the `systemd + host binary` installation path as the primary and preferred workflow.
+- Static Pod templates, YurtStaticSet assets, and legacy compatibility paths still exist in the repository, but automatic migration from a Static Pod deployment to a systemd deployment is out of scope for this proposal.
+- The install/uninstall Job requires privileged execution, host rootfs access, and a usable host systemd environment. Nodes that do not satisfy these assumptions are not supported by this mechanism.
+- Retry is intentionally bounded. After the retry limit is reached, manual intervention is required to resolve the node-side issue.
+
+## Alternatives
+
+1. Continue using manual node-side installation. This keeps the implementation simple but does not provide a declarative or scalable lifecycle for existing-node migration.
+2. Continue centering YurtHub installation on Static Pod deployment. Static Pod assets are still available, but the current OpenYurt mainline and new controller-driven lifecycle both target systemd host services, so this proposal follows that direction instead.
 
 ## Implementation History
-- [x] 03/03/2026: Proposed idea based on implementation document.
