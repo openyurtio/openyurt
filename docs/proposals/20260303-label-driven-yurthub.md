@@ -14,8 +14,8 @@
       * [Overall Architecture Design](#overall-architecture-design)
       * [Controller Surface](#controller-surface)
       * [High-level Workflow](#high-level-workflow)
-      * [Installation Steps (node-servant install)](#installation-steps-node-servant-install)
-      * [Uninstallation Steps (node-servant uninstall)](#uninstallation-steps-node-servant-uninstall)
+      * [Conversion Steps (node-servant convert)](#conversion-steps-node-servant-convert)
+      * [Revert Steps (node-servant revert)](#revert-steps-node-servant-revert)
       * [Configuration and State Model](#configuration-and-state-model)
       * [Examples](#examples)
       * [Compatibility and Risks](#compatibility-and-risks)
@@ -37,7 +37,7 @@ To improve user experience, reduce integration costs, and enhance the framework'
 This feature will greatly simplify the difficulty of migrating Kubernetes nodes in edge environments into the OpenYurt ecosystem.
 
 ### Goals
-1. **Design Controller**: Design and implement an Operator/Controller (namely `YurtHubInstallController`) that watches Node Labels, triggering and managing the YurtHub lifecycle on target edge nodes.
+1. **Design Controller**: Design and implement an Operator/Controller (namely `YurtNodeConversionController`) that watches Node Labels, triggering and managing the YurtHub lifecycle on target edge nodes.
 2. **Implement Privileged Installation and Uninstallation Operations**:
    - Relying on the existing `node-servant` component, add and complete installation and uninstallation capabilities for the Systemd-based YurtHub binary.
    - Implement the takeover and rollback of Kubelet traffic proxy configurations before and after deployment.
@@ -52,7 +52,7 @@ This feature will greatly simplify the difficulty of migrating Kubernetes nodes 
 ### Overall Architecture Design
 This proposal adopts a **Controller + Job** approach to implement a task dispatch mechanism triggered by Labels.
 
-- **Control Plane (YurtManager)**: a new `YurtHubInstallController` watches Node and Job events. It determines whether a node should have YurtHub installed or uninstalled, and creates the corresponding `node-servant` Job in `kube-system`.
+- **Control Plane (YurtManager)**: a new `YurtNodeConversionController` watches Node and Job events. It determines whether a node should have YurtHub installed or uninstalled, and creates the corresponding `node-servant` Job in `kube-system`.
 - **Target Node (Node)**: the Job is pinned to the target node and runs a privileged `node-servant` container. It mounts host rootfs, installs or removes the `yurthub` binary and systemd files, and updates kubelet traffic redirection on the host.
 - **Execution Primitive (`node-servant`)**: `node-servant` is the node-side executor for privileged lifecycle actions. In this proposal it is responsible for the host-level `systemd + binary` installation path rather than Static Pod deployment.
 
@@ -62,20 +62,20 @@ This proposal adopts a **Controller + Job** approach to implement a task dispatc
 sequenceDiagram
     participant Admin as Administrator
     participant API as APIServer
-    participant Ctrl as YurtHubInstall<br/>Controller
+    participant Ctrl as YurtNodeConversion<br/>Controller
     participant Job as node-servant<br/>Job
     participant Node as Target Node
 
     Admin->>API: 1. Label Node with is-edge-worker=true
     API-->>Ctrl: 2. Watch event triggers Reconcile
-    Ctrl->>API: 3. Create install Job, set Node status=installing
+    Ctrl->>API: 3. Create conversion Job (convert), set Node status=converting
     API-->>Job: 4. Schedule Job on target Node
     Job->>Node: 5. Install yurthub systemd service and redirect kubelet traffic
     Job-->>API: 6. Report Job completion status
     API-->>Ctrl: 7. Job event triggers Reconcile
-    Ctrl->>API: 8. Update Node status to installed or failed
+    Ctrl->>API: 8. Update Node status to converted or failed
 
-    Note over Admin,Node: Uninstall: remove is-edge-worker label, symmetric flow
+    Note over Admin,Node: Revert: remove is-edge-worker label, same Job name with subcommand revert
 ```
 
 ### Controller Surface
@@ -85,34 +85,34 @@ The controller surface introduced by this proposal is intentionally small:
 - Watched objects: `Node` and `Job`
 - Node-side state: `openyurt.io/yurthub-install-status`, `openyurt.io/yurthub-install-job`, and `openyurt.io/yurthub-install-retry-count`
 - Required control-plane permissions: `Node` `get/list/watch/update/patch`; `Job` `get/list/watch/create/update/patch/delete`
-- Convergence principle: desired state comes from Node labels, observed progress comes from Node annotations plus Job status, and each reconcile round drives at most one install or uninstall Job for a given node
+- Convergence principle: desired state comes from Node labels, observed progress comes from Node annotations plus Job status, and each reconcile round drives at most one conversion Job for a given node
 
 ### High-level Workflow
 
-1. The controller watches Node events relevant to YurtHub lifecycle and Job events belonging to YurtHub installation.
+1. The controller watches Node events relevant to YurtHub lifecycle and Job events belonging to node conversion.
 2. Desired state is derived from Node labels, while current lifecycle state is recorded in Node annotations.
-3. If installation is needed, the controller validates prerequisites such as API server address and NodePool label, then creates an install Job and marks the Node as `installing`.
-4. If uninstallation is needed, the controller creates an uninstall Job and marks the Node as `uninstalling`.
+3. If conversion is needed, the controller validates prerequisites such as API server address and NodePool label, then creates a conversion Job (`node-servant-conversion-<node>` with subcommand `convert`) and marks the Node as `converting`.
+4. If reversion is needed, the controller creates the same-named Job with subcommand `revert` and marks the Node as `reverting`.
 5. The Job runs `node-servant` on the target node, and `node-servant` performs host-level operations such as downloading `yurthub`, writing/removing systemd unit files, and switching kubelet traffic redirection.
-6. When the Job succeeds, the controller updates the Node to `installed` or `uninstalled`. When the Job fails, the controller enters a bounded retry flow with backoff, or leaves the Node in `failed` state for manual intervention after the retry limit is reached.
+6. When the Job succeeds, the controller updates the Node to `converted` or `reverted`. When the Job fails, the controller enters a bounded retry flow with backoff, or leaves the Node in `failed` state for manual intervention after the retry limit is reached.
 
-### Installation Steps (node-servant install)
+### Conversion Steps (node-servant convert)
 
-The install Job mounts the host root filesystem (`/`) into the container at `/openyurt`. The entrypoint script copies `node-servant` to the host and executes it via `chroot /openyurt`, so all file writes and `systemctl` commands act directly on the host.
+The conversion Job mounts the host root filesystem (`/`) into the container at `/openyurt`. The entrypoint script copies `node-servant` to the host and executes it via `chroot /openyurt`, so all file writes and `systemctl` commands act directly on the host.
 
-1. **Download yurthub binary** — fetch the binary for the specified version from the default OSS URL or a custom URL provided by `--yurthub-install-binary-url`. Place it at `/usr/local/bin/yurthub` on the host.
+1. **Download yurthub binary** — fetch the binary for the specified version from the default OSS URL or a custom URL provided by `--yurthub-binary-url`. Place it at `/usr/local/bin/yurthub` on the host.
 2. **Write systemd unit file** — render and write `yurthub.service` to `/etc/systemd/system/`.
 3. **Write systemd drop-in** — render `10-yurthub.conf` into `/etc/systemd/system/yurthub.service.d/`, injecting runtime parameters including:
-   - `--server-addr=https://<apiserver-addr>`
+   - `--server-addr=https://<apiserver-addr>` (auto-discovered from kubelet config)
    - `--bootstrap-mode=kubeletcertificate`
    - `--working-mode=edge`
    - `--nodepool-name=<pool>`
 4. **Enable and start the service** — execute `systemctl daemon-reload`, `systemctl enable yurthub.service`, and `systemctl start yurthub.service` on the host.
 5. **Redirect kubelet traffic** — modify the kubelet configuration so that API requests are redirected to YurtHub at `127.0.0.1:10261`, making YurtHub the transparent proxy between kubelet and the real API server.
 
-### Uninstallation Steps (node-servant uninstall)
+### Revert Steps (node-servant revert)
 
-The uninstall Job uses the same host-mount and `chroot` approach as the install Job.
+The revert Job uses the same host-mount and `chroot` approach as the conversion Job.
 
 1. **Restore kubelet traffic** — revert the kubelet configuration to point directly at the original API server address, removing the YurtHub proxy redirect. This is done first to minimize disruption.
 2. **Stop and disable the service** — execute `systemctl stop yurthub.service` and `systemctl disable yurthub.service`. If the service is already `not loaded` or `not found`, the error is ignored (idempotent).
@@ -126,25 +126,23 @@ The uninstall Job uses the same host-mount and `chroot` approach as the install 
 
 - Edge label: `openyurt.io/is-edge-worker=true`
 - NodePool label: `apps.openyurt.io/nodepool=<pool-name>`
-- Controller flag: `--yurthub-install-server-addr`
 
 **Optional inputs**
 
-- `--yurthub-install-version`
-- `--yurthub-install-binary-url`
-- `--yurthub-install-node-servant-image`
+- `--yurthub-version`
+- `--yurthub-binary-url`
 
 **Node annotations**
 
-- `openyurt.io/yurthub-install-status`: `installing`, `installed`, `uninstalling`, `uninstalled`, `failed`
-- `openyurt.io/yurthub-install-job`: current Job name, for example `node-servant-install-<node>`
+- `openyurt.io/yurthub-install-status`: `converting`, `converted`, `reverting`, `reverted`, `failed`
+- `openyurt.io/yurthub-install-job`: current Job name, for example `node-servant-conversion-<node>`
 - `openyurt.io/yurthub-install-retry-count`: consecutive failure retry counter
 
 **Job identity**
 
-- Install Job name: `node-servant-install-<node>`
-- Uninstall Job name: `node-servant-uninstall-<node>`
-- Shared Job label: `openyurt.io/yurthub-install-node=<NodeName>`
+- Unified Job name: `node-servant-conversion-<node>` (same name for both directions)
+- Subcommand: `convert` or `revert`
+- Job label: `openyurt.io/conversion-node=<NodeName>`
 - Finished Jobs use `ttlSecondsAfterFinished: 7200`
 
 ### Examples
@@ -161,24 +159,25 @@ metadata:
     apps.openyurt.io/nodepool: edge-pool
 ```
 
-**Example 2: key part of the install Job command**
+**Example 2: key part of the conversion Job command**
 
 ```yaml
 args:
-  - "/usr/local/bin/entry.sh install --server-addr=10.0.0.1:6443 --yurthub-version=v1.6.1 --working-mode=edge --node-name=node-1 --namespace=kube-system --nodepool-name=edge-pool"
+  - "/usr/local/bin/entry.sh convert --yurthub-version=v1.6.1 --working-mode=edge --node-name=node-1 --namespace=kube-system --nodepool-name=edge-pool"
 ```
+
+> Note: `--server-addr` is omitted from the Job command. `node-servant` discovers the API server address at runtime by parsing the kubelet configuration on the host.
+> For reversion, the same Job name is used with subcommand `revert` instead.
 
 **Example 3: yurt-manager flags**
 
 ```bash
 yurt-manager \
-  --controllers=*,yurthubinstall \
-  --yurthub-install-server-addr=10.0.0.1:6443 \
-  --yurthub-install-version=v1.6.1 \
-  --yurthub-install-node-servant-image=openyurt/node-servant:latest
+  --controllers=*,yurtnodeconversion \
+  --yurthub-version=v1.6.1 \
 ```
 
-If a custom binary source is needed, `--yurthub-install-binary-url=http://<server>/yurthub` can be provided as well.
+If a custom binary source is needed, `--yurthub-binary-url=http://<server>/yurthub` can be provided as well.
 
 ### Compatibility and Risks
 
