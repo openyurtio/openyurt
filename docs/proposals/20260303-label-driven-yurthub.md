@@ -24,24 +24,25 @@
 <!-- TOC -->
 
 ## Summary
-This proposal aims to introduce a **Label-Driven** declarative automated deployment mechanism aligned with the current systemd-based direction. Users simply need to apply a specific label (e.g., `openyurt.io/is-edge-worker=true` along with a valid NodePool label) on the corresponding Kubernetes Node. The OpenYurt control plane (via a newly added Controller) will automatically listen for these changes and dispatch a privileged Job to schedule `node-servant`, automatically installing YurtHub as a host-level systemd service on the corresponding Node. Conversely, when the label is removed, it automatically performs resource cleanup and uninstalls YurtHub.
+This proposal introduces a **Label-Driven** declarative mechanism for automated YurtHub deployment. Users simply apply a NodePool label (`apps.openyurt.io/nodepool=<pool-name>`) on a Kubernetes Node to trigger conversion. The `YurtNodeConversionController` watches this label, orchestrates a privileged `node-servant` Job to install YurtHub as a host-level systemd service, and upon success sets `openyurt.io/is-edge-worker=true` as the source of truth for the node's OpenYurt membership.
 
 ## Motivation
 
 Currently, YurtHub operates as a transparent proxy between all edge node system components (such as kubelet, CNI, CoreDNS, kube-proxy) and the Kubernetes API Server. However, in practical applications, users often expect to smoothly and seamlessly integrate their existing standard Kubernetes nodes into the OpenYurt control plane. Relying on manual intervention to configure the node environment (like writing StaticPod configurations or configuring systemd) not only significantly increases O&M costs but also easily leads to service disruptions due to misconfigurations.
 
-To improve user experience, reduce integration costs, and enhance the framework's flexibility, the community wishes to support on-demand automated installation and uninstallation driven by Labels:
-1. **Automated Installation**: When any Node in the cluster is assigned an edge attribute label (e.g., `openyurt.io/is-edge-worker=true`), the YurtHub system components should be automatically pulled up and started on that node.
-2. **Graceful Uninstallation**: When the label is removed, YurtHub should be safely and orderly stopped, disabled, and its related dependency configurations cleaned up to avoid environmental pollution.
+To improve user experience, reduce integration costs, and enhance the framework's flexibility, the community wishes to support on-demand automated conversion and reversion driven by Labels:
+1. **Automated Conversion**: When any Node in the cluster is assigned a NodePool label (`apps.openyurt.io/nodepool=<pool-name>`), the YurtHub system components should be automatically installed and started on that node, and the node should be marked as an OpenYurt-managed edge worker.
+2. **Graceful Reversion**: When the NodePool label is removed, YurtHub should be safely and orderly stopped, disabled, and its related dependency configurations cleaned up. The edge-worker label is removed accordingly.
 
 This feature will greatly simplify the difficulty of migrating Kubernetes nodes in edge environments into the OpenYurt ecosystem.
 
 ### Goals
 1. **Design Controller**: Design and implement an Operator/Controller (namely `YurtNodeConversionController`) that watches Node Labels, triggering and managing the YurtHub lifecycle on target edge nodes.
-2. **Implement Privileged Installation and Uninstallation Operations**:
-   - Relying on the existing `node-servant` component, add and complete installation and uninstallation capabilities for the Systemd-based YurtHub binary.
+2. **Implement Privileged Conversion and Reversion Operations**:
+   - Relying on the existing `node-servant` component, add and complete conversion and reversion capabilities for the Systemd-based YurtHub binary installation and uninstallation.
    - Implement the takeover and rollback of Kubelet traffic proxy configurations before and after deployment.
-   - Ensure the installation process possesses Idempotency, as well as automatic retry and graceful exit capabilities in case of errors.
+   - Ensure the conversion process possesses Idempotency, as well as automatic retry and graceful exit capabilities in case of errors.
+3. **Transparent Traffic Interception**: Transparently intercept existing Pod traffic to the API Server. The primary approach for this in the current scope is to restart non-pause containers on the node after a successful conversion.
 
 ### Non-Goals/Future Work
 1. This proposal currently focuses solely on **YurtHub component deployment and lifecycle management**. It does not currently involve transforming the dispatch and deployment logic of other OpenYurt core system components (like raven-agent, yurt-manager, etc.).
@@ -52,7 +53,7 @@ This feature will greatly simplify the difficulty of migrating Kubernetes nodes 
 ### Overall Architecture Design
 This proposal adopts a **Controller + Job** approach to implement a task dispatch mechanism triggered by Labels.
 
-- **Control Plane (YurtManager)**: a new `YurtNodeConversionController` watches Node and Job events. It determines whether a node should have YurtHub installed or uninstalled, and creates the corresponding `node-servant` Job in `kube-system`.
+- **Control Plane (YurtManager)**: a new `YurtNodeConversionController` watches Node and Job events. It determines whether a node should be converted or reverted based on the presence of the NodePool label, and creates the corresponding `node-servant` Job in `kube-system`.
 - **Target Node (Node)**: the Job is pinned to the target node and runs a privileged `node-servant` container. It mounts host rootfs, installs or removes the `yurthub` binary and systemd files, and updates kubelet traffic redirection on the host.
 - **Execution Primitive (`node-servant`)**: `node-servant` is the node-side executor for privileged lifecycle actions. In this proposal it is responsible for the host-level `systemd + binary` installation path rather than Static Pod deployment.
 
@@ -66,16 +67,18 @@ sequenceDiagram
     participant Job as node-servant<br/>Job
     participant Node as Target Node
 
-    Admin->>API: 1. Label Node with is-edge-worker=true
+    Admin->>API: 1. Label Node with apps.openyurt.io/nodepool=<pool>
     API-->>Ctrl: 2. Watch event triggers Reconcile
-    Ctrl->>API: 3. Create conversion Job (convert), set Node status=converting
-    API-->>Job: 4. Schedule Job on target Node
-    Job->>Node: 5. Install yurthub systemd service and redirect kubelet traffic
-    Job-->>API: 6. Report Job completion status
-    API-->>Ctrl: 7. Job event triggers Reconcile
-    Ctrl->>API: 8. Update Node status to converted or failed
+    Ctrl->>API: 3. Cordon Node, set Condition YurtNodeConversionFailed=Converting
+    Ctrl->>API: 4. Create conversion Job (convert)
+    API-->>Job: 5. Schedule Job on target Node
+    Job->>Node: 6. Install yurthub systemd service and redirect kubelet traffic
+    Job-->>API: 7. Report Job completion status
+    API-->>Ctrl: 8. Job event triggers Reconcile
+    Ctrl->>API: 9. Add is-edge-worker=true label, restart non-pause containers
+    Ctrl->>API: 10. Uncordon Node, set Condition YurtNodeConversionFailed=Converted
 
-    Note over Admin,Node: Revert: remove is-edge-worker label, same Job name with subcommand revert
+    Note over Admin,Node: Revert: remove nodepool label → symmetric flow with revert subcommand
 ```
 
 ### Controller Surface
@@ -83,18 +86,28 @@ sequenceDiagram
 The controller surface introduced by this proposal is intentionally small:
 
 - Watched objects: `Node` and `Job`
-- Node-side state: `openyurt.io/yurthub-install-status`, `openyurt.io/yurthub-install-job`, and `openyurt.io/yurthub-install-retry-count`
-- Required control-plane permissions: `Node` `get/list/watch/update/patch`; `Job` `get/list/watch/create/update/patch/delete`
-- Convergence principle: desired state comes from Node labels, observed progress comes from Node annotations plus Job status, and each reconcile round drives at most one conversion Job for a given node
+- Trigger label: `apps.openyurt.io/nodepool=<pool-name>` (user-managed, add-only or remove-only, no in-place modification)
+- Source-of-truth label: `openyurt.io/is-edge-worker=true` (controller-managed; only `YurtNodeConversionController` and the node certificate process are allowed to modify this label)
+- Node status: reported via a Node Condition `YurtNodeConversionFailed` (type), with `reason` indicating the current phase
+- Required control-plane permissions: `Node` `get/list/watch/update/patch`; `Job` `get/list/watch/create/update/patch/delete`; `Pod` `list/delete` (for container restart)
+- Convergence principle: desired state comes from the NodePool label, observed progress comes from the Node Condition plus Job status, and each reconcile round drives at most one conversion Job for a given node
 
 ### High-level Workflow
 
-1. The controller watches Node events relevant to YurtHub lifecycle and Job events belonging to node conversion.
-2. Desired state is derived from Node labels, while current lifecycle state is recorded in Node annotations.
-3. If conversion is needed, the controller validates prerequisites such as API server address and NodePool label, then creates a conversion Job (`node-servant-conversion-<node>` with subcommand `convert`) and marks the Node as `converting`.
-4. If reversion is needed, the controller creates the same-named Job with subcommand `revert` and marks the Node as `reverting`.
-5. The Job runs `node-servant` on the target node, and `node-servant` performs host-level operations such as downloading `yurthub`, writing/removing systemd unit files, and switching kubelet traffic redirection.
-6. When the Job succeeds, the controller updates the Node to `converted` or `reverted`. When the Job fails, the controller enters a bounded retry flow with backoff, or leaves the Node in `failed` state for manual intervention after the retry limit is reached.
+1. The controller watches Node events (NodePool label changes) and Job events belonging to node conversion.
+2. **Desired state** is derived from the NodePool label: present → the node should be converted; absent → the node should be reverted.
+3. **Conversion flow**:
+   - The controller cordons the node (sets `spec.unschedulable=true`) to prevent new pods from being scheduled during conversion.
+   - It sets a Node Condition: `type=YurtNodeConversionFailed, status=False, reason=Converting`.
+   - It creates a conversion Job (`node-servant-conversion-<node>` with subcommand `convert`).
+   - When the Job succeeds, the controller adds the `openyurt.io/is-edge-worker=true` label, restarts non-pause containers on the node (so that the new `KUBERNETES_SERVICE_HOST` env is injected by kubelet through YurtHub), uncordons the node, and sets the Condition reason to `Converted`.
+   - When the Job fails (exceeds `backoffLimit`), the controller uncordons the node and sets the Condition reason to `ConvertFailed`. Manual intervention is required.
+4. **Revert flow**:
+   - The controller cordons the node.
+   - It sets the Condition reason to `Reverting` with `status=False`.
+   - It creates the same-named Job with subcommand `revert`.
+   - When the Job succeeds, the controller removes the `openyurt.io/is-edge-worker=true` label, restarts non-pause containers on the node (to restore original InClusterConfig env pointing to the real API Server), uncordons the node, and sets the Condition status/reason to `False/Reverted`.
+   - When the Job fails, the controller uncordons the node and sets the Condition reason to `RevertFailed`. Manual intervention is required.
 
 ### Conversion Steps (node-servant convert)
 
@@ -108,7 +121,7 @@ The conversion Job mounts the host root filesystem (`/`) into the container at `
    - `--working-mode=edge`
    - `--nodepool-name=<pool>`
 4. **Enable and start the service** — execute `systemctl daemon-reload`, `systemctl enable yurthub.service`, and `systemctl start yurthub.service` on the host.
-5. **Redirect kubelet traffic** — modify the kubelet configuration so that API requests are redirected to YurtHub at `127.0.0.1:10261`, making YurtHub the transparent proxy between kubelet and the real API server.
+5. **Redirect kubelet traffic and restart containers** — modify the kubelet configuration so that API requests are redirected to YurtHub at `127.0.0.1:10261`, making YurtHub the transparent proxy between kubelet and the real API server. Then restart all non-pause containers on the node.
 
 ### Revert Steps (node-servant revert)
 
@@ -118,36 +131,64 @@ The revert Job uses the same host-mount and `chroot` approach as the conversion 
 2. **Stop and disable the service** — execute `systemctl stop yurthub.service` and `systemctl disable yurthub.service`. If the service is already `not loaded` or `not found`, the error is ignored (idempotent).
 3. **Remove systemd files** — delete the unit file and drop-in directory, then run `systemctl daemon-reload`.
 4. **Remove binary and bootstrap config** — delete `/usr/local/bin/yurthub` and related bootstrap configuration files.
-5. **Optional data cleanup** — if the `--clean-data` flag is set, also remove the YurtHub data and cache directory.
+5. **Optional data cleanup and restart containers** — remove the YurtHub data and cache directory. Then restart all non-pause containers on the node.
 
 ### Configuration and State Model
 
-**Required inputs**
+**User-facing trigger**
 
-- Edge label: `openyurt.io/is-edge-worker=true`
-- NodePool label: `apps.openyurt.io/nodepool=<pool-name>`
+- Add NodePool label: `apps.openyurt.io/nodepool=<pool-name>` → triggers conversion
+- Remove NodePool label → triggers reversion
+- Users must not modify the NodePool label value in-place; they should remove and re-add if a change is needed
 
-**Optional inputs**
+**Controller-managed labels**
 
-- `--yurthub-version`
-- `--yurthub-binary-url`
+- `openyurt.io/is-edge-worker=true`: added by the controller after successful conversion, removed after successful reversion. This label serves as the **source of truth** for whether a node is under OpenYurt management. Write access to this label is restricted to `YurtNodeConversionController` and the node certificate process.
 
-**Node annotations**
+**Node Condition**
 
-- `openyurt.io/yurthub-install-status`: `converting`, `converted`, `reverting`, `reverted`, `failed`
-- `openyurt.io/yurthub-install-job`: current Job name, for example `node-servant-conversion-<node>`
-- `openyurt.io/yurthub-install-retry-count`: consecutive failure retry counter
+The conversion lifecycle is reported via a standard Kubernetes Node Condition:
 
-**Job identity**
+| Condition Type | Status | Reason        | Meaning |
+| -------------- | -----: | ------------- | ------- |
+| YurtNodeConversionFailed |  False | Converting    | Conversion Job is running |
+| YurtNodeConversionFailed |  False | Converted     | Conversion succeeded, node is an edge worker |
+| YurtNodeConversionFailed |  False | Reverting     | Revert Job is running |
+| YurtNodeConversionFailed |  False | Reverted      | Revert succeeded, node is a plain K8s node |
+| YurtNodeConversionFailed |  True  | ConvertFailed | Convert Job failed, manual intervention required |
+| YurtNodeConversionFailed |  True  | RevertFailed  | Revert Job failed, manual intervention required |
+
+**Node scheduling**
+
+- During conversion or reversion, the node is **cordoned** (`spec.unschedulable=true`).
+- Upon reaching any terminal state (success or failure), the node is automatically **uncordoned**.
+
+**Container restart for transparent traffic proxy**
+
+After a successful conversion or reversion, the controller restarts all non-pause containers on the node, this allows them to be recreated so that their environment variables are updated (`KUBERNETES_SERVICE_HOST` either pointing to YurtHub after conversion, or restored to the real API Server after reversion).
+
+**Job configuration**
 
 - Unified Job name: `node-servant-conversion-<node>` (same name for both directions)
 - Subcommand: `convert` or `revert`
 - Job label: `openyurt.io/conversion-node=<NodeName>`
+- Retry: handled by Job's built-in `backoffLimit` (default: 3).
 - Finished Jobs use `ttlSecondsAfterFinished: 7200`
+
+**Optional yurt-manager flags**
+
+- `--yurthub-version`
+- `--yurthub-binary-url`
 
 ### Examples
 
-**Example 1: label a node for installation**
+**Example 1: trigger conversion by adding a NodePool label**
+
+```bash
+kubectl label node node-1 apps.openyurt.io/nodepool=edge-pool
+```
+
+After controller reconciliation completes, the node will have:
 
 ```yaml
 apiVersion: v1
@@ -155,11 +196,23 @@ kind: Node
 metadata:
   name: node-1
   labels:
-    openyurt.io/is-edge-worker: "true"
     apps.openyurt.io/nodepool: edge-pool
+    openyurt.io/is-edge-worker: "true"        # added by controller
+status:
+  conditions:
+    - type: YurtNodeConversionFailed
+      status: "False"
+      reason: Converted
+      message: "YurtHub installed and node converted successfully"
 ```
 
-**Example 2: key part of the conversion Job command**
+**Example 2: trigger reversion by removing the NodePool label**
+
+```bash
+kubectl label node node-1 apps.openyurt.io/nodepool-
+```
+
+**Example 3: key part of the conversion Job command**
 
 ```yaml
 args:
@@ -169,22 +222,28 @@ args:
 > Note: `--server-addr` is omitted from the Job command. `node-servant` discovers the API server address at runtime by parsing the kubelet configuration on the host.
 > For reversion, the same Job name is used with subcommand `revert` instead.
 
-**Example 3: yurt-manager flags**
+**Example 4: yurt-manager flags**
 
 ```bash
 yurt-manager \
   --controllers=*,yurtnodeconversion \
-  --yurthub-version=v1.6.1 \
+  --yurthub-version=v1.6.1
 ```
 
 If a custom binary source is needed, `--yurthub-binary-url=http://<server>/yurthub` can be provided as well.
 
 ### Compatibility and Risks
 
-- This proposal targets the `systemd + host binary` installation path as the primary and preferred workflow.
-- Static Pod templates, YurtStaticSet assets, and legacy compatibility paths still exist in the repository, but automatic migration from a Static Pod deployment to a systemd deployment is out of scope for this proposal.
-- The install/uninstall Job requires privileged execution, host rootfs access, and a usable host systemd environment. Nodes that do not satisfy these assumptions are not supported by this mechanism.
-- Retry is intentionally bounded. After the retry limit is reached, manual intervention is required to resolve the node-side issue.
+> [!WARNING]
+> **Operational Impact on User Workloads during Conversion:**
+> 1. **Node Cordoning**: The node is cordoned (`spec.unschedulable=true`) throughout the conversion/reversion process. New pods cannot be scheduled to this node during this time.
+> 2. **Container Restart**: To update the `KUBERNETES_SERVICE_HOST` environment variable for existing workloads (pointing to YurtHub during conversion, or restoring it during reversion), the controller will explicitly restart all non-pause containers on the node upon success.
+
+- **Stateful Workloads**: Workloads with strict scheduling requirements (e.g., single-replica StatefulSets without PodDisruptionBudgets) should be reviewed before conversion, as the forceful pod deletion might cause service downtime.
+- **Bare Pods**: Pods without an owning controller (bare Pods created directly) will be permanently deleted and **not** automatically recreated. Users must ensure no critical bare pods exist on the target node before applying the NodePool label.
+- **Installation Path**: This proposal targets the `systemd + host binary` installation path as the primary and preferred workflow. Static Pod templates and legacy compatibility paths still exist, but automatic migration from a Static Pod deployment to a systemd deployment is out of scope.
+- **Node Requirements**: The conversion Job requires privileged execution, host rootfs access, and a usable host systemd environment. Nodes that do not satisfy these assumptions are not supported by this mechanism.
+- **Protected Status Label**: The `openyurt.io/is-edge-worker` label is treated as a protected label. Only the `YurtNodeConversionController` and the node certificate process should write to it. Admission webhooks or RBAC policies should be configured to enforce this restriction.
 
 ## Alternatives
 
