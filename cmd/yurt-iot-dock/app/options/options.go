@@ -35,6 +35,7 @@ type YurtIoTDockOptions struct {
 	CoreMetadataAddr     string
 	CoreCommandAddr      string
 	EdgeSyncPeriod       uint
+	SkipPreflightChecks bool
 }
 
 func NewYurtIoTDockOptions() *YurtIoTDockOptions {
@@ -70,6 +71,7 @@ func (o *YurtIoTDockOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.CoreMetadataAddr, "core-metadata-address", "edgex-core-metadata:59881", "The address of edge core-metadata service.")
 	fs.StringVar(&o.CoreCommandAddr, "core-command-address", "edgex-core-command:59882", "The address of edge core-command service.")
 	fs.UintVar(&o.EdgeSyncPeriod, "edge-sync-period", 5, "The period of the device management platform synchronizing the device status to the cloud.(in seconds,not less than 5 seconds)")
+	fs.BoolVar(&o.SkipPreflightChecks, "skip-preflight-checks", false,"If true, skip preflight checks during startup.")
 }
 
 func ValidateEdgePlatformAddress(options *YurtIoTDockOptions) error {
