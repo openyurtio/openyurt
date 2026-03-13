@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
 	utilnet "k8s.io/apimachinery/pkg/util/net"
@@ -65,6 +66,7 @@ type transportAndClientManager struct {
 	closeAll          func()
 	close             func(string)
 	stopCh            <-chan struct{}
+	mu                sync.RWMutex
 	serverToClientset map[string]kubernetes.Interface
 }
 
@@ -104,16 +106,7 @@ func NewTransportAndClientManager(servers []*url.URL, timeout int, certGetter Ce
 		DialContext:         d.DialContext,
 	})
 
-	tcm := &transportAndClientManager{
-		currentTransport:  t,
-		bearerTransport:   bt,
-		certGetter:        certGetter,
-		closeAll:          d.CloseAll,
-		close:             d.Close,
-		stopCh:            stopCh,
-		serverToClientset: make(map[string]kubernetes.Interface),
-	}
-
+	serverToClientset := make(map[string]kubernetes.Interface)
 	for i := range servers {
 		config := &rest.Config{
 			Host:      servers[i].String(),
@@ -127,8 +120,18 @@ func NewTransportAndClientManager(servers []*url.URL, timeout int, certGetter Ce
 		}
 
 		if len(servers[i].String()) != 0 {
-			tcm.serverToClientset[servers[i].String()] = clientset
+			serverToClientset[servers[i].String()] = clientset
 		}
+	}
+
+	tcm := &transportAndClientManager{
+		currentTransport:  t,
+		bearerTransport:   bt,
+		certGetter:        certGetter,
+		closeAll:          d.CloseAll,
+		close:             d.Close,
+		stopCh:            stopCh,
+		serverToClientset: serverToClientset,
 	}
 
 	tcm.start()
@@ -149,23 +152,38 @@ func (tcm *transportAndClientManager) Close(address string) {
 }
 
 func (tcm *transportAndClientManager) GetDirectClientset(url *url.URL) kubernetes.Interface {
-	if url != nil {
-		return tcm.serverToClientset[url.String()]
+	if url == nil {
+		return nil
 	}
-	return nil
+
+	tcm.mu.RLock()
+	defer tcm.mu.RUnlock()
+
+	return tcm.serverToClientset[url.String()]
 }
 
 func (tcm *transportAndClientManager) GetDirectClientsetAtRandom() kubernetes.Interface {
+	tcm.mu.RLock()
+	defer tcm.mu.RUnlock()
+
 	// iterating map uses random order
-	for server := range tcm.serverToClientset {
-		return tcm.serverToClientset[server]
+	for _, client := range tcm.serverToClientset {
+		return client
 	}
 
 	return nil
 }
 
 func (tcm *transportAndClientManager) ListDirectClientset() map[string]kubernetes.Interface {
-	return tcm.serverToClientset
+	tcm.mu.RLock()
+	defer tcm.mu.RUnlock()
+
+	serverToClientset := make(map[string]kubernetes.Interface, len(tcm.serverToClientset))
+	for k, v := range tcm.serverToClientset {
+		serverToClientset[k] = v
+	}
+
+	return serverToClientset
 }
 
 func (tcm *transportAndClientManager) start() {
