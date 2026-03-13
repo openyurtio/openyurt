@@ -38,6 +38,7 @@ import (
 	endpointsliceconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/servicetopology/endpointslice/config"
 	yurtappsetconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappset/config"
 	podbindingconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtcoordinator/podbinding/config"
+	yurthubinstallerconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurthubinstaller/config"
 	yurtstaticsetconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtstaticset/config"
 )
 
@@ -102,6 +103,9 @@ type YurtManagerConfiguration struct {
 
 	// HubLeaderRBACController holds configuration for HubLeaderRBAC related features.
 	HubLeaderRBACController hubleaderrbacconfig.HubLeaderRBACControllerConfiguration
+
+	// YurtHubInstallerController holds configuration for YurtHubInstaller related features.
+	YurtHubInstallerController yurthubinstallerconfig.YurtHubInstallerControllerConfiguration
 }
 
 type GenericConfiguration struct {
