@@ -125,28 +125,25 @@ func (op *yurtHubOperator) UnInstall() error {
 	// 2. remove yurt-hub config directory and certificates in it
 	yurthubConf := getYurthubConf()
 	if _, err := enutil.FileExists(yurthubConf); os.IsNotExist(err) {
-		klog.Infof("UnInstallYurthub: dir %s is not exists, skip delete", yurthubConf)
-		return nil
+		klog.Infof("UnInstallYurthub: dir %s does not exist, skip delete", yurthubConf)
+	} else {
+		if err := os.RemoveAll(yurthubConf); err != nil {
+			return err
+		}
+		klog.Infof("UnInstallYurthub: config dir %s has been removed", yurthubConf)
 	}
-	err := os.RemoveAll(yurthubConf)
-	if err != nil {
-		return err
-	}
-	klog.Infof("UnInstallYurthub: config dir %s  has been removed", yurthubConf)
 
 	// 3. remove yurthub cache dir
 	// since k8s may takes a while to notice and remove yurthub pod, we have to wait for that.
 	// because, if we delete dir before yurthub exit, yurthub may recreate cache/kubelet dir before exit.
-	err = waitUntilYurthubExit(time.Duration(60)*time.Second, time.Duration(1)*time.Second)
-	if err != nil {
+	if err := waitUntilYurthubExit(time.Duration(60)*time.Second, time.Duration(1)*time.Second); err != nil {
 		return err
 	}
 	cacheDir := getYurthubCacheDir()
-	err = os.RemoveAll(cacheDir)
-	if err != nil {
+	if err := os.RemoveAll(cacheDir); err != nil {
 		return err
 	}
-	klog.Infof("UnInstallYurthub: cache dir %s  has been removed", cacheDir)
+	klog.Infof("UnInstallYurthub: cache dir %s has been removed", cacheDir)
 
 	return nil
 }
