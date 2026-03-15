@@ -70,16 +70,17 @@ func RunPrepare(data joindata.YurtJoinData) error {
 	}
 
 	if data.NodeRegistration().WorkingMode != constants.LocalNode {
+		yurthubCfg := yurthub.NewYurthubHostConfigFromJoinData(data)
 		if err := yurtadmutil.SetKubeletConfigForNode(); err != nil {
 			return err
 		}
 		if err := yurthub.SetHubBootstrapConfig(data.ServerAddr(), data.JoinToken(), data.CaCertHashes()); err != nil {
 			return err
 		}
-		if err := yurthub.CheckAndInstallYurthub(constants.YurthubVersion); err != nil {
+		if err := yurthub.CheckAndInstallYurthubWithConfig(yurthubCfg); err != nil {
 			return err
 		}
-		if err := yurthub.CreateYurthubSystemdService(data); err != nil {
+		if err := yurthub.CreateYurthubSystemdServiceWithConfig(yurthubCfg); err != nil {
 			return err
 		}
 		if err := yurtadmutil.SetDiscoveryConfig(data); err != nil {

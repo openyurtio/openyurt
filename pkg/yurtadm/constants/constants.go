@@ -323,7 +323,7 @@ WantedBy=multi-user.target
 `
 
 	YurtHubUnitConfig = `[Service]
-Environment="YURTHUB_BOOTSTRAP_ARGS=--bootstrap-file={{.bootstrapFile}}"
+Environment="YURTHUB_BOOTSTRAP_ARGS={{.bootstrapArgs}}"
 Environment="YURTHUB_CONFIG_ARGS=--bind-address={{.bindAddress}} --working-mode={{.workingMode}} --namespace={{.namespace}}"
 Environment="YURTHUB_EXTRA_ARGS=--v=2"
 ExecStart=
