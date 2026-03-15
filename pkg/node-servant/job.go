@@ -18,6 +18,7 @@ package node_servant
 
 import (
 	"fmt"
+	"strings"
 
 	batchv1 "k8s.io/api/batch/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
@@ -25,6 +26,12 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 
 	tmplutil "github.com/openyurtio/openyurt/pkg/util/templates"
+	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
+)
+
+const (
+	workingModeFlag    = "working-mode"
+	yurthubVersionFlag = "yurthub-version"
 )
 
 // RenderNodeServantJob return k8s job
@@ -38,19 +45,20 @@ func RenderNodeServantJob(action string, renderCtx map[string]string, nodeName s
 		return nil, err
 	}
 
-	var servantJobTemplate, jobBaseName string
-	switch action {
-	case "convert":
-		servantJobTemplate = ConvertServantJobTemplate
-		jobBaseName = ConvertJobNameBase
-	case "revert":
-		servantJobTemplate = RevertServantJobTemplate
-		jobBaseName = RevertJobNameBase
+	servantCommand, err := buildServantCommand(action, tmplCtx, nodeName)
+	if err != nil {
+		return nil, err
 	}
 
-	tmplCtx["jobName"] = jobBaseName + "-" + nodeName
+	tmplCtx["backoffLimit"] = fmt.Sprintf("%d", DefaultConversionJobBackoffLimit)
+	tmplCtx["conversionNodeLabelKey"] = ConversionNodeLabelKey
+	tmplCtx["jobName"] = ConversionJobNameBase + "-" + nodeName
+	tmplCtx["jobNamespace"] = defaultConversionJobNamespace
 	tmplCtx["nodeName"] = nodeName
-	jobYaml, err := tmplutil.SubstituteTemplate(servantJobTemplate, tmplCtx)
+	tmplCtx["servantCommand"] = servantCommand
+	tmplCtx["ttlSecondsAfterFinished"] = fmt.Sprintf("%d", DefaultConversionJobTTLSecondsAfterFinished)
+
+	jobYaml, err := tmplutil.SubstituteTemplate(ServantJobTemplate, tmplCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -84,14 +92,47 @@ func validate(action string, tmplCtx map[string]string, nodeName string) error {
 
 	switch action {
 	case "convert":
-		keysMustHave := []string{"node_servant_image", "joinToken"}
+		keysMustHave := []string{"nodeServantImage", "nodePoolName"}
 		return checkKeys(keysMustHave, tmplCtx)
 	case "revert":
-		keysMustHave := []string{"node_servant_image"}
+		keysMustHave := []string{"nodeServantImage"}
 		return checkKeys(keysMustHave, tmplCtx)
 	default:
 		return fmt.Errorf("action invalid: %s ", action)
 	}
+}
+
+func buildServantCommand(action string, tmplCtx map[string]string, nodeName string) (string, error) {
+	switch action {
+	case "convert":
+		return buildConvertCommand(tmplCtx, nodeName), nil
+	case "revert":
+		return "revert", nil
+	default:
+		return "", fmt.Errorf("action invalid: %s ", action)
+	}
+}
+
+func buildConvertCommand(tmplCtx map[string]string, nodeName string) string {
+	args := []string{
+		"convert",
+		fmt.Sprintf("--%s=%s", constants.NodeName, nodeName),
+		fmt.Sprintf("--%s=%s", constants.Namespace, valueOrDefault(tmplCtx["namespace"], defaultConversionJobNamespace)),
+		fmt.Sprintf("--%s=%s", workingModeFlag, valueOrDefault(tmplCtx["workingMode"], defaultWorkingMode)),
+		fmt.Sprintf("--%s=%s", constants.NodePoolName, tmplCtx["nodePoolName"]),
+	}
+
+	if kubeadmConfPath := tmplCtx["kubeadmConfPath"]; kubeadmConfPath != "" {
+		args = append(args, fmt.Sprintf("--kubeadm-conf-path=%s", kubeadmConfPath))
+	}
+	if yurthubBinaryURL := tmplCtx["yurthubBinaryURL"]; yurthubBinaryURL != "" {
+		args = append(args, fmt.Sprintf("--%s=%s", constants.YurtHubBinaryUrl, yurthubBinaryURL))
+	}
+	if yurthubVersion := tmplCtx["yurthubVersion"]; yurthubVersion != "" {
+		args = append(args, fmt.Sprintf("--%s=%s", yurthubVersionFlag, yurthubVersion))
+	}
+
+	return strings.Join(args, " ")
 }
 
 func checkKeys(arr []string, tmplCtx map[string]string) error {
@@ -101,4 +142,12 @@ func checkKeys(arr []string, tmplCtx map[string]string) error {
 		}
 	}
 	return nil
+}
+
+func valueOrDefault(value, defaultValue string) string {
+	if value == "" {
+		return defaultValue
+	}
+
+	return value
 }
