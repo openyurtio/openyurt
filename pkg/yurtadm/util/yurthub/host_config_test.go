@@ -148,6 +148,7 @@ func TestCleanYurthubHostArtifacts(t *testing.T) {
 		yurthubServiceConfFilePath,
 		yurthubBootstrapConfigPath,
 		filepath.Join(yurthubWorkDirPath, "cache"),
+		filepath.Join(yurthubCacheDirPath, "meta"),
 	}
 	for _, path := range paths {
 		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
@@ -167,6 +168,7 @@ func TestCleanYurthubHostArtifacts(t *testing.T) {
 		yurthubServiceFilePath,
 		filepath.Dir(yurthubServiceConfFilePath),
 		yurthubWorkDirPath,
+		yurthubCacheDirPath,
 	} {
 		_, err := os.Stat(path)
 		assert.True(t, os.IsNotExist(err), "expected %s to be removed", path)

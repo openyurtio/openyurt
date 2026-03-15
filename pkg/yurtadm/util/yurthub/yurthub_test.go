@@ -378,12 +378,14 @@ func useTempYurthubHostPaths(t *testing.T) string {
 	oldServiceFilePath := yurthubServiceFilePath
 	oldServiceConfFilePath := yurthubServiceConfFilePath
 	oldWorkDirPath := yurthubWorkDirPath
+	oldCacheDirPath := yurthubCacheDirPath
 
 	yurthubBootstrapConfigPath = filepath.Join(tempDir, "var", "lib", "yurthub", "bootstrap-hub.conf")
 	yurthubExecStartPath = filepath.Join(tempDir, "usr", "local", "bin", "yurthub")
 	yurthubServiceFilePath = filepath.Join(tempDir, "etc", "systemd", "system", "yurthub.service")
 	yurthubServiceConfFilePath = filepath.Join(tempDir, "etc", "systemd", "system", "yurthub.service.d", "10-yurthub.conf")
 	yurthubWorkDirPath = filepath.Join(tempDir, "var", "lib", "yurthub")
+	yurthubCacheDirPath = filepath.Join(tempDir, "etc", "kubernetes", "cache")
 
 	t.Cleanup(func() {
 		yurthubBootstrapConfigPath = oldBootstrapConfigPath
@@ -391,6 +393,7 @@ func useTempYurthubHostPaths(t *testing.T) string {
 		yurthubServiceFilePath = oldServiceFilePath
 		yurthubServiceConfFilePath = oldServiceConfFilePath
 		yurthubWorkDirPath = oldWorkDirPath
+		yurthubCacheDirPath = oldCacheDirPath
 	})
 
 	return tempDir

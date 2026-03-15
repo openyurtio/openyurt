@@ -25,6 +25,7 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
+	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 )
 
 var (
@@ -33,6 +34,7 @@ var (
 	yurthubServiceFilePath     = constants.YurthubServicePath
 	yurthubServiceConfFilePath = constants.YurthubServiceConfPath
 	yurthubWorkDirPath         = constants.YurtHubWorkdir
+	yurthubCacheDirPath        = disk.CacheBaseDir
 )
 
 // YurthubHostConfig describes the host-side installation and systemd

@@ -31,7 +31,7 @@ import (
 func NewConvertCmd() *cobra.Command {
 	o := nodeconverter.NewConvertOptions()
 	cmd := &cobra.Command{
-		Use:   "convert --working-mode",
+		Use:   "convert",
 		Short: "",
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Printf("node-servant version: %#v\n", projectinfo.Get())
@@ -42,6 +42,10 @@ func NewConvertCmd() *cobra.Command {
 			cmd.Flags().VisitAll(func(flag *pflag.Flag) {
 				klog.Infof("FLAG: --%s=%q", flag.Name, flag.Value)
 			})
+
+			if err := o.Complete(cmd.Flags()); err != nil {
+				klog.Fatalf("complete options: %v", err)
+			}
 
 			if err := o.Validate(); err != nil {
 				klog.Fatalf("validate options: %v", err)

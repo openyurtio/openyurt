@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The OpenYurt Authors.
+Copyright 2026 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,38 +16,36 @@ limitations under the License.
 
 package revert
 
-import (
-	"time"
+import "github.com/openyurtio/openyurt/pkg/node-servant/components"
 
-	"github.com/openyurtio/openyurt/pkg/node-servant/components"
+var (
+	undoKubeletRedirectFunc = func(openyurtDir string) error {
+		return components.NewKubeletOperator(openyurtDir).UndoRedirectTrafficToYurtHub()
+	}
+	uninstallYurthubFunc = func() error {
+		return components.NewYurthubOperator(nil).UnInstall()
+	}
 )
 
-// NodeReverter do the revert job
+// NodeReverter do the revert job.
 type nodeReverter struct {
 	Options
 }
 
-// NewReverterWithOptions creates nodeReverter
+// NewReverterWithOptions creates nodeReverter.
 func NewReverterWithOptions(o *Options) *nodeReverter {
 	return &nodeReverter{
 		*o,
 	}
 }
 
-// Do is used for the revert job
+// Do is used for the revert job.
 // shall be implemented as idempotent, can execute multiple times with no side-affect.
 func (n *nodeReverter) Do() error {
-
 	if err := n.revertKubelet(); err != nil {
 		return err
 	}
 	if err := n.unInstallYurtHub(); err != nil {
-		return err
-	}
-	if err := n.unInstallYurtTunnelAgent(); err != nil {
-		return err
-	}
-	if err := n.unInstallYurtTunnelServer(); err != nil {
 		return err
 	}
 
@@ -55,19 +53,9 @@ func (n *nodeReverter) Do() error {
 }
 
 func (n *nodeReverter) revertKubelet() error {
-	op := components.NewKubeletOperator(n.openyurtDir)
-	return op.UndoRedirectTrafficToYurtHub()
+	return undoKubeletRedirectFunc(n.openyurtDir)
 }
 
 func (n *nodeReverter) unInstallYurtHub() error {
-	op := components.NewYurthubOperator("", "", "", time.Duration(1)) // params is not important here
-	return op.UnInstall()
-}
-
-func (n *nodeReverter) unInstallYurtTunnelAgent() error {
-	return components.UnInstallYurtTunnelAgent()
-}
-
-func (n *nodeReverter) unInstallYurtTunnelServer() error {
-	return components.UnInstallYurtTunnelServer()
+	return uninstallYurthubFunc()
 }
