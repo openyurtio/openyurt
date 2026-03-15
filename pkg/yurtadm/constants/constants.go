@@ -22,6 +22,7 @@ const (
 	StaticPodPath                 = "/etc/kubernetes/manifests"
 	KubeletConfigureDir           = "/etc/kubernetes"
 	KubeletWorkdir                = "/var/lib/kubelet"
+	KubeadmFlagsEnvFilePath       = "/var/lib/kubelet/kubeadm-flags.env"
 	YurtHubWorkdir                = "/var/lib/yurthub"
 	YurtHubBootstrapConfig        = "/var/lib/yurthub/bootstrap-hub.conf"
 	OpenyurtDir                   = "/var/lib/openyurt"

@@ -327,23 +327,10 @@ func SetKubeletUnitConfig(data joindata.YurtJoinData) error {
 
 // SetKubeletConfigForNode write kubelet.conf for join node.
 func SetKubeletConfigForNode() error {
-	kubeconfigFilePath := filepath.Join(constants.KubeletConfigureDir, constants.KubeletKubeConfigFileName)
-	kubeletConfigDir := filepath.Dir(kubeconfigFilePath)
-	if _, err := os.Stat(kubeletConfigDir); err != nil {
-		if os.IsNotExist(err) {
-			if err := os.MkdirAll(kubeletConfigDir, os.ModePerm); err != nil {
-				klog.Errorf("Create dir %s fail: %v", kubeletConfigDir, err)
-				return err
-			}
-		} else {
-			klog.Errorf("Describe dir %s fail: %v", kubeletConfigDir, err)
-			return err
-		}
-	}
-	if err := os.WriteFile(kubeconfigFilePath, []byte(constants.KubeletConfForNode), constants.DirMode); err != nil {
-		return err
-	}
-	return nil
+	return (&KubeletYurthubConfig{
+		KubeconfigFilePath: filepath.Join(constants.KubeletConfigureDir, constants.KubeletKubeConfigFileName),
+		FileMode:           constants.DirMode,
+	}).WriteKubeletConfig()
 }
 
 // GetKubernetesVersionFromCluster get kubernetes cluster version from master.
