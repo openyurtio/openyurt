@@ -25,9 +25,10 @@ const (
 	DefaultConversionJobBackoffLimit = 3
 	// DefaultConversionJobTTLSecondsAfterFinished keeps finished Jobs long enough for diagnosis.
 	DefaultConversionJobTTLSecondsAfterFinished = 7200
+	// DefaultConversionJobNamespace is the namespace used by node conversion Jobs.
+	DefaultConversionJobNamespace = "kube-system"
 
-	defaultConversionJobNamespace = "kube-system"
-	defaultWorkingMode            = "edge"
+	defaultWorkingMode = "edge"
 
 	// ServantJobTemplate defines the unified node-servant Job in yaml format.
 	ServantJobTemplate = `

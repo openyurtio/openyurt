@@ -117,4 +117,11 @@ func TestRenderNodeServantJobValidation(t *testing.T) {
 	}, "node-a"); err == nil {
 		t.Fatal("expected validation error for invalid action")
 	}
+
+	if _, err := RenderNodeServantJob("convert", map[string]string{
+		"nodeServantImage": "openyurt/node-servant:latest",
+		"nodePoolName":     "",
+	}, "node-a"); err == nil {
+		t.Fatal("expected validation error when nodePoolName is empty")
+	}
 }

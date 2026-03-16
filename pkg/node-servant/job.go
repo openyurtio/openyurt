@@ -53,7 +53,7 @@ func RenderNodeServantJob(action string, renderCtx map[string]string, nodeName s
 	tmplCtx["backoffLimit"] = fmt.Sprintf("%d", DefaultConversionJobBackoffLimit)
 	tmplCtx["conversionNodeLabelKey"] = ConversionNodeLabelKey
 	tmplCtx["jobName"] = ConversionJobNameBase + "-" + nodeName
-	tmplCtx["jobNamespace"] = defaultConversionJobNamespace
+	tmplCtx["jobNamespace"] = DefaultConversionJobNamespace
 	tmplCtx["nodeName"] = nodeName
 	tmplCtx["servantCommand"] = servantCommand
 	tmplCtx["ttlSecondsAfterFinished"] = fmt.Sprintf("%d", DefaultConversionJobTTLSecondsAfterFinished)
@@ -86,7 +86,7 @@ func YamlToObject(yamlContent []byte) (k8sruntime.Object, error) {
 }
 
 func validate(action string, tmplCtx map[string]string, nodeName string) error {
-	if nodeName == "" {
+	if strings.TrimSpace(nodeName) == "" {
 		return fmt.Errorf("nodeName empty")
 	}
 
@@ -117,7 +117,7 @@ func buildConvertCommand(tmplCtx map[string]string, nodeName string) string {
 	args := []string{
 		"convert",
 		fmt.Sprintf("--%s=%s", constants.NodeName, nodeName),
-		fmt.Sprintf("--%s=%s", constants.Namespace, valueOrDefault(tmplCtx["namespace"], defaultConversionJobNamespace)),
+		fmt.Sprintf("--%s=%s", constants.Namespace, valueOrDefault(tmplCtx["namespace"], DefaultConversionJobNamespace)),
 		fmt.Sprintf("--%s=%s", workingModeFlag, valueOrDefault(tmplCtx["workingMode"], defaultWorkingMode)),
 		fmt.Sprintf("--%s=%s", constants.NodePoolName, tmplCtx["nodePoolName"]),
 	}
@@ -137,8 +137,12 @@ func buildConvertCommand(tmplCtx map[string]string, nodeName string) string {
 
 func checkKeys(arr []string, tmplCtx map[string]string) error {
 	for _, k := range arr {
-		if _, ok := tmplCtx[k]; !ok {
+		value, ok := tmplCtx[k]
+		if !ok {
 			return fmt.Errorf("key %s not found", k)
+		}
+		if strings.TrimSpace(value) == "" {
+			return fmt.Errorf("key %s empty", k)
 		}
 	}
 	return nil

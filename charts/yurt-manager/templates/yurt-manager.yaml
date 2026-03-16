@@ -135,6 +135,12 @@ spec:
             {{- with .Values.nodeServant.image }}
             - --node-servant-image={{ printf "%s/%s:%s" .registry .repository .tag }}
             {{- end }}
+            {{- if .Values.yurthub.version }}
+            - --yurthub-version={{ .Values.yurthub.version }}
+            {{- end }}
+            {{- if .Values.yurthub.binaryURL }}
+            - --yurthub-binary-url={{ .Values.yurthub.binaryURL }}
+            {{- end }}
             {{- range .Values.extraArgs }}
             - {{ . }}
             {{- end }}

@@ -14,31 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package revert
+package config
 
-import (
-	"os"
-
-	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
-)
-
-// Options has the information that required by revert operation.
-type Options struct {
-	openyurtDir string
-}
-
-// NewRevertOptions creates a new Options.
-func NewRevertOptions() *Options {
-	return &Options{}
-}
-
-// Complete completes all the required options.
-func (o *Options) Complete() error {
-	openyurtDir := os.Getenv("OPENYURT_DIR")
-	if openyurtDir == "" {
-		openyurtDir = constants.OpenyurtDir
-	}
-	o.openyurtDir = openyurtDir
-
-	return nil
+// YurtNodeConversionControllerConfiguration contains elements describing YurtNodeConversionController.
+type YurtNodeConversionControllerConfiguration struct {
+	ConcurrentYurtNodeConversionWorkers int32
+	YurthubVersion                      string
+	YurthubBinaryURL                    string
 }
