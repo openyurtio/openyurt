@@ -70,6 +70,11 @@ type ReconcileYurtNodeConversion struct {
 
 var _ reconcile.Reconciler = &ReconcileYurtNodeConversion{}
 
+func Format(format string, args ...interface{}) string {
+	s := fmt.Sprintf(format, args...)
+	return fmt.Sprintf("%s: %s", names.YurtNodeConversionController, s)
+}
+
 // Add wires the node conversion controller into yurt-manager and watches
 // both Node label transitions and node-servant Job status updates
 func Add(ctx context.Context, c *appconfig.CompletedConfig, mgr manager.Manager) error {
@@ -112,7 +117,7 @@ func Add(ctx context.Context, c *appconfig.CompletedConfig, mgr manager.Manager)
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;create;update;patch;delete
 
 func (r *ReconcileYurtNodeConversion) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	klog.Infof("%s reconcile node %s", names.YurtNodeConversionController, req.Name)
+	klog.Info(Format("reconcile node %s", req.Name))
 
 	// Stage 1: load the latest Node snapshot and stop early for deleting nodes.
 	node := &corev1.Node{}
@@ -120,12 +125,13 @@ func (r *ReconcileYurtNodeConversion) Reconcile(ctx context.Context, req reconci
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 	if node.DeletionTimestamp != nil {
+		klog.V(4).Info(Format("skip deleting node %s", node.Name))
 		return reconcile.Result{}, nil
 	}
 
 	job, err := r.getConversionJob(ctx, node.Name)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("get conversion job for node %s: %w", node.Name, err)
 	}
 
 	// The controller keeps three pieces of state in sync:
@@ -136,8 +142,9 @@ func (r *ReconcileYurtNodeConversion) Reconcile(ctx context.Context, req reconci
 	cond := getConversionCondition(node)
 	currentJobAction, err := jobAction(job)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("determine action from conversion job for node %s: %w", node.Name, err)
 	}
+	logReconcileSnapshot(node, desiredAction, nodePoolName, cond, job, currentJobAction)
 
 	// Stage 2: if a Job already exists, it owns the current round.
 	// Reconcile only updates control-plane state around that Job instead of
@@ -145,38 +152,45 @@ func (r *ReconcileYurtNodeConversion) Reconcile(ctx context.Context, req reconci
 	if job != nil {
 		if isStaleJobForAction(currentJobAction, desiredAction) {
 			if isJobFinished(job) {
+				klog.V(4).Info(Format("node(%s) deleting stale job %s, desiredAction=%s currentJobAction=%s",
+					node.Name, job.Name, desiredAction, currentJobAction))
 				if err := r.Delete(ctx, job); err != nil && !apierrors.IsNotFound(err) {
-					return reconcile.Result{}, err
+					return reconcile.Result{}, fmt.Errorf("delete stale conversion job %s for node %s: %w", job.Name, node.Name, err)
 				}
 				return reconcile.Result{Requeue: true}, nil
 			}
+			klog.V(4).Info(Format("node(%s) keeps stale in-flight job %s until it finishes, desiredAction=%s currentJobAction=%s",
+				node.Name, job.Name, desiredAction, currentJobAction))
 			return reconcile.Result{}, nil
 		}
 
 		// Job failure terminates the current round and leaves the node uncordoned
 		// for inspection instead of recreating the Job indefinitely
 		if isJobFailed(job) {
+			klog.Info(Format("node(%s) observed failed %s job %s", node.Name, currentJobAction, job.Name))
 			if err := r.ensureNodeUnschedulable(ctx, node.Name, false); err != nil {
-				return reconcile.Result{}, err
+				return reconcile.Result{}, fmt.Errorf("uncordon node %s after failed %s job: %w", node.Name, currentJobAction, err)
 			}
 			if err := r.ensureNodeConversionCondition(ctx, node.Name,
 				newConversionCondition(currentJobAction, failedReasonForAction(currentJobAction), failedMessage(job, currentJobAction))); err != nil {
-				return reconcile.Result{}, err
+				return reconcile.Result{}, fmt.Errorf("set failed conversion condition for node %s: %w", node.Name, err)
 			}
 			return reconcile.Result{}, nil
 		}
 
 		if isJobSucceeded(job) {
+			klog.Info(Format("node(%s) observed succeeded %s job %s", node.Name, currentJobAction, job.Name))
 			return reconcile.Result{}, r.handleSuccessfulAction(ctx, node.Name, currentJobAction, jobCompletionCutoff(job))
 		}
 
 		// keep the node cordoned and ensure in-progress condition remains correct when the job is still running
+		klog.V(4).Info(Format("node(%s) keeps running %s job %s in progress", node.Name, currentJobAction, job.Name))
 		if err := r.ensureNodeUnschedulable(ctx, node.Name, true); err != nil {
-			return reconcile.Result{}, err
+			return reconcile.Result{}, fmt.Errorf("cordon node %s while %s job is running: %w", node.Name, currentJobAction, err)
 		}
 		if err := r.ensureNodeConversionCondition(ctx, node.Name,
 			newConversionCondition(currentJobAction, conditionReasonForInProgress(currentJobAction), inProgressMessage(node.Name, currentJobAction))); err != nil {
-			return reconcile.Result{}, err
+			return reconcile.Result{}, fmt.Errorf("set in-progress conversion condition for node %s: %w", node.Name, err)
 		}
 		return reconcile.Result{}, nil
 	}
@@ -184,26 +198,30 @@ func (r *ReconcileYurtNodeConversion) Reconcile(ctx context.Context, req reconci
 	// Stage 3: no Job exists. fallback: handles cases where host-level work succeeded
 	// but the controller's finalization was interrupted after the Job's disappearance
 	if action := interruptedFinalizationAction(node, cond); action != actionNone {
+		klog.V(4).Info(Format("node(%s) resumes interrupted %s finalization without an active job", node.Name, action))
 		return reconcile.Result{}, r.handleSuccessfulAction(ctx, node.Name, action, nil)
 	}
 
 	if desiredAction == actionNone {
+		klog.V(5).Info(Format("node(%s) already stable, nothing to do", node.Name))
 		return reconcile.Result{}, nil
 	}
 
 	// Stage 4: start a new convert/revert round from labels
 	if err := r.ensureNodeUnschedulable(ctx, node.Name, true); err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("cordon node %s before starting %s: %w", node.Name, desiredAction, err)
 	}
 	if err := r.ensureNodeConversionCondition(ctx, node.Name,
 		newConversionCondition(desiredAction, conditionReasonForInProgress(desiredAction), inProgressMessage(node.Name, desiredAction))); err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("set in-progress conversion condition for node %s before starting %s: %w", node.Name, desiredAction, err)
 	}
+	klog.Info(Format("node(%s) starts %s round", node.Name, desiredAction))
 	if err := r.createConversionJob(ctx, node.Name, nodePoolName, desiredAction); err != nil {
 		if apierrors.IsAlreadyExists(err) {
+			klog.V(4).Info(Format("node(%s) conversion job already exists while starting %s", node.Name, desiredAction))
 			return reconcile.Result{}, nil
 		}
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("create %s job for node %s: %w", desiredAction, node.Name, err)
 	}
 
 	return reconcile.Result{}, nil
@@ -262,12 +280,14 @@ func (r *ReconcileYurtNodeConversion) createConversionJob(ctx context.Context, n
 	if err != nil {
 		return err
 	}
+	klog.Info(Format("create %s job %s for node %s", action, job.Name, nodeName))
 	return r.Create(ctx, job)
 }
 
 // handleSuccessfulAction completes the control-plane side of a successful round
 // after node-servant already finished the host-level operations on the node
 func (r *ReconcileYurtNodeConversion) handleSuccessfulAction(ctx context.Context, nodeName, action string, restartBefore *metav1.Time) error {
+	klog.V(4).Info(Format("finalize successful %s round for node(%s)", action, nodeName))
 	node := &corev1.Node{}
 	if err := r.Get(ctx, types.NamespacedName{Name: nodeName}, node); err != nil {
 		return err
@@ -303,6 +323,7 @@ func (r *ReconcileYurtNodeConversion) ensureNodeUnschedulable(ctx context.Contex
 
 	before := node.DeepCopy()
 	node.Spec.Unschedulable = unschedulable
+	klog.V(4).Info(Format("patch node(%s) unschedulable=%t", nodeName, unschedulable))
 	return r.Patch(ctx, node, client.MergeFrom(before))
 }
 
@@ -328,6 +349,7 @@ func (r *ReconcileYurtNodeConversion) ensureEdgeWorkerLabel(ctx context.Context,
 	if reflect.DeepEqual(before.Labels, node.Labels) {
 		return nil
 	}
+	klog.V(4).Info(Format("patch node(%s) %s=%t", nodeName, projectinfo.GetEdgeWorkerLabelKey(), enabled))
 	return r.Patch(ctx, node, client.MergeFrom(before))
 }
 
@@ -341,6 +363,7 @@ func (r *ReconcileYurtNodeConversion) ensureNodeConversionCondition(ctx context.
 	if !setConversionCondition(node, cond) {
 		return nil
 	}
+	klog.V(4).Info(Format("update node(%s) conversion condition to status=%s reason=%s", nodeName, cond.Status, cond.Reason))
 	return r.Status().Update(ctx, node)
 }
 
@@ -633,6 +656,39 @@ func conversionJobPredicate() predicate.Funcs {
 		GenericFunc: func(evt event.GenericEvent) bool {
 			return hasConversionNodeLabel(evt.Object)
 		},
+	}
+}
+
+func logReconcileSnapshot(node *corev1.Node, desiredAction, nodePoolName string, cond *corev1.NodeCondition, job *batchv1.Job, jobAction string) {
+	klog.V(4).Info(Format("node(%s) snapshot desiredAction=%s nodePool=%q edgeWorker=%t unschedulable=%t condition=%s job=%s jobAction=%s",
+		node.Name,
+		desiredAction,
+		nodePoolName,
+		isEdgeWorkerNode(node),
+		node.Spec.Unschedulable,
+		conversionConditionSummary(cond),
+		conversionJobSummary(job),
+		jobAction))
+}
+
+func conversionConditionSummary(cond *corev1.NodeCondition) string {
+	if cond == nil {
+		return "nil"
+	}
+	return fmt.Sprintf("%s/%s", cond.Status, cond.Reason)
+}
+
+func conversionJobSummary(job *batchv1.Job) string {
+	if job == nil {
+		return "nil"
+	}
+	switch {
+	case isJobSucceeded(job):
+		return fmt.Sprintf("%s:succeeded", job.Name)
+	case isJobFailed(job):
+		return fmt.Sprintf("%s:failed", job.Name)
+	default:
+		return fmt.Sprintf("%s:active=%d succeeded=%d failed=%d", job.Name, job.Status.Active, job.Status.Succeeded, job.Status.Failed)
 	}
 }
 
