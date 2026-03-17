@@ -132,6 +132,19 @@ func TestUpdate(t *testing.T) {
 			},
 			wantedNum: 0,
 		},
+		"remove node from pool": {
+			event: event.UpdateEvent{
+				ObjectOld: &corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{
+							projectinfo.GetNodePoolLabel(): "foo",
+						},
+					},
+				},
+				ObjectNew: &corev1.Node{},
+			},
+			wantedNum: 1,
+		},
 		"pool of node is not changed": {
 			event: event.UpdateEvent{
 				ObjectOld: &corev1.Node{
