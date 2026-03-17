@@ -123,6 +123,12 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
+  name: yurt-manager-yurt-node-conversion-controller
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
   name: yurt-manager-yurt-static-set-controller
   namespace: {{ .Release.Namespace }}
 ---
@@ -884,6 +890,39 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  name: yurt-manager-yurt-node-conversion-controller
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  - nodes/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - delete
+  - get
+  - list
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - get
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
   name: yurt-manager-yurt-static-set-controller
 rules:
 - apiGroups:
@@ -1182,6 +1221,19 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: yurt-manager-yurt-app-set-controller
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: yurt-manager-yurt-node-conversion-controller-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: yurt-manager-yurt-node-conversion-controller
+subjects:
+- kind: ServiceAccount
+  name: yurt-manager-yurt-node-conversion-controller
   namespace: {{ .Release.Namespace }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1

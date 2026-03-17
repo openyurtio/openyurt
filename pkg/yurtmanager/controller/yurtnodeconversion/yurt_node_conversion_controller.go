@@ -108,11 +108,13 @@ func Add(ctx context.Context, c *appconfig.CompletedConfig, mgr manager.Manager)
 
 // +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core,resources=nodes/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;delete
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;create;update;patch;delete
 
 func (r *ReconcileYurtNodeConversion) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	klog.Infof("%s reconcile node %s", names.YurtNodeConversionController, req.Name)
 
+	// Stage 1: load the latest Node snapshot and stop early for deleting nodes.
 	node := &corev1.Node{}
 	if err := r.Get(ctx, req.NamespacedName, node); err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)
@@ -126,6 +128,10 @@ func (r *ReconcileYurtNodeConversion) Reconcile(ctx context.Context, req reconci
 		return reconcile.Result{}, err
 	}
 
+	// The controller keeps three pieces of state in sync:
+	// 1. desiredAction from labels
+	// 2. current round from the fixed-name Job
+	// 3. observed progress from the conversion condition
 	desiredAction, nodePoolName := desiredActionFromNode(node)
 	cond := getConversionCondition(node)
 	currentJobAction, err := jobAction(job)
@@ -133,6 +139,9 @@ func (r *ReconcileYurtNodeConversion) Reconcile(ctx context.Context, req reconci
 		return reconcile.Result{}, err
 	}
 
+	// Stage 2: if a Job already exists, it owns the current round.
+	// Reconcile only updates control-plane state around that Job instead of
+	// starting a new round in parallel
 	if job != nil {
 		if isStaleJobForAction(currentJobAction, desiredAction) {
 			if isJobFinished(job) {
@@ -158,7 +167,7 @@ func (r *ReconcileYurtNodeConversion) Reconcile(ctx context.Context, req reconci
 		}
 
 		if isJobSucceeded(job) {
-			return reconcile.Result{}, r.handleSuccessfulAction(ctx, node.Name, currentJobAction)
+			return reconcile.Result{}, r.handleSuccessfulAction(ctx, node.Name, currentJobAction, jobCompletionCutoff(job))
 		}
 
 		// keep the node cordoned and ensure in-progress condition remains correct when the job is still running
@@ -172,16 +181,17 @@ func (r *ReconcileYurtNodeConversion) Reconcile(ctx context.Context, req reconci
 		return reconcile.Result{}, nil
 	}
 
-	// fallback: handles cases where host-level work succeeded
+	// Stage 3: no Job exists. fallback: handles cases where host-level work succeeded
 	// but the controller's finalization was interrupted after the Job's disappearance
 	if action := interruptedFinalizationAction(node, cond); action != actionNone {
-		return reconcile.Result{}, r.handleSuccessfulAction(ctx, node.Name, action)
+		return reconcile.Result{}, r.handleSuccessfulAction(ctx, node.Name, action, nil)
 	}
 
 	if desiredAction == actionNone {
 		return reconcile.Result{}, nil
 	}
 
+	// Stage 4: start a new convert/revert round from labels
 	if err := r.ensureNodeUnschedulable(ctx, node.Name, true); err != nil {
 		return reconcile.Result{}, err
 	}
@@ -227,6 +237,7 @@ func (r *ReconcileYurtNodeConversion) getConversionJob(ctx context.Context, node
 	return job, nil
 }
 
+// createConversionJob renders the node-servant Job for one conversion round
 func (r *ReconcileYurtNodeConversion) createConversionJob(ctx context.Context, nodeName, nodePoolName, action string) error {
 	if err := r.validateConversionJobRequest(nodeName, nodePoolName, action); err != nil {
 		return err
@@ -256,16 +267,31 @@ func (r *ReconcileYurtNodeConversion) createConversionJob(ctx context.Context, n
 
 // handleSuccessfulAction completes the control-plane side of a successful round
 // after node-servant already finished the host-level operations on the node
-func (r *ReconcileYurtNodeConversion) handleSuccessfulAction(ctx context.Context, nodeName, action string) error {
+func (r *ReconcileYurtNodeConversion) handleSuccessfulAction(ctx context.Context, nodeName, action string, restartBefore *metav1.Time) error {
+	node := &corev1.Node{}
+	if err := r.Get(ctx, types.NamespacedName{Name: nodeName}, node); err != nil {
+		return err
+	}
+
 	if err := r.ensureEdgeWorkerLabel(ctx, nodeName, action == actionConvert); err != nil {
 		return err
 	}
-	if err := r.ensureNodeUnschedulable(ctx, nodeName, false); err != nil {
-		return err
+
+	// restart recreatable workload Pods only once per successful round
+	if !hasSucceededConditionForAction(getConversionCondition(node), action) {
+		if err := r.restartRecreatablePods(ctx, nodeName, restartBefore); err != nil {
+			return err
+		}
+		if err := r.ensureNodeConversionCondition(ctx, nodeName, newConversionCondition(action, succeededReasonForAction(action), succeededMessage(action))); err != nil {
+			return err
+		}
 	}
-	return r.ensureNodeConversionCondition(ctx, nodeName, newConversionCondition(action, succeededReasonForAction(action), succeededMessage(action)))
+
+	return r.ensureNodeUnschedulable(ctx, nodeName, false)
 }
 
+// ensureNodeUnschedulable keeps the node cordon state aligned with the current
+// conversion phase and is intentionally idempotent
 func (r *ReconcileYurtNodeConversion) ensureNodeUnschedulable(ctx context.Context, nodeName string, unschedulable bool) error {
 	node := &corev1.Node{}
 	if err := r.Get(ctx, types.NamespacedName{Name: nodeName}, node); err != nil {
@@ -280,6 +306,8 @@ func (r *ReconcileYurtNodeConversion) ensureNodeUnschedulable(ctx context.Contex
 	return r.Patch(ctx, node, client.MergeFrom(before))
 }
 
+// ensureEdgeWorkerLabel applies the controller-managed source-of-truth label
+// for the terminal edge/non-edge state and leaves unrelated labels untouched
 func (r *ReconcileYurtNodeConversion) ensureEdgeWorkerLabel(ctx context.Context, nodeName string, enabled bool) error {
 	node := &corev1.Node{}
 	if err := r.Get(ctx, types.NamespacedName{Name: nodeName}, node); err != nil {
@@ -303,6 +331,8 @@ func (r *ReconcileYurtNodeConversion) ensureEdgeWorkerLabel(ctx context.Context,
 	return r.Patch(ctx, node, client.MergeFrom(before))
 }
 
+// ensureNodeConversionCondition upserts the single conversion condition that
+// reports round progress and terminal outcome back to users and controllers
 func (r *ReconcileYurtNodeConversion) ensureNodeConversionCondition(ctx context.Context, nodeName string, cond corev1.NodeCondition) error {
 	node := &corev1.Node{}
 	if err := r.Get(ctx, types.NamespacedName{Name: nodeName}, node); err != nil {
@@ -419,7 +449,7 @@ func getConversionCondition(node *corev1.Node) *corev1.NodeCondition {
 }
 
 // setConversionCondition upserts the single conversion condition and preserves
-// LastTransitionTime when only non-transition fields change
+// LastTransitionTime when status stays the same but reason/message changes
 func setConversionCondition(node *corev1.Node, cond corev1.NodeCondition) bool {
 	idx, current := nodeutil.GetNodeCondition(&node.Status, cond.Type)
 	if current == nil {
@@ -437,6 +467,7 @@ func setConversionCondition(node *corev1.Node, cond corev1.NodeCondition) bool {
 	return true
 }
 
+// newConversionCondition builds the canonical condition payload for each phase
 func newConversionCondition(action, reason, message string) corev1.NodeCondition {
 	now := metav1.Now()
 	status := corev1.ConditionFalse
@@ -454,6 +485,7 @@ func newConversionCondition(action, reason, message string) corev1.NodeCondition
 	}
 }
 
+// conditionAction maps a condition reason back to the convert/revert direction
 func conditionAction(cond *corev1.NodeCondition) string {
 	if cond == nil {
 		return actionNone
@@ -479,6 +511,21 @@ func isInProgressConditionForAction(cond *corev1.NodeCondition, action string) b
 		return cond.Reason == reasonConverting
 	case actionRevert:
 		return cond.Reason == reasonReverting
+	default:
+		return false
+	}
+}
+
+func hasSucceededConditionForAction(cond *corev1.NodeCondition, action string) bool {
+	if cond == nil || cond.Status != corev1.ConditionFalse {
+		return false
+	}
+
+	switch action {
+	case actionConvert:
+		return cond.Reason == reasonConverted
+	case actionRevert:
+		return cond.Reason == reasonReverted
 	default:
 		return false
 	}

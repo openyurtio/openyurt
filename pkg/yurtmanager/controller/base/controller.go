@@ -167,6 +167,11 @@ func SetupWithManager(ctx context.Context, c *config.CompletedConfig, m manager.
 		c.ComponentConfig.Generic.Controllers,
 	) ||
 		app.IsControllerEnabled(
+			names.YurtNodeConversionController,
+			ControllersDisabledByDefault,
+			c.ComponentConfig.Generic.Controllers,
+		) ||
+		app.IsControllerEnabled(
 			names.PodBindingController,
 			ControllersDisabledByDefault,
 			c.ComponentConfig.Generic.Controllers,
