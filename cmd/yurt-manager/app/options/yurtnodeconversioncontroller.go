@@ -21,7 +21,6 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtnodeconversion/config"
 )
 
@@ -33,7 +32,6 @@ func NewYurtNodeConversionControllerOptions() *YurtNodeConversionControllerOptio
 	return &YurtNodeConversionControllerOptions{
 		&config.YurtNodeConversionControllerConfiguration{
 			ConcurrentYurtNodeConversionWorkers: 3,
-			YurthubVersion:                      constants.YurthubVersion,
 		},
 	}
 }
@@ -45,8 +43,6 @@ func (o *YurtNodeConversionControllerOptions) AddFlags(fs *pflag.FlagSet) {
 	}
 
 	fs.Int32Var(&o.ConcurrentYurtNodeConversionWorkers, "concurrent-yurtnodeconversion-workers", o.ConcurrentYurtNodeConversionWorkers, "The number of node conversion objects that are allowed to reconcile concurrently. Larger number = more responsive conversion, but more CPU (and network) load")
-	fs.StringVar(&o.YurthubVersion, "yurthub-version", o.YurthubVersion, "The yurthub binary version to install when custom binary URL is not set.")
-	fs.StringVar(&o.YurthubBinaryURL, constants.YurtHubBinaryUrl, o.YurthubBinaryURL, "The yurthub binary download URL.")
 }
 
 // ApplyTo fills up YurtNodeConversion config with options.
@@ -56,8 +52,6 @@ func (o *YurtNodeConversionControllerOptions) ApplyTo(cfg *config.YurtNodeConver
 	}
 
 	cfg.ConcurrentYurtNodeConversionWorkers = o.ConcurrentYurtNodeConversionWorkers
-	cfg.YurthubVersion = o.YurthubVersion
-	cfg.YurthubBinaryURL = o.YurthubBinaryURL
 
 	return nil
 }
@@ -71,9 +65,6 @@ func (o *YurtNodeConversionControllerOptions) Validate() []error {
 	errs := []error{}
 	if o.ConcurrentYurtNodeConversionWorkers <= 0 {
 		errs = append(errs, fmt.Errorf("concurrent-yurtnodeconversion-workers(%d) is invalid, should greater than 0", o.ConcurrentYurtNodeConversionWorkers))
-	}
-	if len(o.YurthubBinaryURL) == 0 && len(o.YurthubVersion) == 0 {
-		errs = append(errs, fmt.Errorf("yurthub version and binary URL are both empty"))
 	}
 	return errs
 }

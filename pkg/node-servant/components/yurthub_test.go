@@ -17,9 +17,12 @@ limitations under the License.
 package components
 
 import (
+	"errors"
+	"os"
 	"reflect"
 	"testing"
 
+	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	yurthubutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/yurthub"
 )
 
@@ -40,14 +43,10 @@ func TestYurthubOperatorInstall(t *testing.T) {
 		NodeName:    "node-1",
 		ServerAddr:  "10.0.0.1:6443",
 		WorkingMode: "edge",
-		Version:     "v1.6.1",
 	}
 
 	var calls []string
-	checkAndInstallYurthubFunc = func(got *yurthubutil.YurthubHostConfig) error {
-		if !reflect.DeepEqual(got, cfg) {
-			t.Fatalf("unexpected config: %#v", got)
-		}
+	checkAndInstallYurthubFunc = func() error {
 		calls = append(calls, "install")
 		return nil
 	}
@@ -101,4 +100,117 @@ func TestYurthubOperatorUnInstall(t *testing.T) {
 	if !called {
 		t.Fatal("expected CleanYurthubHostArtifacts to be called")
 	}
+}
+
+func TestInstallEmbeddedYurthub(t *testing.T) {
+	oldStatYurthubBinaryFunc := statYurthubBinaryFunc
+	oldRemoveYurthubBinaryFunc := removeYurthubBinaryFunc
+	oldCopyEmbeddedYurthubBinaryFunc := copyEmbeddedYurthubBinaryFunc
+	defer func() {
+		statYurthubBinaryFunc = oldStatYurthubBinaryFunc
+		removeYurthubBinaryFunc = oldRemoveYurthubBinaryFunc
+		copyEmbeddedYurthubBinaryFunc = oldCopyEmbeddedYurthubBinaryFunc
+	}()
+
+	t.Run("replace when binary already exists", func(t *testing.T) {
+		statYurthubBinaryFunc = func(name string) (os.FileInfo, error) {
+			if name != constants.YurthubExecStart {
+				t.Fatalf("unexpected stat path %q", name)
+			}
+			return nil, nil
+		}
+		removed := false
+		removeYurthubBinaryFunc = func(path string) error {
+			if path != constants.YurthubExecStart {
+				t.Fatalf("unexpected remove path %q", path)
+			}
+			removed = true
+			return nil
+		}
+
+		var copied bool
+		copyEmbeddedYurthubBinaryFunc = func(src, dest string, mode os.FileMode) error {
+			copied = true
+			return nil
+		}
+
+		if err := installEmbeddedYurthub(); err != nil {
+			t.Fatalf("installEmbeddedYurthub() returned error: %v", err)
+		}
+		if !removed {
+			t.Fatal("expected existing binary to be removed")
+		}
+		if !copied {
+			t.Fatal("expected embedded binary to be copied")
+		}
+	})
+
+	t.Run("copy embedded binary when host binary is missing", func(t *testing.T) {
+		statYurthubBinaryFunc = func(name string) (os.FileInfo, error) {
+			return nil, os.ErrNotExist
+		}
+		removeYurthubBinaryFunc = func(path string) error {
+			t.Fatal("remove should not be called when host binary is missing")
+			return nil
+		}
+
+		var gotSrc, gotDest string
+		var gotMode os.FileMode
+		copyEmbeddedYurthubBinaryFunc = func(src, dest string, mode os.FileMode) error {
+			gotSrc = src
+			gotDest = dest
+			gotMode = mode
+			return nil
+		}
+
+		if err := installEmbeddedYurthub(); err != nil {
+			t.Fatalf("installEmbeddedYurthub() returned error: %v", err)
+		}
+		if gotSrc != constants.YurthubEmbeddedPath {
+			t.Fatalf("unexpected source, got=%q, want=%q", gotSrc, constants.YurthubEmbeddedPath)
+		}
+		if gotDest != constants.YurthubExecStart {
+			t.Fatalf("unexpected destination, got=%q, want=%q", gotDest, constants.YurthubExecStart)
+		}
+		if gotMode != 0755 {
+			t.Fatalf("unexpected mode, got=%v, want=%v", gotMode, os.FileMode(0755))
+		}
+	})
+
+	t.Run("return stat error when binary state is unknown", func(t *testing.T) {
+		wantErr := errors.New("stat failed")
+		statYurthubBinaryFunc = func(name string) (os.FileInfo, error) {
+			return nil, wantErr
+		}
+		removeYurthubBinaryFunc = func(path string) error {
+			t.Fatal("remove should not be called when stat fails")
+			return nil
+		}
+		copyEmbeddedYurthubBinaryFunc = func(src, dest string, mode os.FileMode) error {
+			t.Fatal("copy should not be called when stat fails")
+			return nil
+		}
+
+		if err := installEmbeddedYurthub(); !errors.Is(err, wantErr) {
+			t.Fatalf("installEmbeddedYurthub() error = %v, want %v", err, wantErr)
+		}
+	})
+
+	t.Run("return remove error when host binary cleanup fails", func(t *testing.T) {
+		wantErr := errors.New("remove failed")
+		statYurthubBinaryFunc = func(name string) (os.FileInfo, error) {
+			return nil, nil
+		}
+		removeYurthubBinaryFunc = func(path string) error {
+			return wantErr
+		}
+		copyEmbeddedYurthubBinaryFunc = func(src, dest string, mode os.FileMode) error {
+			t.Fatal("copy should not be called when remove fails")
+			return nil
+		}
+
+		if err := installEmbeddedYurthub(); !errors.Is(err, wantErr) {
+			t.Fatalf("installEmbeddedYurthub() error = %v, want %v", err, wantErr)
+		}
+	})
 }

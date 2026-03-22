@@ -4,12 +4,13 @@ FROM --platform=${BUILDPLATFORM} golang:1.24.1 as builder
 ADD . /build
 ARG TARGETOS TARGETARCH IMAGE_TAG GOPROXY MIRROR_REPO
 WORKDIR /build/
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} IMAGE_TAG=${IMAGE_TAG} make build WHAT=cmd/yurt-node-servant
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} IMAGE_TAG=${IMAGE_TAG} make build WHAT="cmd/yurt-node-servant cmd/yurthub"
 
 FROM --platform=${TARGETPLATFORM} alpine:3.17
 ARG TARGETOS TARGETARCH MIRROR_REPO
 RUN if [ ! -z "${MIRROR_REPO+x}" ]; then sed -i "s/dl-cdn.alpinelinux.org/${MIRROR_REPO}/g" /etc/apk/repositories; fi && \
     apk add ca-certificates bash libc6-compat && update-ca-certificates && rm /var/cache/apk/*
 COPY --from=builder /build/_output/local/bin/${TARGETOS}/${TARGETARCH}/yurt-node-servant /usr/local/bin/node-servant
+COPY --from=builder /build/_output/local/bin/${TARGETOS}/${TARGETARCH}/yurthub /usr/local/bin/yurthub
 COPY hack/lib/node-servant-entry.sh /usr/local/bin/entry.sh
 RUN chmod +x /usr/local/bin/entry.sh

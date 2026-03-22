@@ -37,10 +37,6 @@ nodeServant:
     repository: node-servant
     tag: "latest"
 
-yurthub:
-  version: ""
-  binaryURL: ""
-
 # support extra args of yurt-manager cmd
 extraArgs: []
 

@@ -27,6 +27,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
@@ -53,26 +54,20 @@ var (
 )
 
 func CheckAndInstallYurthub(yurthubVersion string) error {
-	return CheckAndInstallYurthubWithConfig(&YurthubHostConfig{
-		Version: yurthubVersion,
-	})
-}
-
-func CheckAndInstallYurthubWithConfig(cfg *YurthubHostConfig) error {
-	if err := cfg.validateForBinaryInstall(); err != nil {
-		return err
+	klog.Infof("Check and install yurthub %s", yurthubVersion)
+	if yurthubVersion == "" {
+		return errors.New("yurthub version should not be empty")
 	}
 
-	klog.Infof("Check and install yurthub, version=%s, binaryURL=%s", cfg.Version, cfg.BinaryURL)
 	if _, err := lookPath(yurthubExecStartPath); err == nil {
 		klog.Infof("Yurthub binary already exists, skip install.")
 		return nil
 	}
 
-	savePath := filepath.Join(constants.TmpDownloadDir, filepath.Base(yurthubExecStartPath))
-	packageURL := cfg.binaryDownloadURL()
-	klog.V(1).Infof("Download yurthub from: %s", packageURL)
-	if err := downloadFile(packageURL, savePath, 3); err != nil {
+	packageUrl := fmt.Sprintf(constants.YurthubExecUrlFormat, constants.YurthubExecResourceServer, yurthubVersion, runtime.GOARCH)
+	savePath := fmt.Sprintf("%s/yurthub", constants.TmpDownloadDir)
+	klog.V(1).Infof("Download yurthub from: %s", packageUrl)
+	if err := downloadFile(packageUrl, savePath, 3); err != nil {
 		return fmt.Errorf("download yurthub fail: %w", err)
 	}
 	if err := copyFile(savePath, yurthubExecStartPath, 0755); err != nil {

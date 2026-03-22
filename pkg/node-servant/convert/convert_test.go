@@ -42,8 +42,6 @@ func TestNodeConverterDo(t *testing.T) {
 			nodePoolName:     "pool-a",
 			openyurtDir:      "/var/lib/openyurt",
 			workingMode:      "edge",
-			yurthubBinaryURL: "https://example.com/yurthub",
-			yurthubVersion:   "v1.6.1",
 		},
 	}
 
@@ -79,13 +77,11 @@ func TestNodeConverterDo(t *testing.T) {
 	}
 
 	wantCfg := &yurthubutil.YurthubHostConfig{
-		BinaryURL:     "https://example.com/yurthub",
 		BootstrapMode: bootstrapModeKubeletCertificate,
 		Namespace:     "kube-system",
 		NodeName:      "node-a",
 		NodePoolName:  "pool-a",
 		ServerAddr:    "10.0.0.1:6443",
-		Version:       "v1.6.1",
 		WorkingMode:   "edge",
 	}
 	if !reflect.DeepEqual(gotCfg, wantCfg) {

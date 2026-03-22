@@ -31,11 +31,10 @@ import (
 
 type hostConfigJoinData struct {
 	mockYurtJoinData
-	binaryURL string
 }
 
 func (d *hostConfigJoinData) YurtHubBinaryUrl() string {
-	return d.binaryURL
+	return ""
 }
 
 func TestNewYurthubHostConfigFromJoinData(t *testing.T) {
@@ -49,18 +48,15 @@ func TestNewYurthubHostConfigFromJoinData(t *testing.T) {
 			},
 			namespace: "custom-ns",
 		},
-		binaryURL: "https://example.com/yurthub",
 	}
 
 	cfg := NewYurthubHostConfigFromJoinData(data)
 	assert.Equal(t, constants.DefaultYurtHubServerAddr, cfg.BindAddress)
-	assert.Equal(t, data.binaryURL, cfg.BinaryURL)
 	assert.Equal(t, yurthubBootstrapConfigPath, cfg.BootstrapFile)
 	assert.Equal(t, "custom-ns", cfg.Namespace)
 	assert.Equal(t, "node-1", cfg.NodeName)
 	assert.Equal(t, "pool-a", cfg.NodePoolName)
 	assert.Equal(t, "10.0.0.1:6443,https://10.0.0.2:6443", cfg.ServerAddr)
-	assert.Equal(t, constants.YurthubVersion, cfg.Version)
 	assert.Equal(t, constants.EdgeNode, cfg.WorkingMode)
 	assert.Equal(t, "https://10.0.0.1:6443,https://10.0.0.2:6443", cfg.normalizedServerAddr())
 }

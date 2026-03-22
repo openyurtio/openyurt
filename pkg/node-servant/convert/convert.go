@@ -44,8 +44,6 @@ type Config struct {
 	nodePoolName     string
 	openyurtDir      string
 	workingMode      string
-	yurthubBinaryURL string
-	yurthubVersion   string
 }
 
 // nodeConverter do the convert job.
@@ -63,8 +61,6 @@ func NewConverterWithOptions(o *Options) *nodeConverter {
 			nodePoolName:     o.nodePoolName,
 			openyurtDir:      o.openyurtDir,
 			workingMode:      o.workingMode,
-			yurthubBinaryURL: o.yurthubBinaryURL,
-			yurthubVersion:   o.yurthubVersion,
 		},
 	}
 }
@@ -100,13 +96,11 @@ func (n *nodeConverter) convertKubelet() error {
 
 func (n *nodeConverter) yurthubHostConfig(apiServerAddress string) *yurthubutil.YurthubHostConfig {
 	return &yurthubutil.YurthubHostConfig{
-		BinaryURL:     n.yurthubBinaryURL,
 		BootstrapMode: bootstrapModeKubeletCertificate,
 		Namespace:     n.namespace,
 		NodeName:      n.nodeName,
 		NodePoolName:  n.nodePoolName,
 		ServerAddr:    apiServerAddress,
-		Version:       n.yurthubVersion,
 		WorkingMode:   n.workingMode,
 	}
 }

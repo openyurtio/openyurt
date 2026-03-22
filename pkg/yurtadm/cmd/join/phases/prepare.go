@@ -77,7 +77,7 @@ func RunPrepare(data joindata.YurtJoinData) error {
 		if err := yurthub.SetHubBootstrapConfig(data.ServerAddr(), data.JoinToken(), data.CaCertHashes()); err != nil {
 			return err
 		}
-		if err := yurthub.CheckAndInstallYurthubWithConfig(yurthubCfg); err != nil {
+		if err := yurthub.CheckAndInstallYurthub(constants.YurthubVersion); err != nil {
 			return err
 		}
 		if err := yurthub.CreateYurthubSystemdServiceWithConfig(yurthubCfg); err != nil {

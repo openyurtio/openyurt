@@ -19,6 +19,4 @@ package config
 // YurtNodeConversionControllerConfiguration contains elements describing YurtNodeConversionController.
 type YurtNodeConversionControllerConfiguration struct {
 	ConcurrentYurtNodeConversionWorkers int32
-	YurthubVersion                      string
-	YurthubBinaryURL                    string
 }

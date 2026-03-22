@@ -75,19 +75,13 @@ func TestOptionsComplete(t *testing.T) {
 
 func TestOptionsValidate(t *testing.T) {
 	o := &Options{
-		namespace:      "kube-system",
-		nodeName:       "node-a",
-		nodePoolName:   "pool-a",
-		workingMode:    "edge",
-		yurthubVersion: "v1.6.1",
+		namespace:    "kube-system",
+		nodeName:     "node-a",
+		nodePoolName: "pool-a",
+		workingMode:  "edge",
 	}
 
 	if err := o.Validate(); err != nil {
 		t.Fatalf("Validate() returned error: %v", err)
-	}
-
-	o.yurthubVersion = ""
-	if err := o.Validate(); err == nil {
-		t.Fatal("expected validation error when version and binary URL are both empty")
 	}
 }

@@ -46,6 +46,7 @@ const (
 	YurtHubServiceName     = "yurthub.service"
 	YurthubServicePath     = "/etc/systemd/system/yurthub.service"
 	YurthubServiceConfPath = "/etc/systemd/system/yurthub.service.d/10-yurthub.conf"
+	YurthubEmbeddedPath    = "/usr/local/servant/yurthub"
 	YurthubExecStart       = "/usr/local/bin/yurthub"
 
 	// ManifestsSubDirName defines directory name to store manifests

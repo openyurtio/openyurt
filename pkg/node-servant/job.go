@@ -30,8 +30,7 @@ import (
 )
 
 const (
-	workingModeFlag    = "working-mode"
-	yurthubVersionFlag = "yurthub-version"
+	workingModeFlag = "working-mode"
 )
 
 // RenderNodeServantJob return k8s job
@@ -125,13 +124,6 @@ func buildConvertCommand(tmplCtx map[string]string, nodeName string) string {
 	if kubeadmConfPath := tmplCtx["kubeadmConfPath"]; kubeadmConfPath != "" {
 		args = append(args, fmt.Sprintf("--kubeadm-conf-path=%s", kubeadmConfPath))
 	}
-	if yurthubBinaryURL := tmplCtx["yurthubBinaryURL"]; yurthubBinaryURL != "" {
-		args = append(args, fmt.Sprintf("--%s=%s", constants.YurtHubBinaryUrl, yurthubBinaryURL))
-	}
-	if yurthubVersion := tmplCtx["yurthubVersion"]; yurthubVersion != "" {
-		args = append(args, fmt.Sprintf("--%s=%s", yurthubVersionFlag, yurthubVersion))
-	}
-
 	return strings.Join(args, " ")
 }
 

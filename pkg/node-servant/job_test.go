@@ -29,8 +29,6 @@ func TestRenderNodeServantConvertJob(t *testing.T) {
 		"nodePoolName":     "pool-a",
 		"workingMode":      "cloud",
 		"namespace":        "custom-ns",
-		"yurthubVersion":   "v1.6.1",
-		"yurthubBinaryURL": "https://example.com/yurthub",
 		"kubeadmConfPath":  "/etc/systemd/system/kubelet.service.d/10-kubeadm.conf",
 	}, "node-a")
 	if err != nil {
@@ -77,8 +75,6 @@ func TestRenderNodeServantConvertJob(t *testing.T) {
 		"--namespace=custom-ns",
 		"--working-mode=cloud",
 		"--nodepool-name=pool-a",
-		"--yurthub-version=v1.6.1",
-		"--yurthub-binary-url=https://example.com/yurthub",
 		"--kubeadm-conf-path=/etc/systemd/system/kubelet.service.d/10-kubeadm.conf",
 	}
 	for _, want := range wantSubstrings {

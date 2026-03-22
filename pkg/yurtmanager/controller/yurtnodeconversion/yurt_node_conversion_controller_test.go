@@ -65,7 +65,6 @@ func TestReconcileCreateConvertJob(t *testing.T) {
 	assert.Equal(t, "node-a", job.Labels[nodeservant.ConversionNodeLabelKey])
 	assert.Contains(t, job.Spec.Template.Spec.Containers[0].Args[0], "convert")
 	assert.Contains(t, job.Spec.Template.Spec.Containers[0].Args[0], "--nodepool-name=pool-a")
-	assert.Contains(t, job.Spec.Template.Spec.Containers[0].Args[0], "--yurthub-version=v1.6.1")
 }
 
 func TestReconcileConvertSuccess(t *testing.T) {
@@ -541,7 +540,6 @@ func newReconcilerForTest(t *testing.T, objs ...client.Object) (*ReconcileYurtNo
 		nodeServantImage: "openyurt/node-servant:latest",
 		cfg: conversionconfig.YurtNodeConversionControllerConfiguration{
 			ConcurrentYurtNodeConversionWorkers: 1,
-			YurthubVersion:                      "v1.6.1",
 		},
 	}, cli
 }

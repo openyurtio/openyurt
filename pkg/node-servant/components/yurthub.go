@@ -17,12 +17,18 @@ limitations under the License.
 package components
 
 import (
+	"os"
+
 	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
+	"github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 	yurthubutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/yurthub"
 )
 
 var (
-	checkAndInstallYurthubFunc      = yurthubutil.CheckAndInstallYurthubWithConfig
+	statYurthubBinaryFunc           = os.Stat
+	removeYurthubBinaryFunc         = os.RemoveAll
+	copyEmbeddedYurthubBinaryFunc   = edgenode.CopyFile
+	checkAndInstallYurthubFunc      = installEmbeddedYurthub
 	createYurthubSystemdServiceFunc = yurthubutil.CreateYurthubSystemdServiceWithConfig
 	checkYurthubServiceHealthFunc   = yurthubutil.CheckYurthubServiceHealth
 	checkYurthubReadyzFunc          = yurthubutil.CheckYurthubReadyz
@@ -42,7 +48,7 @@ func NewYurthubOperator(cfg *yurthubutil.YurthubHostConfig) *yurtHubOperator {
 // Install installs yurthub on the host as a systemd service and waits for it
 // to become healthy before kubelet traffic is redirected.
 func (op *yurtHubOperator) Install() error {
-	if err := checkAndInstallYurthubFunc(op.cfg); err != nil {
+	if err := checkAndInstallYurthubFunc(); err != nil {
 		return err
 	}
 
@@ -68,4 +74,16 @@ func (op *yurtHubOperator) bindAddress() string {
 	}
 
 	return constants.DefaultYurtHubServerAddr
+}
+
+func installEmbeddedYurthub() error {
+	if _, err := statYurthubBinaryFunc(constants.YurthubExecStart); err == nil {
+		if err := removeYurthubBinaryFunc(constants.YurthubExecStart); err != nil {
+			return err
+		}
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+
+	return copyEmbeddedYurthubBinaryFunc(constants.YurthubEmbeddedPath, constants.YurthubExecStart, 0755)
 }

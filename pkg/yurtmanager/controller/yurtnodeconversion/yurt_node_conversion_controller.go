@@ -268,12 +268,6 @@ func (r *ReconcileYurtNodeConversion) createConversionJob(ctx context.Context, n
 		renderCtx["namespace"] = constants.YurthubNamespace
 		renderCtx["nodePoolName"] = nodePoolName
 		renderCtx["workingMode"] = constants.EdgeNode
-		if len(r.cfg.YurthubBinaryURL) != 0 {
-			renderCtx["yurthubBinaryURL"] = r.cfg.YurthubBinaryURL
-		}
-		if len(r.cfg.YurthubVersion) != 0 {
-			renderCtx["yurthubVersion"] = r.cfg.YurthubVersion
-		}
 	}
 
 	job, err := nodeservant.RenderNodeServantJob(action, renderCtx, nodeName)

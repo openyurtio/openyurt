@@ -38,8 +38,6 @@ type Options struct {
 	nodePoolName     string
 	openyurtDir      string
 	workingMode      string
-	yurthubBinaryURL string
-	yurthubVersion   string
 	Version          bool
 }
 
@@ -50,7 +48,6 @@ func NewConvertOptions() *Options {
 		namespace:        constants.YurthubNamespace,
 		openyurtDir:      constants.OpenyurtDir,
 		workingMode:      constants.EdgeNode,
-		yurthubVersion:   constants.YurthubVersion,
 	}
 }
 
@@ -107,10 +104,6 @@ func (o *Options) Validate() error {
 		return fmt.Errorf("working mode is empty")
 	}
 
-	if len(o.yurthubBinaryURL) == 0 && len(o.yurthubVersion) == 0 {
-		return fmt.Errorf("yurthub version and binary URL are both empty")
-	}
-
 	return nil
 }
 
@@ -121,7 +114,5 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.nodeName, constants.NodeName, o.nodeName, "The node name where convert is executed.")
 	fs.StringVar(&o.nodePoolName, constants.NodePoolName, o.nodePoolName, "The nodepool name which the node will be added.")
 	fs.StringVar(&o.workingMode, "working-mode", o.workingMode, "The working mode of yurthub(edge, cloud, local).")
-	fs.StringVar(&o.yurthubBinaryURL, constants.YurtHubBinaryUrl, o.yurthubBinaryURL, "The yurthub binary download URL.")
-	fs.StringVar(&o.yurthubVersion, "yurthub-version", o.yurthubVersion, "The yurthub binary version to install when binary URL is not set.")
 	fs.BoolVar(&o.Version, "version", o.Version, "print the version information.")
 }

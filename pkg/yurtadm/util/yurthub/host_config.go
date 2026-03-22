@@ -18,7 +18,6 @@ package yurthub
 
 import (
 	"fmt"
-	"runtime"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -41,14 +40,12 @@ var (
 // configuration needed to run yurthub outside of static pod mode.
 type YurthubHostConfig struct {
 	BindAddress   string
-	BinaryURL     string
 	BootstrapFile string
 	BootstrapMode string
 	Namespace     string
 	NodeName      string
 	NodePoolName  string
 	ServerAddr    string
-	Version       string
 	WorkingMode   string
 }
 
@@ -57,27 +54,13 @@ type YurthubHostConfig struct {
 func NewYurthubHostConfigFromJoinData(data joindata.YurtJoinData) *YurthubHostConfig {
 	return &YurthubHostConfig{
 		BindAddress:   constants.DefaultYurtHubServerAddr,
-		BinaryURL:     data.YurtHubBinaryUrl(),
 		BootstrapFile: yurthubBootstrapConfigPath,
 		Namespace:     data.Namespace(),
 		NodeName:      data.NodeRegistration().Name,
 		NodePoolName:  data.NodeRegistration().NodePoolName,
 		ServerAddr:    data.ServerAddr(),
-		Version:       constants.YurthubVersion,
 		WorkingMode:   data.NodeRegistration().WorkingMode,
 	}
-}
-
-func (cfg *YurthubHostConfig) validateForBinaryInstall() error {
-	if cfg == nil {
-		return errors.New("yurthub host config is nil")
-	}
-
-	if len(cfg.BinaryURL) == 0 && len(cfg.Version) == 0 {
-		return errors.New("yurthub version and binary URL are both empty")
-	}
-
-	return nil
 }
 
 func (cfg *YurthubHostConfig) validateForSystemdService() error {
@@ -129,14 +112,6 @@ func (cfg *YurthubHostConfig) normalizedServerAddr() string {
 		addrs[i] = fmt.Sprintf("https://%s", addr)
 	}
 	return strings.Join(addrs, ",")
-}
-
-func (cfg *YurthubHostConfig) binaryDownloadURL() string {
-	if len(cfg.BinaryURL) != 0 {
-		return cfg.BinaryURL
-	}
-
-	return fmt.Sprintf(constants.YurthubExecUrlFormat, constants.YurthubExecResourceServer, cfg.Version, runtime.GOARCH)
 }
 
 func (cfg *YurthubHostConfig) bootstrapArgs() string {
