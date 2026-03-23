@@ -406,6 +406,7 @@ func SetKubeadmJoinConfig(data joindata.YurtJoinData) error {
 		"podInfraContainerImage": data.PauseImage(),
 		"criSocket":              nodeReg.CRISocket,
 		"name":                   nodeReg.Name,
+		"nodeIP":                 data.NodeIP(),
 	}
 
 	// if node isn't local node, we need to set ignorePreflightErrors and nodeLabels
@@ -441,15 +442,24 @@ func SetKubeadmJoinConfig(data joindata.YurtJoinData) error {
 	if err != nil {
 		return err
 	}
+	v3, err := version.NewVersion("v1.31.0")
+	if err != nil {
+		return err
+	}
 	// This is to adapt the apiVersion of JoinConfiguration
 	// https://kubernetes.io/docs/reference/config-api/kubeadm-config.v1beta3/
+	// https://kubernetes.io/docs/reference/config-api/kubeadm-config.v1beta4/
+	joinConfTpl := constants.KubeadmJoinConf
 	if v1.LessThan(v2) {
 		ctx["apiVersion"] = "kubeadm.k8s.io/v1beta2"
-	} else {
+	} else if v1.LessThan(v3) {
 		ctx["apiVersion"] = "kubeadm.k8s.io/v1beta3"
+	} else {
+		ctx["apiVersion"] = "kubeadm.k8s.io/v1beta4"
+		joinConfTpl = constants.KubeadmJoinConfV1Beta4
 	}
 
-	kubeadmJoinTemplate, err := templates.SubstituteTemplate(constants.KubeadmJoinConf, ctx)
+	kubeadmJoinTemplate, err := templates.SubstituteTemplate(joinConfTpl, ctx)
 	if err != nil {
 		return err
 	}

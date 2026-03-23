@@ -392,6 +392,10 @@ func (j *testData) NodeLabels() map[string]string {
 	return nil
 }
 
+func (j *testData) NodeIP() string {
+	return ""
+}
+
 func (j *testData) KubernetesResourceServer() string {
 	return ""
 }
