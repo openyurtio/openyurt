@@ -52,7 +52,7 @@ func RenderNodeServantJob(action string, renderCtx map[string]string, nodeName s
 	tmplCtx["backoffLimit"] = fmt.Sprintf("%d", DefaultConversionJobBackoffLimit)
 	tmplCtx["conversionNodeLabelKey"] = ConversionNodeLabelKey
 	tmplCtx["jobName"] = ConversionJobNameBase + "-" + nodeName
-	tmplCtx["jobNamespace"] = DefaultConversionJobNamespace
+	tmplCtx["jobNamespace"] = valueOrDefault(tmplCtx["jobNamespace"], DefaultConversionJobNamespace)
 	tmplCtx["nodeName"] = nodeName
 	tmplCtx["servantCommand"] = servantCommand
 	tmplCtx["ttlSecondsAfterFinished"] = fmt.Sprintf("%d", DefaultConversionJobTTLSecondsAfterFinished)
@@ -106,7 +106,7 @@ func buildServantCommand(action string, tmplCtx map[string]string, nodeName stri
 	case "convert":
 		return buildConvertCommand(tmplCtx, nodeName), nil
 	case "revert":
-		return "revert", nil
+		return buildRevertCommand(nodeName), nil
 	default:
 		return "", fmt.Errorf("action invalid: %s ", action)
 	}
@@ -125,6 +125,13 @@ func buildConvertCommand(tmplCtx map[string]string, nodeName string) string {
 		args = append(args, fmt.Sprintf("--kubeadm-conf-path=%s", kubeadmConfPath))
 	}
 	return strings.Join(args, " ")
+}
+
+func buildRevertCommand(nodeName string) string {
+	return strings.Join([]string{
+		"revert",
+		fmt.Sprintf("--%s=%s", constants.NodeName, nodeName),
+	}, " ")
 }
 
 func checkKeys(arr []string, tmplCtx map[string]string) error {

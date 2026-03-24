@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	nodeservant "github.com/openyurtio/openyurt/pkg/node-servant"
 	"github.com/openyurtio/openyurt/pkg/node-servant/components"
 	yurthubutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/yurthub"
 )
@@ -33,6 +34,9 @@ var (
 	}
 	redirectKubeletFunc = func(openyurtDir string) error {
 		return components.NewKubeletOperator(openyurtDir).RedirectTrafficToYurtHub()
+	}
+	restartContainersFunc = func(nodeName string) error {
+		return components.RestartNonPauseContainers(nodeName, conversionJobPodPrefix(nodeName))
 	}
 )
 
@@ -74,6 +78,9 @@ func (n *nodeConverter) Do() error {
 	if err := n.convertKubelet(); err != nil {
 		return err
 	}
+	if err := n.restartContainers(); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -94,6 +101,10 @@ func (n *nodeConverter) convertKubelet() error {
 	return redirectKubeletFunc(n.openyurtDir)
 }
 
+func (n *nodeConverter) restartContainers() error {
+	return restartContainersFunc(n.nodeName)
+}
+
 func (n *nodeConverter) yurthubHostConfig(apiServerAddress string) *yurthubutil.YurthubHostConfig {
 	return &yurthubutil.YurthubHostConfig{
 		BootstrapMode: bootstrapModeKubeletCertificate,
@@ -103,4 +114,8 @@ func (n *nodeConverter) yurthubHostConfig(apiServerAddress string) *yurthubutil.
 		ServerAddr:    apiServerAddress,
 		WorkingMode:   n.workingMode,
 	}
+}
+
+func conversionJobPodPrefix(nodeName string) string {
+	return fmt.Sprintf("%s-%s", nodeservant.ConversionJobNameBase, nodeName)
 }

@@ -25,9 +25,11 @@ import (
 func TestNodeReverterDo(t *testing.T) {
 	oldUndoKubeletRedirectFunc := undoKubeletRedirectFunc
 	oldUninstallYurthubFunc := uninstallYurthubFunc
+	oldRestartContainersFunc := restartContainersFunc
 	defer func() {
 		undoKubeletRedirectFunc = oldUndoKubeletRedirectFunc
 		uninstallYurthubFunc = oldUninstallYurthubFunc
+		restartContainersFunc = oldRestartContainersFunc
 	}()
 
 	var calls []string
@@ -42,13 +44,20 @@ func TestNodeReverterDo(t *testing.T) {
 		calls = append(calls, "uninstall-yurthub")
 		return nil
 	}
+	restartContainersFunc = func(nodeName string) error {
+		if nodeName != "node-a" {
+			t.Fatalf("unexpected node name %q", nodeName)
+		}
+		calls = append(calls, "restart-containers")
+		return nil
+	}
 
-	reverter := NewReverterWithOptions(&Options{openyurtDir: "/var/lib/openyurt"})
+	reverter := NewReverterWithOptions(&Options{nodeName: "node-a", openyurtDir: "/var/lib/openyurt"})
 	if err := reverter.Do(); err != nil {
 		t.Fatalf("Do() returned error: %v", err)
 	}
 
-	wantCalls := []string{"revert-kubelet", "uninstall-yurthub"}
+	wantCalls := []string{"revert-kubelet", "restart-containers", "uninstall-yurthub"}
 	if !reflect.DeepEqual(calls, wantCalls) {
 		t.Fatalf("unexpected call order, got=%v, want=%v", calls, wantCalls)
 	}
@@ -57,13 +66,16 @@ func TestNodeReverterDo(t *testing.T) {
 func TestNodeReverterStopsWhenKubeletRevertFails(t *testing.T) {
 	oldUndoKubeletRedirectFunc := undoKubeletRedirectFunc
 	oldUninstallYurthubFunc := uninstallYurthubFunc
+	oldRestartContainersFunc := restartContainersFunc
 	defer func() {
 		undoKubeletRedirectFunc = oldUndoKubeletRedirectFunc
 		uninstallYurthubFunc = oldUninstallYurthubFunc
+		restartContainersFunc = oldRestartContainersFunc
 	}()
 
 	expectedErr := errors.New("revert failed")
 	uninstallCalled := false
+	restartCalled := false
 	undoKubeletRedirectFunc = func(openyurtDir string) error {
 		return expectedErr
 	}
@@ -71,13 +83,20 @@ func TestNodeReverterStopsWhenKubeletRevertFails(t *testing.T) {
 		uninstallCalled = true
 		return nil
 	}
+	restartContainersFunc = func(nodeName string) error {
+		restartCalled = true
+		return nil
+	}
 
-	reverter := NewReverterWithOptions(&Options{openyurtDir: "/var/lib/openyurt"})
+	reverter := NewReverterWithOptions(&Options{nodeName: "node-a", openyurtDir: "/var/lib/openyurt"})
 	err := reverter.Do()
 	if !errors.Is(err, expectedErr) {
 		t.Fatalf("unexpected error, got=%v, want=%v", err, expectedErr)
 	}
 	if uninstallCalled {
 		t.Fatal("expected yurthub uninstall to be skipped after kubelet revert failure")
+	}
+	if restartCalled {
+		t.Fatal("expected container restart to be skipped after kubelet revert failure")
 	}
 }

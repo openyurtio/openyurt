@@ -66,6 +66,7 @@ type ReconcileYurtNodeConversion struct {
 	client.Client
 	cfg              conversionconfig.YurtNodeConversionControllerConfiguration
 	nodeServantImage string
+	jobNamespace     string
 }
 
 var _ reconcile.Reconciler = &ReconcileYurtNodeConversion{}
@@ -86,6 +87,7 @@ func Add(ctx context.Context, c *appconfig.CompletedConfig, mgr manager.Manager)
 		Client:           yurtClient.GetClientByControllerNameOrDie(mgr, names.YurtNodeConversionController),
 		cfg:              c.ComponentConfig.YurtNodeConversionController,
 		nodeServantImage: c.ComponentConfig.YurtStaticSetController.UpgradeWorkerImage,
+		jobNamespace:     c.ComponentConfig.Generic.WorkingNamespace,
 	}
 
 	ctrl, err := controller.New(names.YurtNodeConversionController, mgr, controller.Options{
@@ -113,7 +115,7 @@ func Add(ctx context.Context, c *appconfig.CompletedConfig, mgr manager.Manager)
 
 // +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core,resources=nodes/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;delete
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;create;update;patch;delete
 
 func (r *ReconcileYurtNodeConversion) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
@@ -180,7 +182,7 @@ func (r *ReconcileYurtNodeConversion) Reconcile(ctx context.Context, req reconci
 
 		if isJobSucceeded(job) {
 			klog.Info(Format("node(%s) observed succeeded %s job %s", node.Name, currentJobAction, job.Name))
-			return reconcile.Result{}, r.handleSuccessfulAction(ctx, node.Name, currentJobAction, jobCompletionCutoff(job))
+			return reconcile.Result{}, r.handleSuccessfulAction(ctx, node.Name, currentJobAction)
 		}
 
 		// keep the node cordoned and ensure in-progress condition remains correct when the job is still running
@@ -199,7 +201,7 @@ func (r *ReconcileYurtNodeConversion) Reconcile(ctx context.Context, req reconci
 	// but the controller's finalization was interrupted after the Job's disappearance
 	if action := interruptedFinalizationAction(node, cond); action != actionNone {
 		klog.V(4).Info(Format("node(%s) resumes interrupted %s finalization without an active job", node.Name, action))
-		return reconcile.Result{}, r.handleSuccessfulAction(ctx, node.Name, action, nil)
+		return reconcile.Result{}, r.handleSuccessfulAction(ctx, node.Name, action)
 	}
 
 	if desiredAction == actionNone {
@@ -243,7 +245,7 @@ func (r *ReconcileYurtNodeConversion) mapJobToNode(_ context.Context, obj client
 func (r *ReconcileYurtNodeConversion) getConversionJob(ctx context.Context, nodeName string) (*batchv1.Job, error) {
 	job := &batchv1.Job{}
 	err := r.Get(ctx, types.NamespacedName{
-		Namespace: nodeservant.DefaultConversionJobNamespace,
+		Namespace: r.conversionJobNamespace(),
 		Name:      conversionJobName(nodeName),
 	}, job)
 	if apierrors.IsNotFound(err) {
@@ -262,6 +264,7 @@ func (r *ReconcileYurtNodeConversion) createConversionJob(ctx context.Context, n
 	}
 
 	renderCtx := map[string]string{
+		"jobNamespace":     r.conversionJobNamespace(),
 		"nodeServantImage": r.nodeServantImage,
 	}
 	if action == actionConvert {
@@ -280,7 +283,7 @@ func (r *ReconcileYurtNodeConversion) createConversionJob(ctx context.Context, n
 
 // handleSuccessfulAction completes the control-plane side of a successful round
 // after node-servant already finished the host-level operations on the node
-func (r *ReconcileYurtNodeConversion) handleSuccessfulAction(ctx context.Context, nodeName, action string, restartBefore *metav1.Time) error {
+func (r *ReconcileYurtNodeConversion) handleSuccessfulAction(ctx context.Context, nodeName, action string) error {
 	klog.V(4).Info(Format("finalize successful %s round for node(%s)", action, nodeName))
 	node := &corev1.Node{}
 	if err := r.Get(ctx, types.NamespacedName{Name: nodeName}, node); err != nil {
@@ -291,12 +294,9 @@ func (r *ReconcileYurtNodeConversion) handleSuccessfulAction(ctx context.Context
 		return err
 	}
 
-	// restart recreatable workload Pods only once per successful round
 	if !hasSucceededConditionForAction(getConversionCondition(node), action) {
-		if err := r.restartRecreatablePods(ctx, nodeName, restartBefore); err != nil {
-			return err
-		}
-		if err := r.ensureNodeConversionCondition(ctx, nodeName, newConversionCondition(action, succeededReasonForAction(action), succeededMessage(action))); err != nil {
+		if err := r.ensureNodeConversionCondition(ctx, nodeName,
+			newConversionCondition(action, succeededReasonForAction(action), succeededMessage(action))); err != nil {
 			return err
 		}
 	}
@@ -438,6 +438,13 @@ func validateConversionJobRequest(nodeName, nodePoolName, action string, nodeSer
 
 func (r *ReconcileYurtNodeConversion) validateConversionJobRequest(nodeName, nodePoolName, action string) error {
 	return validateConversionJobRequest(nodeName, nodePoolName, action, r.nodeServantImage)
+}
+
+func (r *ReconcileYurtNodeConversion) conversionJobNamespace() string {
+	if ns := strings.TrimSpace(r.jobNamespace); ns != "" {
+		return ns
+	}
+	return nodeservant.DefaultConversionJobNamespace
 }
 
 func isConvertedStable(node *corev1.Node) bool {

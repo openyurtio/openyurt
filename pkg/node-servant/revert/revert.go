@@ -16,7 +16,12 @@ limitations under the License.
 
 package revert
 
-import "github.com/openyurtio/openyurt/pkg/node-servant/components"
+import (
+	"fmt"
+
+	nodeservant "github.com/openyurtio/openyurt/pkg/node-servant"
+	"github.com/openyurtio/openyurt/pkg/node-servant/components"
+)
 
 var (
 	undoKubeletRedirectFunc = func(openyurtDir string) error {
@@ -24,6 +29,9 @@ var (
 	}
 	uninstallYurthubFunc = func() error {
 		return components.NewYurthubOperator(nil).UnInstall()
+	}
+	restartContainersFunc = func(nodeName string) error {
+		return components.RestartNonPauseContainers(nodeName, conversionJobPodPrefix(nodeName))
 	}
 )
 
@@ -45,6 +53,9 @@ func (n *nodeReverter) Do() error {
 	if err := n.revertKubelet(); err != nil {
 		return err
 	}
+	if err := n.restartContainers(); err != nil {
+		return err
+	}
 	if err := n.unInstallYurtHub(); err != nil {
 		return err
 	}
@@ -58,4 +69,12 @@ func (n *nodeReverter) revertKubelet() error {
 
 func (n *nodeReverter) unInstallYurtHub() error {
 	return uninstallYurthubFunc()
+}
+
+func (n *nodeReverter) restartContainers() error {
+	return restartContainersFunc(n.nodeName)
+}
+
+func conversionJobPodPrefix(nodeName string) string {
+	return fmt.Sprintf("%s-%s", nodeservant.ConversionJobNameBase, nodeName)
 }

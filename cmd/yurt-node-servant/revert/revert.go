@@ -33,6 +33,9 @@ func NewRevertCmd() *cobra.Command {
 			if err := o.Complete(); err != nil {
 				klog.Fatalf("could not complete the revert option: %s", err)
 			}
+			if err := o.Validate(); err != nil {
+				klog.Fatalf("could not validate the revert option: %s", err)
+			}
 
 			r := revert.NewReverterWithOptions(o)
 			if err := r.Do(); err != nil {
@@ -43,5 +46,6 @@ func NewRevertCmd() *cobra.Command {
 		Args: cobra.NoArgs,
 	}
 
+	o.AddFlags(cmd.Flags())
 	return cmd
 }

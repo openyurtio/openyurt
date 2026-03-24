@@ -20,7 +20,6 @@ import (
 	"context"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -39,6 +38,8 @@ import (
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	conversionconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtnodeconversion/config"
 )
+
+const testWorkingNamespace = "openyurt-test-system"
 
 func TestReconcileCreateConvertJob(t *testing.T) {
 	r, cli := newReconcilerForTest(t, newNode("node-a", map[string]string{
@@ -59,7 +60,7 @@ func TestReconcileCreateConvertJob(t *testing.T) {
 
 	job := &batchv1.Job{}
 	require.NoError(t, cli.Get(context.Background(), types.NamespacedName{
-		Namespace: nodeservant.DefaultConversionJobNamespace,
+		Namespace: r.conversionJobNamespace(),
 		Name:      conversionJobName("node-a"),
 	}, job))
 	assert.Equal(t, "node-a", job.Labels[nodeservant.ConversionNodeLabelKey])
@@ -92,47 +93,6 @@ func TestReconcileConvertSuccess(t *testing.T) {
 	require.NotNil(t, cond)
 	assert.Equal(t, corev1.ConditionFalse, cond.Status)
 	assert.Equal(t, reasonConverted, cond.Reason)
-}
-
-func TestReconcileConvertSuccessRestartsRecreatablePods(t *testing.T) {
-	completionTime := metav1.NewTime(time.Now())
-	node := newNode("node-a", map[string]string{
-		projectinfo.GetNodePoolLabel(): "pool-a",
-	}, true, newNodeCondition(reasonConverting, corev1.ConditionFalse))
-	job := newConversionJobForTest(t, actionConvert, "node-a")
-	job.Status.Conditions = []batchv1.JobCondition{{
-		Type:               batchv1.JobComplete,
-		Status:             corev1.ConditionTrue,
-		LastTransitionTime: completionTime,
-	}}
-	job.Status.Succeeded = 1
-	job.Status.CompletionTime = &completionTime
-
-	workloadPod := newWorkloadPodForTest("ns-a", "workload-old", "node-a", completionTime.Add(-time.Minute), true)
-	barePod := newWorkloadPodForTest("ns-a", "bare", "node-a", completionTime.Add(-time.Minute), false)
-	mirrorPod := newMirrorPodForTest("ns-a", "mirror", "node-a", completionTime.Add(-time.Minute))
-	finishedPod := newWorkloadPodForTest("ns-a", "finished", "node-a", completionTime.Add(-time.Minute), true)
-	finishedPod.Status.Phase = corev1.PodSucceeded
-	conversionPod := newConversionJobPodForTest("node-a", completionTime.Add(-time.Minute))
-
-	r, cli := newReconcilerForTest(t, node, job, workloadPod, barePod, mirrorPod, finishedPod, conversionPod)
-
-	_, err := r.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Name: "node-a"}})
-	require.NoError(t, err)
-
-	assertPodDeleted(t, cli, "ns-a", "workload-old")
-	assertPodExists(t, cli, "ns-a", "bare")
-	assertPodExists(t, cli, "ns-a", "mirror")
-	assertPodExists(t, cli, "ns-a", "finished")
-	assertPodExists(t, cli, nodeservant.DefaultConversionJobNamespace, "conversion-job-pod")
-
-	recreatedPod := newWorkloadPodForTest("ns-a", "workload-new", "node-a", completionTime.Add(time.Minute), true)
-	require.NoError(t, cli.Create(context.Background(), recreatedPod))
-
-	_, err = r.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Name: "node-a"}})
-	require.NoError(t, err)
-
-	assertPodExists(t, cli, "ns-a", "workload-new")
 }
 
 func TestReconcileConvertFailure(t *testing.T) {
@@ -184,7 +144,7 @@ func TestReconcileRecreateConvertJobAfterFailedConditionWhenJobMissing(t *testin
 
 	job := &batchv1.Job{}
 	require.NoError(t, cli.Get(context.Background(), types.NamespacedName{
-		Namespace: nodeservant.DefaultConversionJobNamespace,
+		Namespace: r.conversionJobNamespace(),
 		Name:      conversionJobName("node-a"),
 	}, job))
 	assert.Contains(t, job.Spec.Template.Spec.Containers[0].Args[0], "convert")
@@ -209,10 +169,10 @@ func TestReconcileCreateRevertJob(t *testing.T) {
 
 	job := &batchv1.Job{}
 	require.NoError(t, cli.Get(context.Background(), types.NamespacedName{
-		Namespace: nodeservant.DefaultConversionJobNamespace,
+		Namespace: r.conversionJobNamespace(),
 		Name:      conversionJobName("node-a"),
 	}, job))
-	assert.Equal(t, "/usr/local/bin/entry.sh revert", job.Spec.Template.Spec.Containers[0].Args[0])
+	assert.Equal(t, "/usr/local/bin/entry.sh revert --node-name=node-a", job.Spec.Template.Spec.Containers[0].Args[0])
 }
 
 func TestReconcileRevertSuccess(t *testing.T) {
@@ -240,30 +200,6 @@ func TestReconcileRevertSuccess(t *testing.T) {
 	require.NotNil(t, cond)
 	assert.Equal(t, corev1.ConditionFalse, cond.Status)
 	assert.Equal(t, reasonReverted, cond.Reason)
-}
-
-func TestReconcileRevertSuccessRestartsRecreatablePods(t *testing.T) {
-	completionTime := metav1.NewTime(time.Now())
-	node := newNode("node-a", map[string]string{
-		projectinfo.GetEdgeWorkerLabelKey(): "true",
-	}, true, newNodeCondition(reasonReverting, corev1.ConditionFalse))
-	job := newConversionJobForTest(t, actionRevert, "node-a")
-	job.Status.Conditions = []batchv1.JobCondition{{
-		Type:               batchv1.JobComplete,
-		Status:             corev1.ConditionTrue,
-		LastTransitionTime: completionTime,
-	}}
-	job.Status.Succeeded = 1
-	job.Status.CompletionTime = &completionTime
-
-	workloadPod := newWorkloadPodForTest("ns-a", "workload-old", "node-a", completionTime.Add(-time.Minute), true)
-
-	r, cli := newReconcilerForTest(t, node, job, workloadPod)
-
-	_, err := r.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Name: "node-a"}})
-	require.NoError(t, err)
-
-	assertPodDeleted(t, cli, "ns-a", "workload-old")
 }
 
 func TestReconcileRevertFailure(t *testing.T) {
@@ -335,7 +271,7 @@ func TestReconcileDeleteStaleFinishedJob(t *testing.T) {
 
 	deletedJob := &batchv1.Job{}
 	err = cli.Get(context.Background(), types.NamespacedName{
-		Namespace: nodeservant.DefaultConversionJobNamespace,
+		Namespace: r.conversionJobNamespace(),
 		Name:      conversionJobName("node-a"),
 	}, deletedJob)
 	assert.Error(t, err)
@@ -377,7 +313,7 @@ func TestReconcileIgnoreDeletingNode(t *testing.T) {
 
 	job := &batchv1.Job{}
 	err = cli.Get(context.Background(), types.NamespacedName{
-		Namespace: nodeservant.DefaultConversionJobNamespace,
+		Namespace: r.conversionJobNamespace(),
 		Name:      conversionJobName("node-a"),
 	}, job)
 	assert.Error(t, err)
@@ -532,81 +468,16 @@ func newReconcilerForTest(t *testing.T, objs ...client.Object) (*ReconcileYurtNo
 
 	builder := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...)
 	builder = builder.WithStatusSubresource(&corev1.Node{})
-	builder = builder.WithIndex(&corev1.Pod{}, PodNodeNameFieldIndex, podIndexer)
 	cli := builder.Build()
 
 	return &ReconcileYurtNodeConversion{
 		Client:           cli,
 		nodeServantImage: "openyurt/node-servant:latest",
+		jobNamespace:     testWorkingNamespace,
 		cfg: conversionconfig.YurtNodeConversionControllerConfiguration{
 			ConcurrentYurtNodeConversionWorkers: 1,
 		},
 	}, cli
-}
-
-func newWorkloadPodForTest(namespace, name, nodeName string, createdAt time.Time, withOwner bool) *corev1.Pod {
-	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:         namespace,
-			Name:              name,
-			CreationTimestamp: metav1.NewTime(createdAt),
-		},
-		Spec: corev1.PodSpec{
-			NodeName: nodeName,
-		},
-		Status: corev1.PodStatus{
-			Phase: corev1.PodRunning,
-		},
-	}
-	if withOwner {
-		pod.OwnerReferences = []metav1.OwnerReference{{
-			APIVersion: "apps/v1",
-			Kind:       "Deployment",
-			Name:       "workload",
-		}}
-	}
-	return pod
-}
-
-func newMirrorPodForTest(namespace, name, nodeName string, createdAt time.Time) *corev1.Pod {
-	pod := newWorkloadPodForTest(namespace, name, nodeName, createdAt, true)
-	pod.Annotations = map[string]string{
-		corev1.MirrorPodAnnotationKey: "mirror-uid",
-	}
-	return pod
-}
-
-func newConversionJobPodForTest(nodeName string, createdAt time.Time) *corev1.Pod {
-	pod := newWorkloadPodForTest(nodeservant.DefaultConversionJobNamespace, "conversion-job-pod", nodeName, createdAt, true)
-	pod.OwnerReferences = []metav1.OwnerReference{{
-		APIVersion: "batch/v1",
-		Kind:       "Job",
-		Name:       conversionJobName(nodeName),
-	}}
-	return pod
-}
-
-func podIndexer(obj client.Object) []string {
-	pod, ok := obj.(*corev1.Pod)
-	if !ok || pod.Spec.NodeName == "" {
-		return []string{}
-	}
-	return []string{pod.Spec.NodeName}
-}
-
-func assertPodDeleted(t *testing.T, cli client.Client, namespace, name string) {
-	t.Helper()
-
-	pod := &corev1.Pod{}
-	err := cli.Get(context.Background(), types.NamespacedName{Namespace: namespace, Name: name}, pod)
-	assert.Error(t, err)
-}
-
-func assertPodExists(t *testing.T, cli client.Client, namespace, name string) {
-	t.Helper()
-
-	pod := &corev1.Pod{}
-	require.NoError(t, cli.Get(context.Background(), types.NamespacedName{Namespace: namespace, Name: name}, pod))
 }
 
 func newNode(name string, labels map[string]string, unschedulable bool, cond *corev1.NodeCondition) *corev1.Node {
@@ -646,6 +517,7 @@ func newConversionJobForTest(t *testing.T, action, nodeName string) *batchv1.Job
 	t.Helper()
 
 	renderCtx := map[string]string{
+		"jobNamespace":     testWorkingNamespace,
 		"nodeServantImage": "openyurt/node-servant:latest",
 	}
 	if action == actionConvert {

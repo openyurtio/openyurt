@@ -25,6 +25,7 @@ import (
 
 func TestRenderNodeServantConvertJob(t *testing.T) {
 	job, err := RenderNodeServantJob("convert", map[string]string{
+		"jobNamespace":     "custom-job-ns",
 		"nodeServantImage": "openyurt/node-servant:latest",
 		"nodePoolName":     "pool-a",
 		"workingMode":      "cloud",
@@ -37,6 +38,9 @@ func TestRenderNodeServantConvertJob(t *testing.T) {
 
 	if job.Name != "node-servant-conversion-node-a" {
 		t.Fatalf("unexpected job name %q", job.Name)
+	}
+	if job.Namespace != "custom-job-ns" {
+		t.Fatalf("unexpected job namespace %q", job.Namespace)
 	}
 	if job.Labels[ConversionNodeLabelKey] != "node-a" {
 		t.Fatalf("unexpected job label value %q", job.Labels[ConversionNodeLabelKey])
@@ -96,7 +100,7 @@ func TestRenderNodeServantRevertJob(t *testing.T) {
 		t.Fatalf("unexpected job name %q", job.Name)
 	}
 	command := job.Spec.Template.Spec.Containers[0].Args[0]
-	if command != "/usr/local/bin/entry.sh revert" {
+	if command != "/usr/local/bin/entry.sh revert --node-name=node-a" {
 		t.Fatalf("unexpected command %q", command)
 	}
 }

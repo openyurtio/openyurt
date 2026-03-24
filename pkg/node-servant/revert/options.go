@@ -17,13 +17,18 @@ limitations under the License.
 package revert
 
 import (
+	"fmt"
 	"os"
 
+	"github.com/spf13/pflag"
+
 	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
+	enutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 )
 
 // Options has the information that required by revert operation.
 type Options struct {
+	nodeName    string
 	openyurtDir string
 }
 
@@ -34,6 +39,10 @@ func NewRevertOptions() *Options {
 
 // Complete completes all the required options.
 func (o *Options) Complete() error {
+	if o.nodeName == "" {
+		o.nodeName = os.Getenv(enutil.NODE_NAME)
+	}
+
 	openyurtDir := os.Getenv("OPENYURT_DIR")
 	if openyurtDir == "" {
 		openyurtDir = constants.OpenyurtDir
@@ -41,4 +50,17 @@ func (o *Options) Complete() error {
 	o.openyurtDir = openyurtDir
 
 	return nil
+}
+
+// Validate validates Options.
+func (o *Options) Validate() error {
+	if o.nodeName == "" {
+		return fmt.Errorf("node name is empty")
+	}
+	return nil
+}
+
+// AddFlags sets flags.
+func (o *Options) AddFlags(fs *pflag.FlagSet) {
+	fs.StringVar(&o.nodeName, constants.NodeName, o.nodeName, "The node name where revert is executed.")
 }

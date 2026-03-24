@@ -28,10 +28,12 @@ func TestNodeConverterDo(t *testing.T) {
 	oldGetAPIServerAddressFunc := getAPIServerAddressFunc
 	oldInstallYurthubFunc := installYurthubFunc
 	oldRedirectKubeletFunc := redirectKubeletFunc
+	oldRestartContainersFunc := restartContainersFunc
 	defer func() {
 		getAPIServerAddressFunc = oldGetAPIServerAddressFunc
 		installYurthubFunc = oldInstallYurthubFunc
 		redirectKubeletFunc = oldRedirectKubeletFunc
+		restartContainersFunc = oldRestartContainersFunc
 	}()
 
 	converter := &nodeConverter{
@@ -66,12 +68,19 @@ func TestNodeConverterDo(t *testing.T) {
 		calls = append(calls, "redirect-kubelet")
 		return nil
 	}
+	restartContainersFunc = func(nodeName string) error {
+		if nodeName != converter.nodeName {
+			t.Fatalf("unexpected node name %q", nodeName)
+		}
+		calls = append(calls, "restart-containers")
+		return nil
+	}
 
 	if err := converter.Do(); err != nil {
 		t.Fatalf("Do() returned error: %v", err)
 	}
 
-	wantCalls := []string{"discover-apiserver", "install-yurthub", "redirect-kubelet"}
+	wantCalls := []string{"discover-apiserver", "install-yurthub", "redirect-kubelet", "restart-containers"}
 	if !reflect.DeepEqual(calls, wantCalls) {
 		t.Fatalf("unexpected call order, got=%v, want=%v", calls, wantCalls)
 	}
@@ -93,10 +102,12 @@ func TestNodeConverterStopsWhenInstallFails(t *testing.T) {
 	oldGetAPIServerAddressFunc := getAPIServerAddressFunc
 	oldInstallYurthubFunc := installYurthubFunc
 	oldRedirectKubeletFunc := redirectKubeletFunc
+	oldRestartContainersFunc := restartContainersFunc
 	defer func() {
 		getAPIServerAddressFunc = oldGetAPIServerAddressFunc
 		installYurthubFunc = oldInstallYurthubFunc
 		redirectKubeletFunc = oldRedirectKubeletFunc
+		restartContainersFunc = oldRestartContainersFunc
 	}()
 
 	converter := &nodeConverter{
@@ -112,11 +123,16 @@ func TestNodeConverterStopsWhenInstallFails(t *testing.T) {
 
 	expectedErr := errors.New("install failed")
 	redirectCalled := false
+	restartCalled := false
 	installYurthubFunc = func(cfg *yurthubutil.YurthubHostConfig) error {
 		return expectedErr
 	}
 	redirectKubeletFunc = func(openyurtDir string) error {
 		redirectCalled = true
+		return nil
+	}
+	restartContainersFunc = func(nodeName string) error {
+		restartCalled = true
 		return nil
 	}
 
@@ -126,5 +142,8 @@ func TestNodeConverterStopsWhenInstallFails(t *testing.T) {
 	}
 	if redirectCalled {
 		t.Fatal("expected kubelet redirection to be skipped after install failure")
+	}
+	if restartCalled {
+		t.Fatal("expected container restart to be skipped after install failure")
 	}
 }
