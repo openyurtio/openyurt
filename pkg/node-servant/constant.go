@@ -49,7 +49,7 @@ spec:
     spec:
       hostPID: true
       hostNetwork: true
-      restartPolicy: OnFailure
+      restartPolicy: Never
       nodeName: {{.nodeName}}
       tolerations:
       - operator: Exists

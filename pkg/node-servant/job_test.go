@@ -65,6 +65,9 @@ func TestRenderNodeServantConvertJob(t *testing.T) {
 	if len(podSpec.Tolerations) != 2 {
 		t.Fatalf("unexpected tolerations %#v", podSpec.Tolerations)
 	}
+	if podSpec.RestartPolicy != corev1.RestartPolicyNever {
+		t.Fatalf("unexpected restartPolicy %q", podSpec.RestartPolicy)
+	}
 	if podSpec.Tolerations[0].Operator != corev1.TolerationOpExists || podSpec.Tolerations[0].Effect != corev1.TaintEffectNoSchedule {
 		t.Fatalf("unexpected first toleration %#v", podSpec.Tolerations[0])
 	}

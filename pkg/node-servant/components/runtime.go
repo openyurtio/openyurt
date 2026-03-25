@@ -17,6 +17,7 @@ limitations under the License.
 package components
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -149,38 +150,7 @@ func (runtime *CRIRuntime) ListKubeContainers() ([]KubeContainer, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "output: %s, error", out)
 	}
-
-	type criList struct {
-		Containers []struct {
-			ID       string `json:"id"`
-			Metadata struct {
-				Name string `json:"name"`
-			} `json:"metadata"`
-			Labels map[string]string `json:"labels"`
-		} `json:"containers"`
-	}
-
-	var list criList
-	if err := json.Unmarshal(out, &list); err != nil {
-		return nil, errors.Wrapf(err, "parse crictl ps output: %s", out)
-	}
-
-	containers := make([]KubeContainer, 0, len(list.Containers))
-	for _, container := range list.Containers {
-		podName := container.Labels["io.kubernetes.pod.name"]
-		containerName := container.Labels["io.kubernetes.container.name"]
-		if containerName == "" {
-			containerName = container.Metadata.Name
-		}
-		containers = append(containers, KubeContainer{
-			ID:            container.ID,
-			Namespace:     container.Labels["io.kubernetes.pod.namespace"],
-			PodName:       podName,
-			ContainerName: containerName,
-		})
-	}
-
-	return containers, nil
+	return parseCRIContainerListOutput(out)
 }
 
 func (runtime *DockerRuntime) ListKubeContainers() ([]KubeContainer, error) {
@@ -484,4 +454,62 @@ func uniqueStrings(values []string) []string {
 		result = append(result, value)
 	}
 	return result
+}
+
+func parseCRIContainerListOutput(out []byte) ([]KubeContainer, error) {
+	type criList struct {
+		Containers []struct {
+			ID       string `json:"id"`
+			Metadata struct {
+				Name string `json:"name"`
+			} `json:"metadata"`
+			Labels map[string]string `json:"labels"`
+		} `json:"containers"`
+	}
+
+	jsonPayload, err := extractJSONPayload(out)
+	if err != nil {
+		return nil, errors.Wrapf(err, "parse crictl ps output: %s", out)
+	}
+
+	var list criList
+	if err := json.Unmarshal(jsonPayload, &list); err != nil {
+		return nil, errors.Wrapf(err, "parse crictl ps output: %s", out)
+	}
+
+	containers := make([]KubeContainer, 0, len(list.Containers))
+	for _, container := range list.Containers {
+		podName := container.Labels["io.kubernetes.pod.name"]
+		containerName := container.Labels["io.kubernetes.container.name"]
+		if containerName == "" {
+			containerName = container.Metadata.Name
+		}
+		containers = append(containers, KubeContainer{
+			ID:            container.ID,
+			Namespace:     container.Labels["io.kubernetes.pod.namespace"],
+			PodName:       podName,
+			ContainerName: containerName,
+		})
+	}
+
+	return containers, nil
+}
+
+func extractJSONPayload(out []byte) ([]byte, error) {
+	start := bytes.IndexByte(out, '{')
+	if start == -1 {
+		return nil, fmt.Errorf("no json object found in output")
+	}
+
+	end := bytes.LastIndexByte(out, '}')
+	if end == -1 || end < start {
+		return nil, fmt.Errorf("no complete json object found in output")
+	}
+
+	payload := bytes.TrimSpace(out[start : end+1])
+	if len(payload) == 0 {
+		return nil, fmt.Errorf("empty json payload")
+	}
+
+	return payload, nil
 }

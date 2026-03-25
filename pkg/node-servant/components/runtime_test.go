@@ -75,6 +75,65 @@ EnvironmentFile=-/var/lib/kubelet/kubeadm-flags.env
 	}
 }
 
+func TestParseCRIContainerListOutputIgnoresWarningPrefix(t *testing.T) {
+	out := []byte(`time="2026-03-25T21:09:45+08:00" level=warning msg="Config \"/etc/crictl.yaml\" does not exist, trying next: \"/usr/bin/crictl.yaml\""
+{
+  "containers": [
+    {
+      "id": "container-a",
+      "metadata": {
+        "name": "probe"
+      },
+      "labels": {
+        "io.kubernetes.container.name": "probe",
+        "io.kubernetes.pod.name": "probe-test",
+        "io.kubernetes.pod.namespace": "default"
+      }
+    }
+  ]
+}
+`)
+
+	containers, err := parseCRIContainerListOutput(out)
+	if err != nil {
+		t.Fatalf("parseCRIContainerListOutput() returned error: %v", err)
+	}
+	if len(containers) != 1 {
+		t.Fatalf("expected 1 container, got %d", len(containers))
+	}
+	if containers[0].ID != "container-a" || containers[0].Namespace != "default" || containers[0].PodName != "probe-test" || containers[0].ContainerName != "probe" {
+		t.Fatalf("unexpected container %+v", containers[0])
+	}
+}
+
+func TestParseCRIContainerListOutputFallsBackToMetadataName(t *testing.T) {
+	out := []byte(`{
+  "containers": [
+    {
+      "id": "container-b",
+      "metadata": {
+        "name": "pause"
+      },
+      "labels": {
+        "io.kubernetes.pod.name": "static-probe-test",
+        "io.kubernetes.pod.namespace": "kube-system"
+      }
+    }
+  ]
+}`)
+
+	containers, err := parseCRIContainerListOutput(out)
+	if err != nil {
+		t.Fatalf("parseCRIContainerListOutput() returned error: %v", err)
+	}
+	if len(containers) != 1 {
+		t.Fatalf("expected 1 container, got %d", len(containers))
+	}
+	if containers[0].ContainerName != "pause" {
+		t.Fatalf("expected metadata name fallback, got %+v", containers[0])
+	}
+}
+
 func fakeReadFile(files map[string]string) func(string) ([]byte, error) {
 	return func(path string) ([]byte, error) {
 		content, ok := files[path]
