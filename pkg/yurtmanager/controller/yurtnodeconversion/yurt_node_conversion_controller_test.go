@@ -113,7 +113,7 @@ func TestReconcileConvertFailure(t *testing.T) {
 
 	updatedNode := &corev1.Node{}
 	require.NoError(t, cli.Get(context.Background(), types.NamespacedName{Name: "node-a"}, updatedNode))
-	assert.False(t, updatedNode.Spec.Unschedulable)
+	assert.True(t, updatedNode.Spec.Unschedulable)
 	assert.Empty(t, updatedNode.Labels[projectinfo.GetEdgeWorkerLabelKey()])
 
 	cond := getConversionCondition(updatedNode)
@@ -220,7 +220,7 @@ func TestReconcileRevertFailure(t *testing.T) {
 
 	updatedNode := &corev1.Node{}
 	require.NoError(t, cli.Get(context.Background(), types.NamespacedName{Name: "node-a"}, updatedNode))
-	assert.False(t, updatedNode.Spec.Unschedulable)
+	assert.True(t, updatedNode.Spec.Unschedulable)
 	assert.Equal(t, "true", updatedNode.Labels[projectinfo.GetEdgeWorkerLabelKey()])
 
 	cond := getConversionCondition(updatedNode)

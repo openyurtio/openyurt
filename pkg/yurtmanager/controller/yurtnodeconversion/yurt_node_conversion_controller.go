@@ -166,12 +166,11 @@ func (r *ReconcileYurtNodeConversion) Reconcile(ctx context.Context, req reconci
 			return reconcile.Result{}, nil
 		}
 
-		// Job failure terminates the current round and leaves the node uncordoned
-		// for inspection instead of recreating the Job indefinitely
+		// Job failure terminates the current round and keeps the node cordoned
 		if isJobFailed(job) {
 			klog.Info(Format("node(%s) observed failed %s job %s", node.Name, currentJobAction, job.Name))
-			if err := r.ensureNodeUnschedulable(ctx, node.Name, false); err != nil {
-				return reconcile.Result{}, fmt.Errorf("uncordon node %s after failed %s job: %w", node.Name, currentJobAction, err)
+			if err := r.ensureNodeUnschedulable(ctx, node.Name, true); err != nil {
+				return reconcile.Result{}, fmt.Errorf("keep node %s cordoned after failed %s job: %w", node.Name, currentJobAction, err)
 			}
 			if err := r.ensureNodeConversionCondition(ctx, node.Name,
 				newConversionCondition(currentJobAction, failedReasonForAction(currentJobAction), failedMessage(job, currentJobAction))); err != nil {
@@ -315,10 +314,10 @@ func (r *ReconcileYurtNodeConversion) ensureNodeUnschedulable(ctx context.Contex
 		return nil
 	}
 
-	before := node.DeepCopy()
-	node.Spec.Unschedulable = unschedulable
+	updated := node.DeepCopy()
+	updated.Spec.Unschedulable = unschedulable
 	klog.V(4).Info(Format("patch node(%s) unschedulable=%t", nodeName, unschedulable))
-	return r.Patch(ctx, node, client.MergeFrom(before))
+	return r.Patch(ctx, updated, client.MergeFrom(node))
 }
 
 // ensureEdgeWorkerLabel applies the controller-managed source-of-truth label
@@ -329,22 +328,22 @@ func (r *ReconcileYurtNodeConversion) ensureEdgeWorkerLabel(ctx context.Context,
 		return err
 	}
 
-	before := node.DeepCopy()
-	if node.Labels == nil {
-		node.Labels = map[string]string{}
+	updated := node.DeepCopy()
+	if updated.Labels == nil {
+		updated.Labels = map[string]string{}
 	}
 
 	if enabled {
-		node.Labels[projectinfo.GetEdgeWorkerLabelKey()] = "true"
+		updated.Labels[projectinfo.GetEdgeWorkerLabelKey()] = "true"
 	} else {
-		delete(node.Labels, projectinfo.GetEdgeWorkerLabelKey())
+		delete(updated.Labels, projectinfo.GetEdgeWorkerLabelKey())
 	}
 
-	if reflect.DeepEqual(before.Labels, node.Labels) {
+	if reflect.DeepEqual(node.Labels, updated.Labels) {
 		return nil
 	}
 	klog.V(4).Info(Format("patch node(%s) %s=%t", nodeName, projectinfo.GetEdgeWorkerLabelKey(), enabled))
-	return r.Patch(ctx, node, client.MergeFrom(before))
+	return r.Patch(ctx, updated, client.MergeFrom(node))
 }
 
 // ensureNodeConversionCondition upserts the single conversion condition that
