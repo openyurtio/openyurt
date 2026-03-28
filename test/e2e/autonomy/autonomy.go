@@ -35,7 +35,6 @@ var (
 	CoreDNSServiceIP string
 
 	flannelContainerID   string
-	yurthubContainerID   string
 	kubeProxyContainerID string
 	coreDnsContainerID   string
 	nginxContainerID     string
@@ -111,15 +110,61 @@ var _ = ginkgo.Describe("edge-autonomy"+constants.YurtE2ENamespaceName, ginkgo.O
 
 	var _ = ginkgo.Describe("yurthub"+constants.YurtE2ENamespaceName, func() {
 		ginkgo.It("yurthub edge-autonomy test", ginkgo.Label("edge-autonomy"), func() {
-			// obtain yurthub containerID with crictl
-			cmd := `docker exec -t openyurt-e2e-test-worker /bin/bash -c "crictl ps | grep yurt-hub | awk '{print \$1}'"`
-			opBytes, err := exec.Command("/bin/bash", "-c", cmd).CombinedOutput()
-			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to get yurthub container ID")
-			yurthubContainerID = strings.TrimSpace(string(opBytes))
+			getYurthubMainPID := func() string {
+				opBytes, err := exec.Command(
+					"docker",
+					"exec",
+					"-t",
+					"openyurt-e2e-test-worker",
+					"/bin/bash",
+					"-c",
+					"systemctl show --property MainPID --value yurthub.service",
+				).CombinedOutput()
+				if err != nil {
+					klog.Errorf("failed to get yurthub main pid, output=%s err=%v", strings.TrimSpace(string(opBytes)), err)
+					return ""
+				}
+				return strings.TrimSpace(string(opBytes))
+			}
 
-			// restart yurthub
-			_, err = exec.Command("/bin/bash", "-c", "docker exec -t openyurt-e2e-test-worker /bin/bash -c 'crictl stop "+yurthubContainerID+"'").CombinedOutput()
-			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to stop yurthub")
+			oldPID := getYurthubMainPID()
+			gomega.Expect(oldPID).NotTo(gomega.Or(gomega.BeEmpty(), gomega.Equal("0")), "fail to get yurthub main pid")
+
+			// Kill the main process and rely on systemd Restart=always to bring Yurthub back.
+			opBytes, err := exec.Command(
+				"docker",
+				"exec",
+				"-t",
+				"openyurt-e2e-test-worker",
+				"/bin/bash",
+				"-c",
+				"systemctl kill --signal=SIGKILL --kill-who=main yurthub.service",
+			).CombinedOutput()
+			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to kill yurthub main process: %s", strings.TrimSpace(string(opBytes)))
+
+			gomega.Eventually(func() string {
+				return getYurthubMainPID()
+			}).WithTimeout(30*time.Second).WithPolling(1*time.Second).ShouldNot(
+				gomega.Or(gomega.BeEmpty(), gomega.Equal("0"), gomega.Equal(oldPID)),
+				"fail to observe yurthub service restart",
+			)
+
+			gomega.Eventually(func() bool {
+				opBytes, err := exec.Command(
+					"docker",
+					"exec",
+					"-t",
+					"openyurt-e2e-test-worker",
+					"/bin/bash",
+					"-c",
+					"systemctl is-active --quiet yurthub.service",
+				).CombinedOutput()
+				if err != nil {
+					klog.Infof("yurthub service is not active yet, output=%s err=%v", strings.TrimSpace(string(opBytes)), err)
+					return false
+				}
+				return true
+			}).WithTimeout(30*time.Second).WithPolling(1*time.Second).Should(gomega.BeTrue(), "fail to restart yurthub service")
 
 			// check yurthub health
 			gomega.Eventually(func() bool {

@@ -45,8 +45,8 @@ import (
 
 const (
 	SystemNamespace = "kube-system"
-	// DefaultWaitServantJobTimeout specifies the timeout value of waiting for the ServantJob to be succeeded
-	DefaultWaitServantJobTimeout = time.Minute * 5
+	// DefaultWaitNodeConversionTimeout specifies the timeout value of waiting for node conversion to settle.
+	DefaultWaitNodeConversionTimeout = time.Minute * 5
 )
 
 var (

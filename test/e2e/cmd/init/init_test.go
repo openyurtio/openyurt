@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -41,7 +42,6 @@ func TestAddFlags(t *testing.T) {
 		"--use-local-images=true",
 		"--kube-config=/home/root/.kube/config",
 		"--ignore-error=true",
-		"--enable-dummy-if=true",
 		"--disable-default-cni=true",
 	}
 	o := newKindOptions()
@@ -372,51 +372,7 @@ func TestGetNodeNamesOfKindCluster(t *testing.T) {
 }
 
 func IsConsistent(initPoint1, initPoint2 *initializerConfig) bool {
-	if len(initPoint1.CloudNodes) != len(initPoint2.CloudNodes) || len(initPoint1.EdgeNodes) != len(initPoint2.EdgeNodes) {
-		return false
-	}
-	for i := 0; i < len(initPoint1.CloudNodes); i++ {
-		if initPoint1.CloudNodes[i] != initPoint2.CloudNodes[i] {
-			return false
-		}
-	}
-
-	for i := 0; i < len(initPoint1.EdgeNodes); i++ {
-		if initPoint1.EdgeNodes[i] != initPoint2.EdgeNodes[i] {
-			return false
-		}
-	}
-	if initPoint1.KindConfigPath != initPoint2.KindConfigPath {
-		return false
-	}
-	if initPoint1.KubeConfig != initPoint2.KubeConfig {
-		return false
-	}
-	if initPoint1.NodesNum != initPoint2.NodesNum {
-		return false
-	}
-	if initPoint1.ClusterName != initPoint2.ClusterName {
-		return false
-	}
-	if initPoint1.KubernetesVersion != initPoint2.KubernetesVersion {
-		return false
-	}
-	if initPoint1.NodeImage != initPoint2.NodeImage {
-		return false
-	}
-	if initPoint1.UseLocalImage != initPoint2.UseLocalImage {
-		return false
-	}
-	if initPoint1.YurtHubImage != initPoint2.YurtHubImage {
-		return false
-	}
-	if initPoint1.YurtManagerImage != initPoint2.YurtManagerImage {
-		return false
-	}
-	if initPoint1.NodeServantImage != initPoint2.NodeServantImage {
-		return false
-	}
-	return true
+	return reflect.DeepEqual(initPoint1, initPoint2)
 }
 
 func TestKindOptions_Config(t *testing.T) {
@@ -429,12 +385,12 @@ func TestKindOptions_Config(t *testing.T) {
 		KubeConfig:        home + "/.kube/config",
 		NodesNum:          2,
 		ClusterName:       "openyurt",
-		KubernetesVersion: "v1.22",
-		NodeImage:         "",
+		KubernetesVersion: "v1.28",
 		UseLocalImage:     false,
-		YurtHubImage:      "openyurt/yurthub:latest",
 		YurtManagerImage:  "openyurt/yurt-manager:latest",
 		NodeServantImage:  "openyurt/node-servant:latest",
+		yurtIotDockImage:  "openyurt/yurt-iot-dock:latest",
+		DisableDefaultCNI: false,
 	}
 	if !IsConsistent(&wants, case1.Config()) {
 		t.Errorf("Failed to configure initializer")
@@ -452,12 +408,12 @@ func TestInitializer_PrepareKindNodeImage(t *testing.T) {
 		want    interface{}
 	}{
 		{
-			command: "kind v0.12.0 go1.17.7 darwin/arm64",
+			command: "kind v0.25.0 go1.17.7 darwin/arm64",
 			want:    nil,
 		},
 		{
-			command: "kind v0.25.0 go1.17.7 darwin/arm64",
-			want:    "failed to get node image by kind version= v0.25.0 and kubernetes version= v1.22",
+			command: "kind v0.26.0 go1.17.7 darwin/arm64",
+			want:    "failed to get node image by kind version= v0.26.0 and kubernetes version= v1.28",
 		},
 	}
 
@@ -467,73 +423,93 @@ func TestInitializer_PrepareKindNodeImage(t *testing.T) {
 			return cmd
 		}
 		tmp := initlzer.prepareKindNodeImage()
-		if tmp != nil && tmp.Error() != v.want {
+		switch want := v.want.(type) {
+		case nil:
+			if tmp != nil {
+				t.Errorf("failed prepare node image for kind pattern, want nil, got %v", tmp)
+			}
+		case string:
+			if tmp == nil || tmp.Error() != want {
+				t.Errorf("failed prepare node image for kind pattern, want %q, got %v", want, tmp)
+			}
+		default:
 			t.Errorf("failed prepare node image for kind pattern")
-
 		}
 	}
 }
 
-func TestInitializer_PrepareImage(t *testing.T) {
-	var fakeOut io.Writer
-	initializer := newKindInitializer(fakeOut, newKindOptions().Config())
-	initializer.operator.execCommand = fakeExeCommand
-
-	cases := []struct {
-		cloudNodes       []string
-		edgeNodes        []string
-		yurtHubImage     string
-		yurtManagerImage string
-		nodeServantImage string
-		useLocalImage    bool
-		nodesNum         int
-		want             interface{}
+func TestInitializer_PrepareImages(t *testing.T) {
+	cases := map[string]struct {
+		config       *initializerConfig
+		wantCommands []string
 	}{
-		{
-			cloudNodes:       []string{"openyurt-control-plane"},
-			edgeNodes:        []string{"openyurt-worker"},
-			yurtHubImage:     "openyurt/yurthub:latest",
-			yurtManagerImage: "openyurt/yurt-manager:latest",
-			nodeServantImage: "openyurt/node-servant:latest",
-			useLocalImage:    true,
-			nodesNum:         2,
-			want:             nil,
+		"load manager servant and iot images only": {
+			config: &initializerConfig{
+				ClusterName:      "openyurt",
+				CloudNodes:       []string{"openyurt-control-plane"},
+				EdgeNodes:        []string{"openyurt-worker"},
+				UseLocalImage:    true,
+				YurtManagerImage: "openyurt/yurt-manager:latest",
+				NodeServantImage: "openyurt/node-servant:latest",
+				yurtIotDockImage: "openyurt/yurt-iot-dock:latest",
+			},
+			wantCommands: []string{
+				"kind load docker-image openyurt/yurt-manager:latest --name openyurt --nodes openyurt-control-plane",
+				"kind load docker-image openyurt/node-servant:latest --name openyurt --nodes openyurt-control-plane",
+				"kind load docker-image openyurt/yurt-iot-dock:latest --name openyurt --nodes openyurt-control-plane",
+				"kind load docker-image openyurt/node-servant:latest --name openyurt --nodes openyurt-worker",
+				"kind load docker-image openyurt/yurt-iot-dock:latest --name openyurt --nodes openyurt-worker",
+			},
 		},
-		{
-			cloudNodes:       []string{"openyurt-control-plane"},
-			edgeNodes:        []string{"openyurt-worker"},
-			yurtHubImage:     "openyurt/yurthub:latest",
-			yurtManagerImage: "openyurt/yurt-manager:latest",
-			nodeServantImage: "openyurt/node-servant:latest",
-			useLocalImage:    false,
-			nodesNum:         2,
-			want:             nil,
+		"skip loads when local images are disabled": {
+			config: &initializerConfig{
+				ClusterName:      "openyurt",
+				CloudNodes:       []string{"openyurt-control-plane"},
+				EdgeNodes:        []string{"openyurt-worker"},
+				UseLocalImage:    false,
+				YurtManagerImage: "openyurt/yurt-manager:latest",
+				NodeServantImage: "openyurt/node-servant:latest",
+				yurtIotDockImage: "openyurt/yurt-iot-dock:latest",
+			},
 		},
-		{
-			cloudNodes:       []string{"openyurt-control-plane"},
-			edgeNodes:        []string{"openyurt-worker", "openyurt-worker2", "openyurt-worker3"},
-			yurtHubImage:     "openyurt/yurthub:v0.1.0",
-			yurtManagerImage: "openyurt/yurt-manager:v0.1.0",
-			nodeServantImage: "openyurt/node-servant:v0.6.0",
-			useLocalImage:    false,
-			nodesNum:         4,
-			want:             nil,
+		"group multiple edge nodes into one load command": {
+			config: &initializerConfig{
+				ClusterName:      "openyurt",
+				CloudNodes:       []string{"openyurt-control-plane"},
+				EdgeNodes:        []string{"openyurt-worker", "openyurt-worker2", "openyurt-worker3"},
+				UseLocalImage:    true,
+				YurtManagerImage: "openyurt/yurt-manager:v0.1.0",
+				NodeServantImage: "openyurt/node-servant:v0.6.0",
+				yurtIotDockImage: "openyurt/yurt-iot-dock:v0.6.0",
+			},
+			wantCommands: []string{
+				"kind load docker-image openyurt/yurt-manager:v0.1.0 --name openyurt --nodes openyurt-control-plane",
+				"kind load docker-image openyurt/node-servant:v0.6.0 --name openyurt --nodes openyurt-control-plane",
+				"kind load docker-image openyurt/yurt-iot-dock:v0.6.0 --name openyurt --nodes openyurt-control-plane",
+				"kind load docker-image openyurt/node-servant:v0.6.0 --name openyurt --nodes openyurt-worker,openyurt-worker2,openyurt-worker3",
+				"kind load docker-image openyurt/yurt-iot-dock:v0.6.0 --name openyurt --nodes openyurt-worker,openyurt-worker2,openyurt-worker3",
+			},
 		},
 	}
 
-	for _, v := range cases {
-		initializer.CloudNodes = v.cloudNodes
-		initializer.EdgeNodes = v.edgeNodes
-		initializer.YurtHubImage = v.yurtHubImage
-		initializer.YurtManagerImage = v.yurtManagerImage
-		initializer.NodeServantImage = v.nodeServantImage
-		initializer.UseLocalImage = v.useLocalImage
-		initializer.NodesNum = v.nodesNum
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			initializer := newKindInitializer(io.Discard, tt.config)
+			initializer.operator.kindCMDPath = "kind"
 
-		err := initializer.prepareImages()
-		if err != v.want {
-			t.Errorf("failed to prepare image")
-		}
+			var gotCommands []string
+			initializer.operator.execCommand = func(name string, args ...string) *exec.Cmd {
+				gotCommands = append(gotCommands, strings.Join(append([]string{name}, args...), " "))
+				return exec.Command("true")
+			}
+
+			if err := initializer.prepareImages(); err != nil {
+				t.Fatalf("prepareImages returned error: %v", err)
+			}
+			if !reflect.DeepEqual(gotCommands, tt.wantCommands) {
+				t.Fatalf("unexpected image load commands:\nwant: %#v\ngot:  %#v", tt.wantCommands, gotCommands)
+			}
+		})
 	}
 }
 
