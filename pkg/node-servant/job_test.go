@@ -28,8 +28,6 @@ func TestRenderNodeServantConvertJob(t *testing.T) {
 		"jobNamespace":     "custom-job-ns",
 		"nodeServantImage": "openyurt/node-servant:latest",
 		"nodePoolName":     "pool-a",
-		"workingMode":      "cloud",
-		"namespace":        "custom-ns",
 		"kubeadmConfPath":  "/etc/systemd/system/kubelet.service.d/10-kubeadm.conf",
 	}, "node-a")
 	if err != nil {
@@ -79,8 +77,6 @@ func TestRenderNodeServantConvertJob(t *testing.T) {
 	wantSubstrings := []string{
 		"/usr/local/bin/entry.sh convert",
 		"--node-name=node-a",
-		"--namespace=custom-ns",
-		"--working-mode=cloud",
 		"--nodepool-name=pool-a",
 		"--kubeadm-conf-path=/etc/systemd/system/kubelet.service.d/10-kubeadm.conf",
 	}

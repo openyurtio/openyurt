@@ -22,6 +22,7 @@ import (
 
 	nodeservant "github.com/openyurtio/openyurt/pkg/node-servant"
 	"github.com/openyurtio/openyurt/pkg/node-servant/components"
+	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	yurthubutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/yurthub"
 )
 
@@ -43,11 +44,9 @@ var (
 // Config has the information that required by convert operation.
 type Config struct {
 	kubeadmConfPaths []string
-	namespace        string
 	nodeName         string
 	nodePoolName     string
 	openyurtDir      string
-	workingMode      string
 }
 
 // nodeConverter do the convert job.
@@ -60,11 +59,9 @@ func NewConverterWithOptions(o *Options) *nodeConverter {
 	return &nodeConverter{
 		Config: Config{
 			kubeadmConfPaths: strings.Split(o.kubeadmConfPaths, ","),
-			namespace:        o.namespace,
 			nodeName:         o.nodeName,
 			nodePoolName:     o.nodePoolName,
 			openyurtDir:      o.openyurtDir,
-			workingMode:      o.workingMode,
 		},
 	}
 }
@@ -108,11 +105,11 @@ func (n *nodeConverter) restartContainers() error {
 func (n *nodeConverter) yurthubHostConfig(apiServerAddress string) *yurthubutil.YurthubHostConfig {
 	return &yurthubutil.YurthubHostConfig{
 		BootstrapMode: bootstrapModeKubeletCertificate,
-		Namespace:     n.namespace,
+		Namespace:     constants.YurthubNamespace,
 		NodeName:      n.nodeName,
 		NodePoolName:  n.nodePoolName,
 		ServerAddr:    apiServerAddress,
-		WorkingMode:   n.workingMode,
+		WorkingMode:   constants.EdgeNode,
 	}
 }
 

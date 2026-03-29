@@ -39,11 +39,9 @@ func TestNodeConverterDo(t *testing.T) {
 	converter := &nodeConverter{
 		Config: Config{
 			kubeadmConfPaths: []string{"/etc/systemd/system/kubelet.service.d/10-kubeadm.conf"},
-			namespace:        "kube-system",
 			nodeName:         "node-a",
 			nodePoolName:     "pool-a",
 			openyurtDir:      "/var/lib/openyurt",
-			workingMode:      "edge",
 		},
 	}
 

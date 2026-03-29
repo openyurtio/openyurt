@@ -33,21 +33,16 @@ var getNodeNameFunc = enutil.GetNodeName
 // Options has the information required by the convert operation.
 type Options struct {
 	kubeadmConfPaths string
-	namespace        string
 	nodeName         string
 	nodePoolName     string
 	openyurtDir      string
-	workingMode      string
-	Version          bool
 }
 
 // NewConvertOptions creates a new Options.
 func NewConvertOptions() *Options {
 	return &Options{
 		kubeadmConfPaths: strings.Join(components.GetDefaultKubeadmConfPath(), ","),
-		namespace:        constants.YurthubNamespace,
 		openyurtDir:      constants.OpenyurtDir,
-		workingMode:      constants.EdgeNode,
 	}
 }
 
@@ -95,23 +90,12 @@ func (o *Options) Validate() error {
 		return fmt.Errorf("nodepool name is empty")
 	}
 
-	if len(o.namespace) == 0 {
-		return fmt.Errorf("namespace is empty")
-	}
-
-	if len(o.workingMode) == 0 {
-		return fmt.Errorf("working mode is empty")
-	}
-
 	return nil
 }
 
 // AddFlags sets flags.
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVarP(&o.kubeadmConfPaths, "kubeadm-conf-path", "k", o.kubeadmConfPaths, "The path to kubelet service conf that is used by kubelet component to join the cluster on the work node. Support multiple values, will search in order until get the file.(e.g -k kbcfg1,kbcfg2)")
-	fs.StringVar(&o.namespace, constants.Namespace, o.namespace, "The namespace where yurthub runs.")
 	fs.StringVar(&o.nodeName, constants.NodeName, o.nodeName, "The node name where convert is executed.")
 	fs.StringVar(&o.nodePoolName, constants.NodePoolName, o.nodePoolName, "The nodepool name which the node will be added.")
-	fs.StringVar(&o.workingMode, "working-mode", o.workingMode, "The working mode of yurthub(edge, cloud, local).")
-	fs.BoolVar(&o.Version, "version", o.Version, "print the version information.")
 }

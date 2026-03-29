@@ -75,10 +75,8 @@ func TestOptionsComplete(t *testing.T) {
 
 func TestOptionsValidate(t *testing.T) {
 	o := &Options{
-		namespace:    "kube-system",
 		nodeName:     "node-a",
 		nodePoolName: "pool-a",
-		workingMode:  "edge",
 	}
 
 	if err := o.Validate(); err != nil {

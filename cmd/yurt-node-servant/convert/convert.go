@@ -35,10 +35,6 @@ func NewConvertCmd() *cobra.Command {
 		Short: "",
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Printf("node-servant version: %#v\n", projectinfo.Get())
-			if o.Version {
-				return
-			}
-
 			cmd.Flags().VisitAll(func(flag *pflag.Flag) {
 				klog.Infof("FLAG: --%s=%q", flag.Name, flag.Value)
 			})

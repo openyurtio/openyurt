@@ -30,8 +30,7 @@ import (
 )
 
 const (
-	workingModeFlag = "working-mode"
-	flagLongFormat  = "--%s=%s"
+	flagLongFormat = "--%s=%s"
 )
 
 // RenderNodeServantJob return k8s job
@@ -117,8 +116,6 @@ func buildConvertCommand(tmplCtx map[string]string, nodeName string) string {
 	args := []string{
 		"convert",
 		fmt.Sprintf(flagLongFormat, constants.NodeName, nodeName),
-		fmt.Sprintf(flagLongFormat, constants.Namespace, valueOrDefault(tmplCtx["namespace"], DefaultConversionJobNamespace)),
-		fmt.Sprintf(flagLongFormat, workingModeFlag, valueOrDefault(tmplCtx["workingMode"], defaultWorkingMode)),
 		fmt.Sprintf(flagLongFormat, constants.NodePoolName, tmplCtx["nodePoolName"]),
 	}
 

@@ -42,7 +42,6 @@ import (
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	nodeservant "github.com/openyurtio/openyurt/pkg/node-servant"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	nodeutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/node"
 	conversionconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtnodeconversion/config"
 )
@@ -267,9 +266,7 @@ func (r *ReconcileYurtNodeConversion) createConversionJob(ctx context.Context, n
 		"nodeServantImage": r.nodeServantImage,
 	}
 	if action == actionConvert {
-		renderCtx["namespace"] = constants.YurthubNamespace
 		renderCtx["nodePoolName"] = nodePoolName
-		renderCtx["workingMode"] = constants.EdgeNode
 	}
 
 	job, err := nodeservant.RenderNodeServantJob(action, renderCtx, nodeName)

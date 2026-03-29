@@ -28,8 +28,6 @@ const (
 	// DefaultConversionJobNamespace is the namespace used by node conversion Jobs.
 	DefaultConversionJobNamespace = "kube-system"
 
-	defaultWorkingMode = "edge"
-
 	// ServantJobTemplate defines the unified node-servant Job in yaml format.
 	ServantJobTemplate = `
 apiVersion: batch/v1
