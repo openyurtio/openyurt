@@ -65,20 +65,17 @@ func RestartNonPauseContainers(nodeName, excludedPodPrefix string) error {
 	var errs []error
 	var stopped, skippedEmptyID, skippedNonKube, skippedPause, skippedExcluded int
 	for _, container := range containers {
-		if container.ID == "" {
-			skippedEmptyID++
-			continue
-		}
-		if container.Namespace == "" || container.PodName == "" || container.ContainerName == "" {
-			skippedNonKube++
-			continue
-		}
-		if container.ContainerName == pauseContainerName {
-			skippedPause++
-			continue
-		}
-		if excludedPodPrefix != "" && strings.HasPrefix(container.PodName, excludedPodPrefix) {
-			skippedExcluded++
+		if reason := getSkipReason(container, excludedPodPrefix); reason != "" {
+			switch reason {
+			case "emptyID":
+				skippedEmptyID++
+			case "nonKube":
+				skippedNonKube++
+			case "pause":
+				skippedPause++
+			case "excluded":
+				skippedExcluded++
+			}
 			continue
 		}
 
@@ -93,4 +90,20 @@ func RestartNonPauseContainers(nodeName, excludedPodPrefix string) error {
 	klog.Infof("restartContainers: finished on node %s, stopped=%d skippedEmptyID=%d skippedNonKube=%d skippedPause=%d skippedExcluded=%d errors=%d",
 		nodeName, stopped, skippedEmptyID, skippedNonKube, skippedPause, skippedExcluded, len(errs))
 	return utilerrors.NewAggregate(errs)
+}
+
+func getSkipReason(container KubeContainer, excludedPodPrefix string) string {
+	if container.ID == "" {
+		return "emptyID"
+	}
+	if container.Namespace == "" || container.PodName == "" || container.ContainerName == "" {
+		return "nonKube"
+	}
+	if container.ContainerName == pauseContainerName {
+		return "pause"
+	}
+	if excludedPodPrefix != "" && strings.HasPrefix(container.PodName, excludedPodPrefix) {
+		return "excluded"
+	}
+	return ""
 }

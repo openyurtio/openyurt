@@ -27,4 +27,5 @@ const (
 	NginxServiceName         = "yurt-e2e-test-nginx"
 	CoreDNSServiceName       = "kube-dns"
 	PodStartShortTimeout     = 1 * time.Minute
+	YurtE2EWorkerNodeName    = "openyurt-e2e-test-worker"
 )

@@ -60,30 +60,29 @@ func (o *Options) Complete(flags *pflag.FlagSet) error {
 	if kubeadmConfPaths != "" {
 		o.kubeadmConfPaths = kubeadmConfPaths
 	}
-
-	if o.nodeName == "" {
-		if nodeName := os.Getenv(enutil.NODE_NAME); nodeName != "" {
-			o.nodeName = nodeName
-		} else {
-			for _, kubeadmConfPath := range strings.Split(o.kubeadmConfPaths, ",") {
-				kubeadmConfPath = strings.TrimSpace(kubeadmConfPath)
-				if kubeadmConfPath == "" {
-					continue
-				}
-				nodeName, err := getNodeNameFunc(kubeadmConfPath)
-				if err == nil && nodeName != "" {
-					o.nodeName = nodeName
-					break
-				}
-			}
-		}
-	}
-
 	if openyurtDir := os.Getenv("OPENYURT_DIR"); openyurtDir != "" {
 		o.openyurtDir = openyurtDir
 	}
 
-	return nil
+	if o.nodeName != "" {
+		return nil
+	}
+	if nodeName := os.Getenv(enutil.NODE_NAME); nodeName != "" {
+		o.nodeName = nodeName
+		return nil
+	}
+	for _, kubeadmConfPath := range strings.Split(o.kubeadmConfPaths, ",") {
+		kubeadmConfPath = strings.TrimSpace(kubeadmConfPath)
+		if kubeadmConfPath == "" {
+			continue
+		}
+		nodeName, err := getNodeNameFunc(kubeadmConfPath)
+		if err == nil && nodeName != "" {
+			o.nodeName = nodeName
+			return nil
+		}
+	}
+	return fmt.Errorf("node name is empty")
 }
 
 // Validate validates Options.

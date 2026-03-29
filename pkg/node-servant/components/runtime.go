@@ -42,6 +42,8 @@ const (
 
 	// PullImageRetry specifies how many times ContainerRuntime retries when pulling image failed
 	PullImageRetry = 5
+	// errOutputFormat specifies the format for error output
+	errOutputFormat = "output: %s, error"
 )
 
 // ContainerRuntime is an interface for working with container runtimes
@@ -117,7 +119,7 @@ func (runtime *CRIRuntime) PullImage(image string) error {
 			return nil
 		}
 	}
-	return errors.Wrapf(err, "output: %s, error", out)
+	return errors.Wrapf(err, errOutputFormat, out)
 }
 
 // PullImage pulls the image
@@ -130,7 +132,7 @@ func (runtime *DockerRuntime) PullImage(image string) error {
 			return nil
 		}
 	}
-	return errors.Wrapf(err, "output: %s, error", out)
+	return errors.Wrapf(err, errOutputFormat, out)
 }
 
 // ImageExists checks to see if the image exists on the system
@@ -148,7 +150,7 @@ func (runtime *DockerRuntime) ImageExists(image string) (bool, error) {
 func (runtime *CRIRuntime) ListKubeContainers() ([]KubeContainer, error) {
 	out, err := runtime.exec.Command("crictl", "-r", runtime.criSocket, "ps", "-o", "json").CombinedOutput()
 	if err != nil {
-		return nil, errors.Wrapf(err, "output: %s, error", out)
+		return nil, errors.Wrapf(err, errOutputFormat, out)
 	}
 	return parseCRIContainerListOutput(out)
 }
@@ -158,7 +160,7 @@ func (runtime *DockerRuntime) ListKubeContainers() ([]KubeContainer, error) {
 
 	out, err := runtime.exec.Command("docker", "ps", "--format", format).CombinedOutput()
 	if err != nil {
-		return nil, errors.Wrapf(err, "output: %s, error", out)
+		return nil, errors.Wrapf(err, errOutputFormat, out)
 	}
 
 	trimmed := strings.TrimSpace(string(out))
@@ -188,7 +190,7 @@ func (runtime *DockerRuntime) ListKubeContainers() ([]KubeContainer, error) {
 func (runtime *CRIRuntime) StopContainer(containerID string) error {
 	out, err := runtime.exec.Command("crictl", "-r", runtime.criSocket, "stop", containerID).CombinedOutput()
 	if err != nil {
-		return errors.Wrapf(err, "output: %s, error", out)
+		return errors.Wrapf(err, errOutputFormat, out)
 	}
 	return nil
 }
@@ -196,7 +198,7 @@ func (runtime *CRIRuntime) StopContainer(containerID string) error {
 func (runtime *DockerRuntime) StopContainer(containerID string) error {
 	out, err := runtime.exec.Command("docker", "stop", containerID).CombinedOutput()
 	if err != nil {
-		return errors.Wrapf(err, "output: %s, error", out)
+		return errors.Wrapf(err, errOutputFormat, out)
 	}
 	return nil
 }
@@ -263,29 +265,10 @@ func DetectCRISocket() (string, error) {
 }
 
 func detectCRISocketFromKubelet(readFile func(string) ([]byte, error), isSocket func(string) bool, kubeletServiceConfigPaths []string) string {
-	argSources := make([]string, 0, 8)
-	envFiles := append([]string{}, kubeAdmFlagsEnvFile, defaultKubeletEnvFile, defaultSysconfigFile)
-	configFiles := []string{defaultKubeletConfig}
+	serviceArgs, serviceEnvFiles := collectArgsFromServiceConfigs(readFile, kubeletServiceConfigPaths)
 
-	for _, path := range kubeletServiceConfigPaths {
-		content, err := readFile(path)
-		if err != nil {
-			continue
-		}
-
-		text := string(content)
-		argSources = append(argSources, extractEnvironmentArgs(text)...)
-		argSources = append(argSources, extractExecStartArgs(text)...)
-		envFiles = append(envFiles, extractEnvironmentFiles(text)...)
-	}
-
-	for _, path := range uniqueStrings(envFiles) {
-		content, err := readFile(path)
-		if err != nil {
-			continue
-		}
-		argSources = append(argSources, extractEnvironmentArgs(string(content))...)
-	}
+	envFiles := append([]string{kubeAdmFlagsEnvFile, defaultKubeletEnvFile, defaultSysconfigFile}, serviceEnvFiles...)
+	argSources := append(serviceArgs, collectArgsFromEnvFiles(readFile, envFiles)...)
 
 	if socket := normalizeDetectedCRISocket(extractLastFlagValue(argSources, "container-runtime-endpoint")); socket != "" {
 		if isReachableCRISocket(socket, isSocket) {
@@ -294,11 +277,44 @@ func detectCRISocketFromKubelet(readFile func(string) ([]byte, error), isSocket 
 		klog.Warningf("detectCRISocket: kubelet runtime endpoint %s does not exist on host, falling back to socket probing", socket)
 	}
 
+	configFiles := []string{defaultKubeletConfig}
 	if configPath := strings.TrimSpace(extractLastFlagValue(argSources, "config")); configPath != "" {
 		configFiles = append([]string{configPath}, configFiles...)
 	}
 
-	for _, path := range uniqueStrings(configFiles) {
+	return detectSocketFromConfigFiles(readFile, isSocket, configFiles)
+}
+
+func collectArgsFromServiceConfigs(readFile func(string) ([]byte, error), paths []string) ([]string, []string) {
+	var argSources []string
+	var envFiles []string
+	for _, path := range paths {
+		content, err := readFile(path)
+		if err != nil {
+			continue
+		}
+		text := string(content)
+		argSources = append(argSources, extractEnvironmentArgs(text)...)
+		argSources = append(argSources, extractExecStartArgs(text)...)
+		envFiles = append(envFiles, extractEnvironmentFiles(text)...)
+	}
+	return argSources, envFiles
+}
+
+func collectArgsFromEnvFiles(readFile func(string) ([]byte, error), paths []string) []string {
+	var argSources []string
+	for _, path := range uniqueStrings(paths) {
+		content, err := readFile(path)
+		if err != nil {
+			continue
+		}
+		argSources = append(argSources, extractEnvironmentArgs(string(content))...)
+	}
+	return argSources
+}
+
+func detectSocketFromConfigFiles(readFile func(string) ([]byte, error), isSocket func(string) bool, paths []string) string {
+	for _, path := range uniqueStrings(paths) {
 		content, err := readFile(path)
 		if err != nil {
 			continue
@@ -316,7 +332,6 @@ func detectCRISocketFromKubelet(readFile func(string) ([]byte, error), isSocket 
 			klog.Warningf("detectCRISocket: kubelet config runtime endpoint %s does not exist on host, falling back to socket probing", socket)
 		}
 	}
-
 	return ""
 }
 
@@ -348,26 +363,38 @@ func extractEnvironmentArgs(content string) []string {
 		}
 
 		if strings.HasPrefix(line, "Environment=") {
-			line = strings.TrimPrefix(line, "Environment=")
-			for _, token := range extractLineTokens(line) {
-				if idx := strings.Index(token, "="); idx > 0 {
-					value := strings.TrimSpace(strings.Trim(token[idx+1:], `"'`))
-					if strings.Contains(value, "--") {
-						args = append(args, value)
-					}
-				}
-			}
+			args = append(args, extractArgsFromEnvLine(line)...)
 			continue
 		}
 
-		if idx := strings.Index(line, "="); idx > 0 {
-			value := strings.TrimSpace(strings.Trim(line[idx+1:], `"'`))
-			if strings.Contains(value, "--") {
-				args = append(args, value)
-			}
+		if arg := extractFlagFromKV(line); arg != "" {
+			args = append(args, arg)
 		}
 	}
 	return args
+}
+
+func extractArgsFromEnvLine(line string) []string {
+	var args []string
+	line = strings.TrimPrefix(line, "Environment=")
+	for _, token := range extractLineTokens(line) {
+		if arg := extractFlagFromKV(token); arg != "" {
+			args = append(args, arg)
+		}
+	}
+	return args
+}
+
+func extractFlagFromKV(kv string) string {
+	idx := strings.Index(kv, "=")
+	if idx <= 0 {
+		return ""
+	}
+	value := strings.TrimSpace(strings.Trim(kv[idx+1:], "'\""))
+	if strings.Contains(value, "--") {
+		return value
+	}
+	return ""
 }
 
 func extractExecStartArgs(content string) []string {

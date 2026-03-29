@@ -4,7 +4,12 @@ FROM --platform=${BUILDPLATFORM} golang:1.24.1 as builder
 ADD . /build
 ARG TARGETOS TARGETARCH IMAGE_TAG GOPROXY MIRROR_REPO
 WORKDIR /build/
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} IMAGE_TAG=${IMAGE_TAG} make build WHAT="cmd/yurt-node-servant cmd/yurthub"
+RUN CGO_ENABLED=0 \
+    GOOS=${TARGETOS} \
+    GOARCH=${TARGETARCH} \
+    IMAGE_TAG=${IMAGE_TAG} \
+    make build WHAT="cmd/yurt-node-servant cmd/yurthub"
+
 
 FROM --platform=${TARGETPLATFORM} alpine:3.17
 ARG TARGETOS TARGETARCH MIRROR_REPO

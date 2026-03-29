@@ -225,17 +225,7 @@ func (c *ClusterConverter) waitNodesConverted(nodeNames []string) error {
 
 	return wait.PollUntilContextTimeout(context.Background(), 5*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
 		for _, nodeName := range nodeNames {
-			node, err := c.ClientSet.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
-			if err != nil {
-				return false, err
-			}
-
-			jobs, err := c.listConversionJobs(ctx, nodeName)
-			if err != nil {
-				return false, err
-			}
-
-			converted, err := isNodeConversionSettled(node, assignments[nodeName], jobs.Items)
+			converted, err := c.checkNodeConverted(ctx, nodeName, assignments[nodeName])
 			if err != nil {
 				return false, err
 			}
@@ -246,6 +236,20 @@ func (c *ClusterConverter) waitNodesConverted(nodeNames []string) error {
 
 		return true, nil
 	})
+}
+
+func (c *ClusterConverter) checkNodeConverted(ctx context.Context, nodeName, expectedPool string) (bool, error) {
+	node, err := c.ClientSet.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+
+	jobs, err := c.listConversionJobs(ctx, nodeName)
+	if err != nil {
+		return false, err
+	}
+
+	return isNodeConversionSettled(node, expectedPool, jobs.Items)
 }
 
 func (c *ClusterConverter) listConversionJobs(ctx context.Context, nodeName string) (*batchv1.JobList, error) {
@@ -329,47 +333,59 @@ func getNodeCondition(node *corev1.Node, condType corev1.NodeConditionType) *cor
 
 func (c *ClusterConverter) dumpConversionDiagnostics(nodeNames []string) {
 	for _, nodeName := range nodeNames {
-		node, err := c.ClientSet.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
-		if err != nil {
-			klog.Errorf("failed to get node %s while dumping conversion diagnostics, %v", nodeName, err)
-			continue
-		}
+		c.dumpSingleNodeDiagnostics(nodeName)
+	}
+}
 
-		klog.Infof("node %s labels=%v annotations=%v unschedulable=%t", nodeName, node.Labels, node.Annotations, node.Spec.Unschedulable)
-		for _, cond := range node.Status.Conditions {
-			if cond.Type == corev1.NodeReady || cond.Type == conversionConditionType {
-				klog.Infof("node %s condition type=%s status=%s reason=%s message=%s", nodeName, cond.Type, cond.Status, cond.Reason, cond.Message)
-			}
-		}
+func (c *ClusterConverter) dumpSingleNodeDiagnostics(nodeName string) {
+	node, err := c.ClientSet.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+	if err != nil {
+		klog.Errorf("failed to get node %s while dumping conversion diagnostics, %v", nodeName, err)
+		return
+	}
 
-		eventList, err := c.ClientSet.CoreV1().Events("").List(context.Background(), metav1.ListOptions{
-			FieldSelector: fmt.Sprintf("involvedObject.kind=Node,involvedObject.name=%s", nodeName),
+	klog.Infof("node %s labels=%v annotations=%v unschedulable=%t", nodeName, node.Labels, node.Annotations, node.Spec.Unschedulable)
+	for _, cond := range node.Status.Conditions {
+		if cond.Type == corev1.NodeReady || cond.Type == conversionConditionType {
+			klog.Infof("node %s condition type=%s status=%s reason=%s message=%s", nodeName, cond.Type, cond.Status, cond.Reason, cond.Message)
+		}
+	}
+
+	c.dumpNodeEvents(nodeName)
+	c.dumpNodeJobs(nodeName)
+}
+
+func (c *ClusterConverter) dumpNodeEvents(nodeName string) {
+	eventList, err := c.ClientSet.CoreV1().Events("").List(context.Background(), metav1.ListOptions{
+		FieldSelector: fmt.Sprintf("involvedObject.kind=Node,involvedObject.name=%s", nodeName),
+	})
+	if err == nil {
+		for i := range eventList.Items {
+			event := &eventList.Items[i]
+			klog.Infof("node %s event type=%s reason=%s message=%s", nodeName, event.Type, event.Reason, event.Message)
+		}
+	}
+}
+
+func (c *ClusterConverter) dumpNodeJobs(nodeName string) {
+	jobs, err := c.listConversionJobs(context.Background(), nodeName)
+	if err != nil {
+		klog.Errorf("failed to list conversion jobs for node %s, %v", nodeName, err)
+		return
+	}
+	for i := range jobs.Items {
+		job := &jobs.Items[i]
+		klog.Infof("conversion job %s/%s active=%d succeeded=%d failed=%d", job.Namespace, job.Name, job.Status.Active, job.Status.Succeeded, job.Status.Failed)
+		podList, podErr := c.ClientSet.CoreV1().Pods(job.Namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: labels.SelectorFromSet(map[string]string{"job-name": job.Name}).String(),
 		})
-		if err == nil {
-			for _, event := range eventList.Items {
-				klog.Infof("node %s event type=%s reason=%s message=%s", nodeName, event.Type, event.Reason, event.Message)
-			}
-		}
-
-		jobs, err := c.listConversionJobs(context.Background(), nodeName)
-		if err != nil {
-			klog.Errorf("failed to list conversion jobs for node %s, %v", nodeName, err)
+		if podErr != nil {
+			klog.Errorf("failed to list pods for conversion job %s/%s, %v", job.Namespace, job.Name, podErr)
 			continue
 		}
-		for i := range jobs.Items {
-			job := &jobs.Items[i]
-			klog.Infof("conversion job %s/%s active=%d succeeded=%d failed=%d", job.Namespace, job.Name, job.Status.Active, job.Status.Succeeded, job.Status.Failed)
-			podList, podErr := c.ClientSet.CoreV1().Pods(job.Namespace).List(context.Background(), metav1.ListOptions{
-				LabelSelector: labels.SelectorFromSet(map[string]string{"job-name": job.Name}).String(),
-			})
-			if podErr != nil {
-				klog.Errorf("failed to list pods for conversion job %s/%s, %v", job.Namespace, job.Name, podErr)
-				continue
-			}
-			for j := range podList.Items {
-				if err := kubeutil.DumpPod(c.ClientSet, &podList.Items[j], os.Stderr); err != nil {
-					klog.Warningf("failed to dump pod %s/%s for node %s, %v", podList.Items[j].Namespace, podList.Items[j].Name, nodeName, err)
-				}
+		for j := range podList.Items {
+			if err := kubeutil.DumpPod(c.ClientSet, &podList.Items[j], os.Stderr); err != nil {
+				klog.Warningf("failed to dump pod %s/%s for node %s, %v", podList.Items[j].Namespace, podList.Items[j].Name, nodeName, err)
 			}
 		}
 	}

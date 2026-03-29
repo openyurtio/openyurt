@@ -31,6 +31,7 @@ import (
 
 const (
 	workingModeFlag = "working-mode"
+	flagLongFormat  = "--%s=%s"
 )
 
 // RenderNodeServantJob return k8s job
@@ -115,10 +116,10 @@ func buildServantCommand(action string, tmplCtx map[string]string, nodeName stri
 func buildConvertCommand(tmplCtx map[string]string, nodeName string) string {
 	args := []string{
 		"convert",
-		fmt.Sprintf("--%s=%s", constants.NodeName, nodeName),
-		fmt.Sprintf("--%s=%s", constants.Namespace, valueOrDefault(tmplCtx["namespace"], DefaultConversionJobNamespace)),
-		fmt.Sprintf("--%s=%s", workingModeFlag, valueOrDefault(tmplCtx["workingMode"], defaultWorkingMode)),
-		fmt.Sprintf("--%s=%s", constants.NodePoolName, tmplCtx["nodePoolName"]),
+		fmt.Sprintf(flagLongFormat, constants.NodeName, nodeName),
+		fmt.Sprintf(flagLongFormat, constants.Namespace, valueOrDefault(tmplCtx["namespace"], DefaultConversionJobNamespace)),
+		fmt.Sprintf(flagLongFormat, workingModeFlag, valueOrDefault(tmplCtx["workingMode"], defaultWorkingMode)),
+		fmt.Sprintf(flagLongFormat, constants.NodePoolName, tmplCtx["nodePoolName"]),
 	}
 
 	if kubeadmConfPath := tmplCtx["kubeadmConfPath"]; kubeadmConfPath != "" {
@@ -130,7 +131,7 @@ func buildConvertCommand(tmplCtx map[string]string, nodeName string) string {
 func buildRevertCommand(nodeName string) string {
 	return strings.Join([]string{
 		"revert",
-		fmt.Sprintf("--%s=%s", constants.NodeName, nodeName),
+		fmt.Sprintf(flagLongFormat, constants.NodeName, nodeName),
 	}, " ")
 }
 
