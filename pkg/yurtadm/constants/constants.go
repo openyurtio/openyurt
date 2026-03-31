@@ -35,8 +35,6 @@ const (
 	PauseImagePath                = "registry.cn-hangzhou.aliyuncs.com/google_containers/pause:3.2"
 	DefaultCertificatesDir        = "/etc/kubernetes/pki"
 	DefaultDockerCRISocket        = "/var/run/dockershim.sock"
-	YurthubServiceFilepath        = "/etc/systemd/system/yurthub.service"
-	YurthubEnvironmentFilePath    = "/etc/systemd/system/yurthub.default"
 	YurthubYamlName               = "yurthub.yaml"
 	YurthubStaticPodManifest      = "yurthub"
 	YurthubTmpDir                 = "/tmp/yurthub"

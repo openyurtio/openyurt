@@ -35,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/node-servant/static-pod-upgrade/util"
 	kubeconfigutil "github.com/openyurtio/openyurt/pkg/util/kubeconfig"
 	"github.com/openyurtio/openyurt/pkg/util/templates"
 	"github.com/openyurtio/openyurt/pkg/util/token"
@@ -76,11 +75,10 @@ func CheckAndInstallYurthub(yurthubVersion string) error {
 	return nil
 }
 
-func setYurthubMainService() error {
+func setYurthubMainService(serviceDir string) error {
 	klog.Info("Setting yurthub main service.")
 
-	serviceFile := constants.YurthubServicePath
-	serviceDir := filepath.Dir(serviceFile)
+	serviceFile := serviceDir + "/yurthub.service"
 
 	if _, err := os.Stat(serviceDir); err != nil {
 		if os.IsNotExist(err) {
@@ -102,7 +100,7 @@ func setYurthubMainService() error {
 	return nil
 }
 
-func setYurthubUnitService(data joindata.YurtJoinData) error {
+func setYurthubUnitService(hubUnitConfigDir string, data joindata.YurtJoinData) error {
 	klog.Info("Setting yurthub unit service.")
 
 	ctx := map[string]string{
@@ -120,23 +118,23 @@ func setYurthubUnitService(data joindata.YurtJoinData) error {
 
 	unitContent, err := templates.SubstituteTemplate(constants.YurtHubUnitConfig, ctx)
 	if err != nil {
+		klog.Errorf("SubstituteTemplate error: %v", err)
 		return err
 	}
 
-	unitDir := filepath.Dir(constants.YurthubServiceConfPath)
-	if _, err := os.Stat(unitDir); err != nil {
+	if _, err := os.Stat(hubUnitConfigDir); err != nil {
 		if os.IsNotExist(err) {
-			if err := os.MkdirAll(unitDir, os.ModePerm); err != nil {
-				klog.Errorf("Create dir %s fail: %v", unitDir, err)
+			if err := os.MkdirAll(hubUnitConfigDir, os.ModePerm); err != nil {
+				klog.Errorf("Create dir %s fail: %v", hubUnitConfigDir, err)
 				return err
 			}
 		} else {
-			klog.Errorf("Describe dir %s fail: %v", unitDir, err)
+			klog.Errorf("Describe dir %s fail: %v", hubUnitConfigDir, err)
 			return err
 		}
 	}
 
-	unitFile := constants.YurthubServiceConfPath
+	unitFile := hubUnitConfigDir + "/yurthub.service"
 	if err := os.WriteFile(unitFile, []byte(unitContent), 0644); err != nil {
 		klog.Errorf("Write file %s fail: %v", unitFile, err)
 		return err
@@ -146,11 +144,11 @@ func setYurthubUnitService(data joindata.YurtJoinData) error {
 }
 
 func CreateYurthubSystemdService(data joindata.YurtJoinData) error {
-	if err := setYurthubMainService(); err != nil {
+	if err := setYurthubMainService("/etc/systemd/system"); err != nil {
 		return err
 	}
 
-	if err := setYurthubUnitService(data); err != nil {
+	if err := setYurthubUnitService("/etc/systemd/system", data); err != nil {
 		return err
 	}
 
@@ -169,61 +167,6 @@ func CreateYurthubSystemdService(data joindata.YurtJoinData) error {
 		return err
 	}
 
-	return nil
-}
-
-// AddYurthubStaticYaml generate YurtHub static yaml for worker node.
-func AddYurthubStaticYaml(data joindata.YurtJoinData, podManifestPath string) error {
-	klog.Info("[join-node] Adding edge hub static yaml")
-	if _, err := os.Stat(podManifestPath); err != nil {
-		if os.IsNotExist(err) {
-			err = os.MkdirAll(podManifestPath, os.ModePerm)
-			if err != nil {
-				return err
-			}
-		} else {
-			klog.Errorf("Describe dir %s fail: %v", podManifestPath, err)
-			return err
-		}
-	}
-
-	// There can be multiple master IP addresses
-	serverAddrs := strings.Split(data.ServerAddr(), ",")
-	for i := 0; i < len(serverAddrs); i++ {
-		serverAddrs[i] = fmt.Sprintf("https://%s", serverAddrs[i])
-	}
-
-	kubernetesServerAddrs := strings.Join(serverAddrs, ",")
-
-	ctx := map[string]string{
-		"yurthubBindingAddr":   data.YurtHubServer(),
-		"kubernetesServerAddr": kubernetesServerAddrs,
-		"workingMode":          data.NodeRegistration().WorkingMode,
-		"organizations":        data.NodeRegistration().Organizations,
-		"namespace":            data.Namespace(),
-		"image":                data.YurtHubImage(),
-	}
-	if len(data.NodeRegistration().NodePoolName) != 0 {
-		ctx["nodePoolName"] = data.NodeRegistration().NodePoolName
-	}
-
-	yurthubTemplate, err := templates.SubstituteTemplate(data.YurtHubTemplate(), ctx)
-	if err != nil {
-		return err
-	}
-
-	yurthubTemplate, err = useRealServerAddr(yurthubTemplate, kubernetesServerAddrs)
-	if err != nil {
-		return err
-	}
-
-	yurthubManifestFile := filepath.Join(podManifestPath, util.WithYamlSuffix(data.YurtHubManifest()))
-	klog.Infof("yurthub template: %s\n%s", yurthubManifestFile, yurthubTemplate)
-
-	if err := os.WriteFile(yurthubManifestFile, []byte(yurthubTemplate), 0600); err != nil {
-		return err
-	}
-	klog.Info("[join-node] Add hub agent static yaml is ok")
 	return nil
 }
 
