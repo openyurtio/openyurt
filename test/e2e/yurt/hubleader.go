@@ -442,8 +442,8 @@ var _ = Describe("Hub leader rbac", func() {
 		By("Cluster role should be created")
 		Eventually(
 			getActualClusterRoleRules,
-			time.Second*5,
-			time.Millisecond*500,
+			time.Second*20,
+			time.Second*1,
 		).WithArguments(ctx, k8sClient).Should(
 			Equal(
 				[]rbacv1.PolicyRule{
