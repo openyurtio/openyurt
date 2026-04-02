@@ -40,6 +40,7 @@ import (
 	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
+	appsv1beta2 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 	nodeservant "github.com/openyurtio/openyurt/pkg/node-servant"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	nodeutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/node"
@@ -116,6 +117,7 @@ func Add(ctx context.Context, c *appconfig.CompletedConfig, mgr manager.Manager)
 // +kubebuilder:rbac:groups=core,resources=nodes/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools,verbs=get
 
 func (r *ReconcileYurtNodeConversion) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	klog.Info(Format("reconcile node %s", req.Name))
@@ -230,6 +232,18 @@ func (r *ReconcileYurtNodeConversion) handleStaleJob(
 func (r *ReconcileYurtNodeConversion) startNewConversionRound(
 	ctx context.Context, nodeName, nodePoolName, desiredAction string,
 ) (reconcile.Result, error) {
+	// skip non-edge nodepool convert
+	if desiredAction == actionConvert {
+		isEdge, err := r.isEdgeNodePool(ctx, nodePoolName)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("check nodepool type for node %s: %w", nodeName, err)
+		}
+		if !isEdge {
+			klog.Info(Format("node(%s) skips conversion: nodepool %q is not Edge type", nodeName, nodePoolName))
+			return reconcile.Result{}, nil
+		}
+	}
+
 	if err := r.ensureNodeUnschedulable(ctx, nodeName, true); err != nil {
 		return reconcile.Result{}, fmt.Errorf("cordon node %s before starting %s: %w", nodeName, desiredAction, err)
 	}
@@ -246,6 +260,14 @@ func (r *ReconcileYurtNodeConversion) startNewConversionRound(
 		return reconcile.Result{}, fmt.Errorf("create %s job for node %s: %w", desiredAction, nodeName, err)
 	}
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileYurtNodeConversion) isEdgeNodePool(ctx context.Context, nodePoolName string) (bool, error) {
+	np := &appsv1beta2.NodePool{}
+	if err := r.Get(ctx, types.NamespacedName{Name: nodePoolName}, np); err != nil {
+		return false, err
+	}
+	return np.Spec.Type == appsv1beta2.Edge, nil
 }
 
 func (r *ReconcileYurtNodeConversion) mapJobToNode(_ context.Context, obj client.Object) []reconcile.Request {

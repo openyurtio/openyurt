@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	appsv1beta2 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 	nodeservant "github.com/openyurtio/openyurt/pkg/node-servant"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	conversionconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtnodeconversion/config"
@@ -44,7 +45,7 @@ const testWorkingNamespace = "openyurt-test-system"
 func TestReconcileCreateConvertJob(t *testing.T) {
 	r, cli := newReconcilerForTest(t, newNode("node-a", map[string]string{
 		projectinfo.GetNodePoolLabel(): "pool-a",
-	}, false, nil))
+	}, false, nil), newEdgeNodePool("pool-a"))
 
 	_, err := r.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Name: "node-a"}})
 	require.NoError(t, err)
@@ -128,7 +129,7 @@ func TestReconcileRecreateConvertJobAfterFailedConditionWhenJobMissing(t *testin
 		projectinfo.GetNodePoolLabel(): "pool-a",
 	}, false, newNodeCondition(reasonConvertFailed, corev1.ConditionTrue))
 
-	r, cli := newReconcilerForTest(t, node)
+	r, cli := newReconcilerForTest(t, node, newEdgeNodePool("pool-a"))
 
 	_, err := r.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Name: "node-a"}})
 	require.NoError(t, err)
@@ -460,11 +461,33 @@ func TestConversionJobPredicate(t *testing.T) {
 	assert.False(t, predicate.Generic(event.GenericEvent{Object: plainJob}))
 }
 
+func TestReconcileSkipCloudNodePool(t *testing.T) {
+	r, cli := newReconcilerForTest(t, newNode("node-a", map[string]string{
+		projectinfo.GetNodePoolLabel(): "cloud-pool",
+	}, false, nil), newCloudNodePool("cloud-pool"))
+
+	_, err := r.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Name: "node-a"}})
+	require.NoError(t, err)
+
+	// Node should NOT be cordoned and no Job should be created
+	node := &corev1.Node{}
+	require.NoError(t, cli.Get(context.Background(), types.NamespacedName{Name: "node-a"}, node))
+	assert.False(t, node.Spec.Unschedulable)
+
+	job := &batchv1.Job{}
+	err = cli.Get(context.Background(), types.NamespacedName{
+		Namespace: r.conversionJobNamespace(),
+		Name:      conversionJobName("node-a"),
+	}, job)
+	assert.Error(t, err, "expected no conversion job for Cloud NodePool")
+}
+
 func newReconcilerForTest(t *testing.T, objs ...client.Object) (*ReconcileYurtNodeConversion, client.Client) {
 	t.Helper()
 
 	scheme := runtime.NewScheme()
 	require.NoError(t, clientgoscheme.AddToScheme(scheme))
+	require.NoError(t, appsv1beta2.AddToScheme(scheme))
 
 	builder := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...)
 	builder = builder.WithStatusSubresource(&corev1.Node{})
@@ -527,4 +550,18 @@ func newConversionJobForTest(t *testing.T, action, nodeName string) *batchv1.Job
 	job, err := nodeservant.RenderNodeServantJob(action, renderCtx, nodeName)
 	require.NoError(t, err)
 	return job
+}
+
+func newEdgeNodePool(name string) *appsv1beta2.NodePool {
+	return &appsv1beta2.NodePool{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Spec:       appsv1beta2.NodePoolSpec{Type: appsv1beta2.Edge},
+	}
+}
+
+func newCloudNodePool(name string) *appsv1beta2.NodePool {
+	return &appsv1beta2.NodePool{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Spec:       appsv1beta2.NodePoolSpec{Type: appsv1beta2.Cloud},
+	}
 }

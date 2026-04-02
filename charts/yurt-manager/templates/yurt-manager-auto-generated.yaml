@@ -909,6 +909,12 @@ rules:
   - get
   - list
 - apiGroups:
+  - apps.openyurt.io
+  resources:
+  - nodepools
+  verbs:
+  - get
+- apiGroups:
   - batch
   resources:
   - jobs
