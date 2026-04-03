@@ -76,6 +76,7 @@ var (
 		"v1.30",
 		"v1.31",
 		"v1.32",
+		"v1.34",
 	}
 	validKindVersions = []string{
 		"v0.11.1",
@@ -83,6 +84,7 @@ var (
 		"v0.22.0",
 		"v0.25.0",
 		"v0.26.0",
+		"v0.31.0",
 	}
 	AllValidOpenYurtVersions = append(projectinfo.Get().AllVersions, "latest")
 
@@ -123,6 +125,10 @@ var (
 		"v0.26.0": {
 			"v1.32": "kindest/node:v1.32.0@sha256:c48c62eac5da28cdadcf560d1d8616cfa6783b58f0d94cf63ad1bf49600cb027",
 			"v1.30": "kindest/node:v1.30.8@sha256:17cd608b3971338d9180b00776cb766c50d0a0b6b904ab4ff52fd3fc5c6369bf",
+		},
+		"v0.31.0": {
+			"v1.34": "kindest/node:v1.34.3@sha256:08497ee19eace7b4b5348db5c6a1591d7752b164530a36f855cb0f2bdcbadd48",
+			"v1.32": "kindest/node:v1.32.0@sha256:c48c62eac5da28cdadcf560d1d8616cfa6783b58f0d94cf63ad1bf49600cb027",
 		},
 	}
 

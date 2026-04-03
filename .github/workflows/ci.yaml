@@ -59,30 +59,6 @@ jobs:
           skip-cache: true
           mode: readonly
 
-#  markdownlint-misspell-shellcheck:
-#    runs-on: ubuntu-22.04
-#    # this image is build from Dockerfile
-#    # https://github.com/pouchcontainer/pouchlinter/blob/master/Dockerfile
-#    container: pouchcontainer/pouchlinter:v0.1.2
-#    steps:
-#      - name: Checkout
-#        uses: actions/checkout@v3
-#      - name: Run misspell
-#        run: find  ./* -name  "*"  | xargs misspell -error
-#      - name: Lint markdown files
-#        run: find  ./ -name  "*.md" | grep -v enhancements |  grep -v .github
-#      - name: Check markdown links
-#        run: |
-#          set +e
-#          for name in $(find . -name \*.md | grep -v CHANGELOG); do
-#            if [ -f $name ]; then
-#              markdown-link-check -q $name -c .github/workflows/markdown-link-check.config.json;
-#              if [ $? -ne 0 ]; then
-#                code=1
-#              fi
-#            fi
-#          done
-#          bash -c "exit $code";
 
   unit-tests:
     runs-on: ubuntu-22.04
@@ -96,12 +72,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-#      - name: Cache Go Dependencies
-#        uses: actions/cache@v3
-#        with:
-#          path: ~/go/pkg/mod
-#          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-#          restore-keys: ${{ runner.os }}-go-
       - name: Run Unit Tests
         run: make test
       - name: Publish Unit Test Coverage
@@ -125,15 +95,10 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-#      - uses: actions/cache@v3
-#        with:
-#          path: ~/go/pkg/mod
-#          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-#          restore-keys: ${{ runner.os }}-go-
       - name: Install Required Commands
         run: |
-          go install sigs.k8s.io/kind@v0.26.0
-          curl -LO https://dl.k8s.io/release/v1.32.1/bin/linux/amd64/kubectl && sudo install kubectl /usr/local/bin/kubectl
+          go install sigs.k8s.io/kind@v0.31.0
+          curl -LO https://dl.k8s.io/release/v1.34.3/bin/linux/amd64/kubectl && sudo install kubectl /usr/local/bin/kubectl
       - name: Build Images
         run: make docker-build
       - name: Local Up Openyurt Cluster With Kind
