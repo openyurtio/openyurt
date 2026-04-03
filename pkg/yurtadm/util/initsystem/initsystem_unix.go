@@ -21,7 +21,6 @@ limitations under the License.
 package initsystem
 
 import (
-	"fmt"
 	"os/exec"
 	"strings"
 
@@ -136,5 +135,5 @@ func GetInitSystem() (InitSystem, error) {
 		return &OpenRCInitSystem{}, nil
 	}
 
-	return nil, fmt.Errorf("no supported init system detected, skipping checking for services")
+	return &EmptyInitSystem{}, nil
 }
