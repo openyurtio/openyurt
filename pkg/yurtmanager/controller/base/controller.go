@@ -49,6 +49,7 @@ import (
 	servicetopologyendpointslice "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/servicetopology/endpointslice"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappset"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtcoordinator/podbinding"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurthubinstaller"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtstaticset"
 )
 
@@ -100,6 +101,7 @@ func NewControllerInitializers() map[string]InitFunc {
 	register(names.HubLeaderRBACController, hubleaderrbac.Add)
 
 	register(names.ImagePreheatController, imagepreheat.Add)
+	register(names.YurtHubInstallerController, yurthubinstaller.Add)
 
 	return controllers
 }
@@ -131,6 +133,10 @@ func NewControllerInitializers() map[string]InitFunc {
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=list;watch
 // +kubebuilder:rbac:groups=apps,resources=controllerrevisions,verbs=list;watch
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=list;watch
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtappsets,verbs=list;watch
 // +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=list;watch
 // +kubebuilder:rbac:groups=apps.openyurt.io,resources=yurtstaticsets,verbs=list;watch
