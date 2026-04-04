@@ -111,15 +111,8 @@ var _ = ginkgo.Describe("edge-autonomy"+constants.YurtE2ENamespaceName, ginkgo.O
 	var _ = ginkgo.Describe("yurthub"+constants.YurtE2ENamespaceName, func() {
 		ginkgo.It("yurthub edge-autonomy test", ginkgo.Label("edge-autonomy"), func() {
 			getYurthubMainPID := func() string {
-				opBytes, err := exec.Command(
-					"docker",
-					"exec",
-					"-t",
-					constants.YurtE2EWorkerNodeName,
-					"/bin/bash",
-					"-c",
-					"systemctl show --property MainPID --value yurthub.service",
-				).CombinedOutput()
+				dockerCmd := "docker exec -t " + constants.YurtE2EWorkerNodeName + " /bin/bash -c 'systemctl show --property MainPID --value yurthub.service'"
+				opBytes, err := exec.Command("/bin/bash", "-c", dockerCmd).CombinedOutput()
 				if err != nil {
 					klog.Errorf("failed to get yurthub main pid, output=%s err=%v", strings.TrimSpace(string(opBytes)), err)
 					return ""
@@ -131,15 +124,8 @@ var _ = ginkgo.Describe("edge-autonomy"+constants.YurtE2ENamespaceName, ginkgo.O
 			gomega.Expect(oldPID).NotTo(gomega.Or(gomega.BeEmpty(), gomega.Equal("0")), "fail to get yurthub main pid")
 
 			// Kill the main process and rely on systemd Restart=always to bring Yurthub back.
-			opBytes, err := exec.Command(
-				"docker",
-				"exec",
-				"-t",
-				constants.YurtE2EWorkerNodeName,
-				"/bin/bash",
-				"-c",
-				"systemctl kill --signal=SIGKILL --kill-who=main yurthub.service",
-			).CombinedOutput()
+			dockerCmd := "docker exec -t " + constants.YurtE2EWorkerNodeName + " /bin/bash -c 'systemctl kill --signal=SIGKILL --kill-who=main yurthub.service'"
+			opBytes, err := exec.Command("/bin/bash", "-c", dockerCmd).CombinedOutput()
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to kill yurthub main process: %s", strings.TrimSpace(string(opBytes)))
 
 			gomega.Eventually(func() string {
@@ -150,15 +136,8 @@ var _ = ginkgo.Describe("edge-autonomy"+constants.YurtE2ENamespaceName, ginkgo.O
 			)
 
 			gomega.Eventually(func() bool {
-				opBytes, err := exec.Command(
-					"docker",
-					"exec",
-					"-t",
-					constants.YurtE2EWorkerNodeName,
-					"/bin/bash",
-					"-c",
-					"systemctl is-active --quiet yurthub.service",
-				).CombinedOutput()
+				dockerCmd := "docker exec -t " + constants.YurtE2EWorkerNodeName + " /bin/bash -c 'systemctl is-active --quiet yurthub.service'"
+				opBytes, err := exec.Command("/bin/bash", "-c", dockerCmd).CombinedOutput()
 				if err != nil {
 					klog.Infof("yurthub service is not active yet, output=%s err=%v", strings.TrimSpace(string(opBytes)), err)
 					return false

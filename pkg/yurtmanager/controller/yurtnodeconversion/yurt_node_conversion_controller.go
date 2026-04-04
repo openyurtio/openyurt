@@ -218,7 +218,7 @@ func (r *ReconcileYurtNodeConversion) handleStaleJob(
 	if isJobFinished(job) {
 		klog.V(4).Info(Format("node(%s) deleting stale job %s, desiredAction=%s currentJobAction=%s",
 			node.Name, job.Name, desiredAction, currentJobAction))
-		if err := r.Delete(ctx, job); err != nil && !apierrors.IsNotFound(err) {
+		if err := r.Delete(ctx, job, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil && !apierrors.IsNotFound(err) {
 			return reconcile.Result{}, fmt.Errorf("delete stale conversion job %s for node %s: %w", job.Name, node.Name, err)
 		}
 		return reconcile.Result{Requeue: true}, nil
