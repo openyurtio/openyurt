@@ -46,6 +46,7 @@ const (
 	YurtHubServiceName     = "yurthub.service"
 	YurthubServicePath     = "/etc/systemd/system/yurthub.service"
 	YurthubServiceConfPath = "/etc/systemd/system/yurthub.service.d/10-yurthub.conf"
+	YurthubEmbeddedPath    = "/usr/local/servant/yurthub"
 	YurthubExecStart       = "/usr/local/bin/yurthub"
 
 	// ManifestsSubDirName defines directory name to store manifests
@@ -323,7 +324,7 @@ WantedBy=multi-user.target
 `
 
 	YurtHubUnitConfig = `[Service]
-Environment="YURTHUB_BOOTSTRAP_ARGS=--bootstrap-file={{.bootstrapFile}}"
+Environment="YURTHUB_BOOTSTRAP_ARGS={{.bootstrapArgs}}"
 Environment="YURTHUB_CONFIG_ARGS=--bind-address={{.bindAddress}} --working-mode={{.workingMode}} --namespace={{.namespace}}"
 Environment="YURTHUB_EXTRA_ARGS=--v=2"
 ExecStart=

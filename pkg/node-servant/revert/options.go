@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The OpenYurt Authors.
+Copyright 2026 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ limitations under the License.
 package revert
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/spf13/pflag"
@@ -25,38 +26,22 @@ import (
 	enutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/edgenode"
 )
 
-// Options has the information that required by revert operation
+// Options has the information that required by revert operation.
 type Options struct {
-	kubeadmConfPath string
-	openyurtDir     string
-	nodeName        string
+	nodeName    string
+	openyurtDir string
 }
 
-// NewRevertOptions creates a new Options
+// NewRevertOptions creates a new Options.
 func NewRevertOptions() *Options {
 	return &Options{}
 }
 
 // Complete completes all the required options.
-func (o *Options) Complete(flags *pflag.FlagSet) error {
-
-	kubeadmConfPath, err := flags.GetString("kubeadm-conf-path")
-	if err != nil {
-		return err
+func (o *Options) Complete() error {
+	if o.nodeName == "" {
+		o.nodeName = os.Getenv(enutil.NODE_NAME)
 	}
-	if kubeadmConfPath == "" {
-		kubeadmConfPath = os.Getenv("KUBELET_SVC")
-	}
-	if kubeadmConfPath == "" {
-		kubeadmConfPath = constants.KubeletSvcPath
-	}
-	o.kubeadmConfPath = kubeadmConfPath
-
-	nodeName, err := enutil.GetNodeName(kubeadmConfPath)
-	if err != nil {
-		return err
-	}
-	o.nodeName = nodeName
 
 	openyurtDir := os.Getenv("OPENYURT_DIR")
 	if openyurtDir == "" {
@@ -65,4 +50,17 @@ func (o *Options) Complete(flags *pflag.FlagSet) error {
 	o.openyurtDir = openyurtDir
 
 	return nil
+}
+
+// Validate validates Options.
+func (o *Options) Validate() error {
+	if o.nodeName == "" {
+		return fmt.Errorf("node name is empty")
+	}
+	return nil
+}
+
+// AddFlags sets flags.
+func (o *Options) AddFlags(fs *pflag.FlagSet) {
+	fs.StringVar(&o.nodeName, constants.NodeName, o.nodeName, "The node name where revert is executed.")
 }

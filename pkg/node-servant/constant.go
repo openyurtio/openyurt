@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The OpenYurt Authors.
+Copyright 2026 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,75 +17,43 @@ limitations under the License.
 package node_servant
 
 const (
+	// ConversionJobNameBase is the unified prefix of the node conversion Job name.
+	ConversionJobNameBase = "node-servant-conversion"
+	// ConversionNodeLabelKey is the label key used to correlate conversion Jobs with Nodes.
+	ConversionNodeLabelKey = "openyurt.io/conversion-node"
+	// DefaultConversionJobBackoffLimit is the proposal-aligned retry budget for conversion Jobs.
+	DefaultConversionJobBackoffLimit = 3
+	// DefaultConversionJobTTLSecondsAfterFinished keeps finished Jobs long enough for diagnosis.
+	DefaultConversionJobTTLSecondsAfterFinished = 7200
+	// DefaultConversionJobNamespace is the namespace used by node conversion Jobs.
+	DefaultConversionJobNamespace = "kube-system"
 
-	// ConvertJobNameBase is the prefix of the convert ServantJob name
-	ConvertJobNameBase = "node-servant-convert"
-	// RevertJobNameBase is the prefix of the revert ServantJob name
-	RevertJobNameBase = "node-servant-revert"
-
-	// ConvertServantJobTemplate defines the node convert servant job in yaml format
-	ConvertServantJobTemplate = `
+	// ServantJobTemplate defines the unified node-servant Job in yaml format.
+	ServantJobTemplate = `
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: {{.jobName}}
-  namespace: kube-system
+  namespace: {{.jobNamespace}}
+  labels:
+    {{.conversionNodeLabelKey}}: {{.nodeName}}
 spec:
+  backoffLimit: {{.backoffLimit}}
+  ttlSecondsAfterFinished: {{.ttlSecondsAfterFinished}}
   template:
+    metadata:
+      labels:
+        {{.conversionNodeLabelKey}}: {{.nodeName}}
     spec:
       hostPID: true
       hostNetwork: true
-      restartPolicy: OnFailure
+      restartPolicy: Never
       nodeName: {{.nodeName}}
-      volumes:
-      - name: host-root
-        hostPath:
-          path: /
-          type: Directory
-      - name: configmap
-        configMap:
-          defaultMode: 420
-          name: {{.configmap_name}}
-      containers:
-      - name: node-servant-servant
-        image: {{.node_servant_image}}
-        imagePullPolicy: IfNotPresent
-        command:
-        - /bin/sh
-        - -c
-        args:
-        - "/usr/local/bin/entry.sh convert {{if .yurthub_healthcheck_timeout}}--yurthub-healthcheck-timeout={{.yurthub_healthcheck_timeout}} {{end}}--join-token={{.joinToken}} --nodepool-name={{.nodePoolName}}"
-        securityContext:
-          privileged: true
-        volumeMounts:
-        - mountPath: /openyurt
-          name: host-root
-        - mountPath: /openyurt/data
-          name: configmap
-        env:
-        - name: NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
-          {{if  .kubeadm_conf_path }}
-        - name: KUBELET_SVC
-          value: {{.kubeadm_conf_path}}
-          {{end}}
-`
-	// RevertServantJobTemplate defines the node revert servant job in yaml format
-	RevertServantJobTemplate = `
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: {{.jobName}}
-  namespace: kube-system
-spec:
-  template:
-    spec:
-      hostPID: true
-      hostNetwork: true
-      restartPolicy: OnFailure
-      nodeName: {{.nodeName}}
+      tolerations:
+      - operator: Exists
+        effect: NoSchedule
+      - operator: Exists
+        effect: NoExecute
       volumes:
       - name: host-root
         hostPath:
@@ -93,13 +61,13 @@ spec:
           type: Directory
       containers:
       - name: node-servant
-        image: {{.node_servant_image}}
+        image: {{.nodeServantImage}}
         imagePullPolicy: IfNotPresent
         command:
         - /bin/sh
         - -c
         args:
-        - "/usr/local/bin/entry.sh revert"
+        - "/usr/local/bin/entry.sh {{.servantCommand}}"
         securityContext:
           privileged: true
         volumeMounts:
@@ -110,9 +78,5 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-          {{if  .kubeadm_conf_path }}
-        - name: KUBELET_SVC
-          value: {{.kubeadm_conf_path}}
-          {{end}}
 `
 )

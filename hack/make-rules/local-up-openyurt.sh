@@ -55,7 +55,6 @@ readonly REQUIRED_CMD=(
 readonly REQUIRED_IMAGES=(
     openyurt/node-servant
     openyurt/yurt-manager
-    openyurt/yurthub
     openyurt/yurt-iot-dock
 )
 

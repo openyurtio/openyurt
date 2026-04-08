@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The OpenYurt Authors.
+Copyright 2026 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,34 +19,49 @@ package convert
 import (
 	"fmt"
 	"strings"
-	"time"
 
+	nodeservant "github.com/openyurtio/openyurt/pkg/node-servant"
 	"github.com/openyurtio/openyurt/pkg/node-servant/components"
+	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
+	yurthubutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/yurthub"
 )
 
-// Config has the information that required by convert operation
+const bootstrapModeKubeletCertificate = "kubeletcertificate"
+
+var (
+	getAPIServerAddressFunc = components.GetApiServerAddress
+	installYurthubFunc      = func(cfg *yurthubutil.YurthubHostConfig) error {
+		return components.NewYurthubOperator(cfg).Install()
+	}
+	redirectKubeletFunc = func(openyurtDir string) error {
+		return components.NewKubeletOperator(openyurtDir).RedirectTrafficToYurtHub()
+	}
+	restartContainersFunc = func(nodeName string) error {
+		return components.RestartNonPauseContainers(nodeName, conversionJobPodPrefix(nodeName))
+	}
+)
+
+// Config has the information that required by convert operation.
 type Config struct {
-	yurthubHealthCheckTimeout time.Duration
-	joinToken                 string
-	kubeadmConfPaths          []string
-	openyurtDir               string
-	nodePoolName              string
+	kubeadmConfPaths []string
+	nodeName         string
+	nodePoolName     string
+	openyurtDir      string
 }
 
-// nodeConverter do the convert job
+// nodeConverter do the convert job.
 type nodeConverter struct {
 	Config
 }
 
-// NewConverterWithOptions create nodeConverter
+// NewConverterWithOptions create nodeConverter.
 func NewConverterWithOptions(o *Options) *nodeConverter {
 	return &nodeConverter{
 		Config: Config{
-			yurthubHealthCheckTimeout: o.yurthubHealthCheckTimeout,
-			joinToken:                 o.joinToken,
-			kubeadmConfPaths:          strings.Split(o.kubeadmConfPaths, ","),
-			openyurtDir:               o.openyurtDir,
-			nodePoolName:              o.nodePoolName,
+			kubeadmConfPaths: strings.Split(o.kubeadmConfPaths, ","),
+			nodeName:         o.nodeName,
+			nodePoolName:     o.nodePoolName,
+			openyurtDir:      o.openyurtDir,
 		},
 	}
 }
@@ -60,23 +75,44 @@ func (n *nodeConverter) Do() error {
 	if err := n.convertKubelet(); err != nil {
 		return err
 	}
+	if err := n.restartContainers(); err != nil {
+		return err
+	}
 
 	return nil
 }
 
 func (n *nodeConverter) installYurtHub() error {
-	apiServerAddress, err := components.GetApiServerAddress(n.kubeadmConfPaths)
+	apiServerAddress, err := getAPIServerAddressFunc(n.kubeadmConfPaths)
 	if err != nil {
 		return err
 	}
 	if apiServerAddress == "" {
 		return fmt.Errorf("get apiServerAddress empty")
 	}
-	op := components.NewYurthubOperator(apiServerAddress, n.joinToken, n.nodePoolName, n.yurthubHealthCheckTimeout)
-	return op.Install()
+
+	return installYurthubFunc(n.yurthubHostConfig(apiServerAddress))
 }
 
 func (n *nodeConverter) convertKubelet() error {
-	op := components.NewKubeletOperator(n.openyurtDir)
-	return op.RedirectTrafficToYurtHub()
+	return redirectKubeletFunc(n.openyurtDir)
+}
+
+func (n *nodeConverter) restartContainers() error {
+	return restartContainersFunc(n.nodeName)
+}
+
+func (n *nodeConverter) yurthubHostConfig(apiServerAddress string) *yurthubutil.YurthubHostConfig {
+	return &yurthubutil.YurthubHostConfig{
+		BootstrapMode: bootstrapModeKubeletCertificate,
+		Namespace:     constants.YurthubNamespace,
+		NodeName:      n.nodeName,
+		NodePoolName:  n.nodePoolName,
+		ServerAddr:    apiServerAddress,
+		WorkingMode:   constants.EdgeNode,
+	}
+}
+
+func conversionJobPodPrefix(nodeName string) string {
+	return fmt.Sprintf("%s-%s", nodeservant.ConversionJobNameBase, nodeName)
 }

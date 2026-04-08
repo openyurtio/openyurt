@@ -132,7 +132,6 @@ var (
 		},
 	}
 
-	yurtHubImageFormat     = "openyurt/yurthub:%s"
 	yurtManagerImageFormat = "openyurt/yurt-manager:%s"
 	nodeServantImageFormat = "openyurt/node-servant:%s"
 	yurtIotDockImageFormat = "openyurt/yurt-iot-dock:%s"
@@ -280,7 +279,6 @@ func (o *kindOptions) Config() *initializerConfig {
 		ClusterName:       o.ClusterName,
 		KubernetesVersion: o.KubernetesVersion,
 		UseLocalImage:     o.UseLocalImages,
-		YurtHubImage:      fmt.Sprintf(yurtHubImageFormat, o.OpenYurtVersion),
 		YurtManagerImage:  fmt.Sprintf(yurtManagerImageFormat, o.OpenYurtVersion),
 		NodeServantImage:  fmt.Sprintf(nodeServantImageFormat, o.OpenYurtVersion),
 		yurtIotDockImage:  fmt.Sprintf(yurtIotDockImageFormat, o.OpenYurtVersion),
@@ -323,7 +321,6 @@ type initializerConfig struct {
 	KubernetesVersion string
 	NodeImage         string
 	UseLocalImage     bool
-	YurtHubImage      string
 	YurtManagerImage  string
 	NodeServantImage  string
 	yurtIotDockImage  string
@@ -569,7 +566,6 @@ func (ki *Initializer) prepareImages() error {
 	}
 	// load images of cloud components to cloud nodes
 	if err := ki.loadImagesToKindNodes([]string{
-		ki.YurtHubImage,
 		ki.YurtManagerImage,
 		ki.NodeServantImage,
 		ki.yurtIotDockImage,
@@ -579,7 +575,6 @@ func (ki *Initializer) prepareImages() error {
 
 	// load images of edge components to edge nodes
 	if err := ki.loadImagesToKindNodes([]string{
-		ki.YurtHubImage,
 		ki.NodeServantImage,
 		ki.yurtIotDockImage,
 	}, ki.EdgeNodes); err != nil {
@@ -751,12 +746,10 @@ func (ki *Initializer) deployOpenYurt() error {
 		RuntimeClient:             ki.runtimeClient,
 		CloudNodes:                ki.CloudNodes,
 		EdgeNodes:                 ki.EdgeNodes,
-		WaitServantJobTimeout:     kubeutil.DefaultWaitServantJobTimeout,
-		YurthubHealthCheckTimeout: defaultYurthubHealthCheckTimeout,
+		WaitNodeConversionTimeout: kubeutil.DefaultWaitNodeConversionTimeout,
 		KubeConfigPath:            ki.KubeConfig,
 		YurtManagerImage:          ki.YurtManagerImage,
 		NodeServantImage:          ki.NodeServantImage,
-		YurthubImage:              ki.YurtHubImage,
 	}
 	if err := converter.Run(); err != nil {
 		klog.Errorf("errors occurred when deploying openyurt components")

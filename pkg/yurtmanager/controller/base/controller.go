@@ -49,6 +49,7 @@ import (
 	servicetopologyendpointslice "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/servicetopology/endpointslice"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappset"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtcoordinator/podbinding"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtnodeconversion"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtstaticset"
 )
 
@@ -86,6 +87,7 @@ func NewControllerInitializers() map[string]InitFunc {
 	register(names.ServiceTopologyEndpointsController, servicetopologyendpoints.Add)
 	register(names.ServiceTopologyEndpointSliceController, servicetopologyendpointslice.Add)
 	register(names.YurtStaticSetController, yurtstaticset.Add)
+	register(names.YurtNodeConversionController, yurtnodeconversion.Add)
 	register(names.YurtAppSetController, yurtappset.Add)
 	register(names.PlatformAdminController, platformadmin.Add)
 	register(names.GatewayPickupController, gatewaypickup.Add)
@@ -164,6 +166,11 @@ func SetupWithManager(ctx context.Context, c *config.CompletedConfig, m manager.
 		ControllersDisabledByDefault,
 		c.ComponentConfig.Generic.Controllers,
 	) ||
+		app.IsControllerEnabled(
+			names.YurtNodeConversionController,
+			ControllersDisabledByDefault,
+			c.ComponentConfig.Generic.Controllers,
+		) ||
 		app.IsControllerEnabled(
 			names.PodBindingController,
 			ControllersDisabledByDefault,

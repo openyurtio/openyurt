@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The OpenYurt Authors.
+Copyright 2026 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,18 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package constants
+package config
 
-import "time"
-
-const (
-	YurtE2ENamespaceName     = "yurt-e2e-test"
-	YurtE2ETestDesc          = "[yurt-e2e-test]"
-	YurtDefaultNamespaceName = "default"
-	YurtSystemNamespaceName  = "kube-system"
-	YurtCloudNodeName        = "openyurt-e2e-test-control-plane"
-	NginxServiceName         = "yurt-e2e-test-nginx"
-	CoreDNSServiceName       = "kube-dns"
-	PodStartShortTimeout     = 1 * time.Minute
-	YurtE2EWorkerNodeName    = "openyurt-e2e-test-worker"
-)
+// YurtNodeConversionControllerConfiguration contains elements describing YurtNodeConversionController.
+type YurtNodeConversionControllerConfiguration struct {
+	ConcurrentYurtNodeConversionWorkers int32
+}

@@ -35,6 +35,7 @@ const (
 	apiserverAddrRegularExpression = "server: (http(s)?:\\/\\/)?[\\w][-\\w]{0,62}(\\.[\\w][-\\w]{0,62})*(:[\\d]{1,5})?"
 
 	kubeAdmFlagsEnvFile = "/var/lib/kubelet/kubeadm-flags.env"
+	fileMode            = 0666
 	dirMode             = 0755
 )
 

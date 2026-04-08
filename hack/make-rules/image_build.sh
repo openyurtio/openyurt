@@ -30,7 +30,21 @@ readonly IMAGE_TARGETS=(
 
 http_proxy=${http_proxy:-}
 https_proxy=${https_proxy:-}
-targets=${@:-${IMAGE_TARGETS[@]}}
+targets=("$@")
+if [[ ${#targets[@]} -eq 0 ]]; then
+    targets=("${IMAGE_TARGETS[@]}")
+fi
+
+build_targets=("${targets[@]}")
+for target in "${targets[@]}"; do
+    if [[ ${target} == "yurt-node-servant" ]]; then
+        if [[ ! " ${build_targets[*]} " =~ " yurthub " ]]; then
+            build_targets+=("yurthub")
+        fi
+        break
+    fi
+done
+
 REGION=${REGION:-}
 IMAGE_REPO=${IMAGE_REPO:-"openyurt"}
 IMAGE_TAG=${IMAGE_TAG:-$(get_image_tag)}
@@ -88,7 +102,7 @@ docker run \
     --env GOCACHE=/tmp/ \
     ${DOCKER_EXTRA_ENVS} \
     ${BUILD_BASE_IMAGE} \
-    /bin/bash -c "git config --global --add safe.directory /build && GIT_VERSION=${GIT_VERSION} ./hack/make-rules/build.sh ${targets[@]}"
+    /bin/bash -c "git config --global --add safe.directory /build && GIT_VERSION=${GIT_VERSION} ./hack/make-rules/build.sh ${build_targets[*]}"
 
 # build images
 for image in ${targets[@]}; do
