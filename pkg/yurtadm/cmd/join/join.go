@@ -221,7 +221,11 @@ func (nodeJoiner *nodeJoiner) Run() error {
 		return err
 	}
 
-	if err := yurtphases.RunPostCheck(joinData); err != nil {
+	if err := yurtphases.RunJoinCheck(joinData); err != nil {
+		return err
+	}
+
+	if err := yurtphases.RunConvert(joinData); err != nil {
 		return err
 	}
 
