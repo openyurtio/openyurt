@@ -17,19 +17,20 @@ limitations under the License.
 package phases
 
 import (
-	"os/exec"
+	"errors"
 	"testing"
-
-	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 )
 
 func Test_runStopYurthubService_Success(t *testing.T) {
-	old := execCommand
-	defer func() { execCommand = old }()
+	oldStop := stopYurthubServiceFunc
+	oldDisable := disableYurthubServiceFunc
+	defer func() {
+		stopYurthubServiceFunc = oldStop
+		disableYurthubServiceFunc = oldDisable
+	}()
 
-	execCommand = func(name string, arg ...string) *exec.Cmd {
-		return exec.Command("true")
-	}
+	stopYurthubServiceFunc = func() error { return nil }
+	disableYurthubServiceFunc = func() error { return nil }
 
 	if err := runStopYurthubService(); err != nil {
 		t.Fatalf("expected nil error, got: %v", err)
@@ -37,12 +38,15 @@ func Test_runStopYurthubService_Success(t *testing.T) {
 }
 
 func Test_runStopYurthubService_StopFails(t *testing.T) {
-	old := execCommand
-	defer func() { execCommand = old }()
+	oldStop := stopYurthubServiceFunc
+	oldDisable := disableYurthubServiceFunc
+	defer func() {
+		stopYurthubServiceFunc = oldStop
+		disableYurthubServiceFunc = oldDisable
+	}()
 
-	execCommand = func(name string, arg ...string) *exec.Cmd {
-		return exec.Command("false")
-	}
+	stopYurthubServiceFunc = func() error { return errors.New("stop failed") }
+	disableYurthubServiceFunc = func() error { return nil }
 
 	if err := runStopYurthubService(); err == nil {
 		t.Fatalf("expected error when stop fails, got nil")
@@ -50,25 +54,15 @@ func Test_runStopYurthubService_StopFails(t *testing.T) {
 }
 
 func Test_runStopYurthubService_DisableFails(t *testing.T) {
-	old := execCommand
-	defer func() { execCommand = old }()
+	oldStop := stopYurthubServiceFunc
+	oldDisable := disableYurthubServiceFunc
+	defer func() {
+		stopYurthubServiceFunc = oldStop
+		disableYurthubServiceFunc = oldDisable
+	}()
 
-	call := 0
-	execCommand = func(name string, arg ...string) *exec.Cmd {
-		call++
-		if call == 1 {
-			if name != "systemctl" || len(arg) < 2 || arg[0] != "stop" {
-				return exec.Command("true")
-			}
-			return exec.Command("true")
-		}
-		if name == "systemctl" && len(arg) > 0 && arg[0] == "disable" {
-			if len(arg) >= 2 && arg[1] == constants.YurtHubServiceName {
-				return exec.Command("false")
-			}
-		}
-		return exec.Command("true")
-	}
+	stopYurthubServiceFunc = func() error { return nil }
+	disableYurthubServiceFunc = func() error { return errors.New("disable failed") }
 
 	if err := runStopYurthubService(); err == nil {
 		t.Fatalf("expected error when disable fails, got nil")
