@@ -20,31 +20,18 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/util/kubernetes"
-	"github.com/openyurtio/openyurt/pkg/yurtadm/util/yurthub"
 )
 
-// RunPostCheck executes the node health check and clean process.
-func RunPostCheck(data joindata.YurtJoinData) error {
+var checkKubeletStatusFunc = kubernetes.CheckKubeletStatus
+
+// RunJoinCheck validates the kubelet state after kubeadm join succeeds.
+func RunJoinCheck(_ joindata.YurtJoinData) error {
 	klog.V(1).Infof("check kubelet status.")
-	if err := kubernetes.CheckKubeletStatus(); err != nil {
+	if err := checkKubeletStatusFunc(); err != nil {
 		return err
 	}
 	klog.V(1).Infof("kubelet service is active")
-
-	if data.NodeRegistration().WorkingMode != constants.LocalNode {
-		klog.V(1).Infof("waiting hub agent ready.")
-		if err := yurthub.CheckYurthubServiceHealth(data.YurtHubServer()); err != nil {
-			return err
-		}
-		klog.V(1).Infof("hub agent is ready")
-
-		if err := yurthub.CleanHubBootstrapConfig(); err != nil {
-			return err
-		}
-		klog.V(1).Infof("clean yurthub bootstrap config file success")
-	}
 
 	return nil
 }

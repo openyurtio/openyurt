@@ -305,13 +305,11 @@ func SetKubeletUnitConfig(data joindata.YurtJoinData) error {
 		}
 	}
 
-	nodeReg := data.NodeRegistration()
 	ctx := map[string]interface{}{
 		"kubeconfig": "--kubeconfig=/etc/kubernetes/kubelet.conf",
 	}
-	if nodeReg.WorkingMode == constants.LocalNode {
-		ctx["bootstrapKubeconfig"] = "--bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf"
-	}
+	// All nodes need bootstrap-kubeconfig for proper TLS bootstrap.
+	ctx["bootstrapKubeconfig"] = "--bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf"
 
 	kubeletUnitConfigTemplate, err := templates.SubstituteTemplate(constants.KubeletUnitConfig, ctx)
 	if err != nil {
@@ -408,16 +406,12 @@ func SetKubeadmJoinConfig(data joindata.YurtJoinData) error {
 		"name":                   nodeReg.Name,
 	}
 
-	// if node isn't local node, we need to set ignorePreflightErrors and nodeLabels
-	// besides, we don't need to rotate certificates
+	// Non-local nodes still need join-specific preflight overrides and labels.
 	if nodeReg.WorkingMode != constants.LocalNode {
 		ctx["ignorePreflightErrors"] = data.IgnorePreflightErrors().UnsortedList()
 		ctx["nodeLabels"] = constructNodeLabels(data.NodeLabels(), nodeReg.WorkingMode, projectinfo.GetEdgeWorkerLabelKey())
-		ctx["rotateCertificates"] = false
-	} else {
-		// if node is local node, we need to set rotateCertificates to true
-		ctx["rotateCertificates"] = true
 	}
+	ctx["rotateCertificates"] = true
 
 	v1, err := version.NewVersion(data.KubernetesVersion())
 	if err != nil {
