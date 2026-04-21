@@ -1,5 +1,7 @@
 name: Rerun Failed Workflows
-
+permissions:
+  contents: read
+  
 on:
   issue_comment:
     types: [created]
