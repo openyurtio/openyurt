@@ -13,7 +13,7 @@
 # limitations under the License.
 
 KUBERNETESVERSION ?=v1.34
-GOLANGCILINT_VERSION ?= v1.64.7
+GOLANGCILINT_VERSION ?= v2.11.4
 GLOBAL_GOLANGCILINT := $(shell which golangci-lint)
 GOBIN := $(shell go env GOPATH)/bin
 GOBIN_GOLANGCILINT := $(shell which $(GOBIN)/golangci-lint)
@@ -149,7 +149,7 @@ else
 	@{ \
     set -e ;\
     echo 'installing golangci-lint-$(GOLANGCILINT_VERSION)' ;\
-    go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCILINT_VERSION) ;\
+    go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCILINT_VERSION) ;\
     echo 'Successfully installed' ;\
     }
 GOLINT_BIN=$(GOBIN)/golangci-lint

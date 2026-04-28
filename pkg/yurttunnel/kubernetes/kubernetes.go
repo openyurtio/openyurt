@@ -89,7 +89,7 @@ func CreateClientSetApiserverAddr(apiserverAddr string) (*kubernetes.Clientset, 
 	}
 
 	restConfig := rest.Config{
-		Host:            constants.HttpsPrfix + apiserverAddr,
+		Host:            constants.HttpsPrefix + apiserverAddr,
 		TLSClientConfig: tlsClientConfig,
 		BearerToken:     string(token),
 		BearerTokenFile: constants.YurttunnelTokenFile,

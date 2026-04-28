@@ -99,8 +99,8 @@ func (im *IptablesManager) addIptablesRules(tenantKasService string, apiserverAd
 		klog.Errorf("can't split host and port for tenantKasService, %v", err)
 		return err
 	}
-	ramdomBalancingProbability := im.getRamdomBalancingProbability(len(apiserverAddrs))
-	klog.Infof("ramdomBalancingProbability: %v", ramdomBalancingProbability)
+	randomBalancingProbability := im.getRandomBalancingProbability(len(apiserverAddrs))
+	klog.Infof("randomBalancingProbability: %v", randomBalancingProbability)
 	for index, addr := range apiserverAddrs {
 		// all packets (from kubelet, etc.) to tenantKasService are loadbalanced to multiple addresses of apiservers deployed in daemonset.
 		// the format of addr is ip:port
@@ -110,7 +110,7 @@ func (im *IptablesManager) addIptablesRules(tenantKasService string, apiserverAd
 			"--dport", svcPort,
 			"-m", "statistic",
 			"--mode", "random",
-			"--probability", strconv.FormatFloat(ramdomBalancingProbability[index], 'f', -1, 64),
+			"--probability", strconv.FormatFloat(randomBalancingProbability[index], 'f', -1, 64),
 			"-j", "DNAT",
 			"--to-destination", addr,
 		}
@@ -158,11 +158,11 @@ func (im *IptablesManager) cleanIptablesRules() error {
 	return nil
 }
 
-func (im *IptablesManager) getRamdomBalancingProbability(numOfIPs int) []float64 {
+func (im *IptablesManager) getRandomBalancingProbability(numOfIPs int) []float64 {
 	klog.Infof("numOfIPs: %v", numOfIPs)
-	ramdomBalancingProbability := make([]float64, numOfIPs)
+	randomBalancingProbability := make([]float64, numOfIPs)
 	for i := 0; i < numOfIPs; i++ {
-		ramdomBalancingProbability[i] = 1.0 / float64(numOfIPs-i)
+		randomBalancingProbability[i] = 1.0 / float64(numOfIPs-i)
 	}
-	return ramdomBalancingProbability
+	return randomBalancingProbability
 }

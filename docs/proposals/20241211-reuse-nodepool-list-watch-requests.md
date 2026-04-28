@@ -22,12 +22,12 @@ By the way, We have proposed a solution for reducing cloud-edge traffic based on
 
 ### Goals
 1. Reduce network traffic between cloud and edge caused by workloads upgrade.
-2. Replace the old solution for resuing list/watch requests that providered by yurt-coordinator component. this means we will deprecate yurt-coordinator component.
+2. Replace the old solution for reusing list/watch requests that providered by yurt-coordinator component. this means we will deprecate yurt-coordinator component.
 3. The new solution can integrate with current node-level traffic reuse solution seamlessly.
 
 ### Non-Goals/Future Work
 1. The new solution can only take effect when nodes can access each other in nodepool.
-2. Don't support resuing CRD list/watch requests in this proposal. we will support this feature in the future version.
+2. Don't support reusing CRD list/watch requests in this proposal. we will support this feature in the future version.
 3. Support high availability of Leader Yurthub in the future version.
 
 ## Proposal

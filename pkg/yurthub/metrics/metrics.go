@@ -30,7 +30,7 @@ const (
 	// duration: yurthub -> apiserver
 	Apiserver_latency LatencyType = "apiserver_latency"
 	// duration: coming to yurthub -> yurthub to apiserver -> leaving yurthub
-	Full_lantency LatencyType = "full_latency"
+	Full_latency LatencyType = "full_latency"
 )
 
 var (
