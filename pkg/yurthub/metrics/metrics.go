@@ -28,9 +28,9 @@ type LatencyType string
 
 const (
 	// duration: yurthub -> apiserver
-	Apiserver_latency LatencyType = "apiserver_latency"
+	ApiserverLatency LatencyType = "apiserver_latency"
 	// duration: coming to yurthub -> yurthub to apiserver -> leaving yurthub
-	Full_latency LatencyType = "full_latency"
+	FullLatency LatencyType = "full_latency"
 )
 
 var (

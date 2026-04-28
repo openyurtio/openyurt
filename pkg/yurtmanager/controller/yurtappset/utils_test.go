@@ -63,7 +63,7 @@ func TestFilterOutCondition(t *testing.T) {
 
 func TestSetYurtAppSetCondition(t *testing.T) {
 	// 测试用例1: 当条件已经存在且状态和原因相同，则更新
-	var status unitv1beta1.YurtAppSetStatus = unitv1beta1.YurtAppSetStatus{
+	status := unitv1beta1.YurtAppSetStatus{
 		Conditions: []unitv1beta1.YurtAppSetCondition{
 			{Type: unitv1beta1.AppSetPoolFound, Status: "True", Reason: "TestReason1", Message: "TestMessage2"},
 		},

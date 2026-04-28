@@ -138,7 +138,7 @@ func (lp *LocalProxy) localPost(w http.ResponseWriter, req *http.Request) error 
 		req.Body = rc
 	}
 
-	headerNStr := req.Header.Get(yurtutil.HttpHeaderContentLength)
+	headerNStr := req.Header.Get(yurtutil.HTTPHeaderContentLength)
 	headerN, _ := strconv.Atoi(headerNStr)
 	n, err := buf.ReadFrom(req.Body)
 	if err != nil || (headerN != 0 && int(n) != headerN) {
@@ -177,8 +177,8 @@ func (lp *LocalProxy) localWatch(w http.ResponseWriter, req *http.Request) error
 
 	ctx := req.Context()
 	contentType, _ := hubutil.ReqContentTypeFrom(ctx)
-	w.Header().Set(yurtutil.HttpHeaderContentType, contentType)
-	w.Header().Set(yurtutil.HttpHeaderTransferEncoding, "chunked")
+	w.Header().Set(yurtutil.HTTPHeaderContentType, contentType)
+	w.Header().Set(yurtutil.HTTPHeaderTransferEncoding, "chunked")
 	w.WriteHeader(http.StatusOK)
 	flusher.Flush()
 
@@ -239,7 +239,7 @@ func (lp *LocalProxy) localReqCache(w http.ResponseWriter, req *http.Request) er
 
 func copyHeader(dst, src http.Header) {
 	for k, vv := range src {
-		if k == yurtutil.HttpHeaderContentType || k == yurtutil.HttpHeaderContentLength {
+		if k == yurtutil.HTTPHeaderContentType || k == yurtutil.HTTPHeaderContentLength {
 			for _, v := range vv {
 				dst.Add(k, v)
 			}

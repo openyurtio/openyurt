@@ -33,7 +33,7 @@ type KeyBuildInfo struct {
 
 type ClusterInfoKey struct {
 	ClusterInfoType
-	UrlPath string
+	URLPath string
 }
 
 type ClusterInfoType string
@@ -43,7 +43,7 @@ func (key *ClusterInfoKey) Key() string {
 	case APIsInfo, Version:
 		return string(key.ClusterInfoType)
 	case APIResourcesInfo:
-		return strings.ReplaceAll(key.UrlPath, "/", "_")
+		return strings.ReplaceAll(key.URLPath, "/", "_")
 	default:
 		return ""
 	}

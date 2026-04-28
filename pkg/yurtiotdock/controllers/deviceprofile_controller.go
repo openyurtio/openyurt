@@ -66,7 +66,7 @@ func (r *DeviceProfileReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// 1. Handle the deviceProfile deletion event
 	if err := r.reconcileDeleteDeviceProfile(ctx, &dp, dpActualName); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
-	} else if !dp.ObjectMeta.DeletionTimestamp.IsZero() {
+	} else if !dp.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
 	}
 
@@ -103,7 +103,7 @@ func (r *DeviceProfileReconciler) SetupWithManager(mgr ctrl.Manager, opts *optio
 }
 
 func (r *DeviceProfileReconciler) reconcileDeleteDeviceProfile(ctx context.Context, dp *iotv1alpha1.DeviceProfile, actualName string) error {
-	if dp.ObjectMeta.DeletionTimestamp.IsZero() {
+	if dp.DeletionTimestamp.IsZero() {
 		if len(dp.GetFinalizers()) == 0 {
 			patchString := map[string]interface{}{
 				"metadata": map[string]interface{}{
@@ -153,7 +153,7 @@ func (r *DeviceProfileReconciler) reconcileCreateDeviceProfile(ctx context.Conte
 		// a. If object exists, the status of the deviceProfile on OpenYurt is updated
 		klog.V(4).Info("DeviceProfile already exists on edge platform")
 		dp.Status.Synced = true
-		dp.Status.EdgeId = edgeDp.Status.EdgeId
+		dp.Status.EdgeID = edgeDp.Status.EdgeID
 		return r.Status().Update(ctx, dp)
 	}
 
@@ -163,8 +163,8 @@ func (r *DeviceProfileReconciler) reconcileCreateDeviceProfile(ctx context.Conte
 		klog.V(4).ErrorS(err, "failed to create deviceProfile on edge platform")
 		return fmt.Errorf("failed to add deviceProfile to edge platform: %v", err)
 	}
-	klog.V(3).Infof("Successfully add DeviceProfile to edge platform, Name: %s, EdgeId: %s", createDp.GetName(), createDp.Status.EdgeId)
-	dp.Status.EdgeId = createDp.Status.EdgeId
+	klog.V(3).Infof("Successfully add DeviceProfile to edge platform, Name: %s, EdgeId: %s", createDp.GetName(), createDp.Status.EdgeID)
+	dp.Status.EdgeID = createDp.Status.EdgeID
 	dp.Status.Synced = true
 	return r.Status().Update(ctx, dp)
 }

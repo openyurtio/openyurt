@@ -82,7 +82,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	// 1. Handle the device deletion event
 	if err := r.reconcileDeleteDevice(ctx, &d); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
-	} else if !d.ObjectMeta.DeletionTimestamp.IsZero() {
+	} else if !d.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
 	}
 
@@ -127,7 +127,7 @@ func (r *DeviceReconciler) SetupWithManager(mgr ctrl.Manager, opts *options.Yurt
 func (r *DeviceReconciler) reconcileDeleteDevice(ctx context.Context, d *iotv1alpha1.Device) error {
 	// gets the actual name of the device on the Edge platform from the Label of the device
 	edgeDeviceName := util.GetEdgeDeviceName(d, EdgeXObjectName)
-	if d.ObjectMeta.DeletionTimestamp.IsZero() {
+	if d.DeletionTimestamp.IsZero() {
 		if len(d.GetFinalizers()) == 0 {
 			patchData, _ := json.Marshal(map[string]interface{}{
 				"metadata": map[string]interface{}{
@@ -168,7 +168,7 @@ func (r *DeviceReconciler) reconcileCreateDevice(ctx context.Context, d *iotv1al
 	if err == nil {
 		// a. If object exists, the status of the device on OpenYurt is updated
 		klog.V(4).Infof("Device already exists on edge platform: %s", d.GetName())
-		newDeviceStatus.EdgeId = edgeDevice.Status.EdgeId
+		newDeviceStatus.EdgeID = edgeDevice.Status.EdgeID
 		newDeviceStatus.Synced = true
 	} else if clients.IsNotFoundErr(err) {
 		// b. If the object does not exist, a request is sent to the edge platform to create a new device
@@ -178,8 +178,8 @@ func (r *DeviceReconciler) reconcileCreateDevice(ctx context.Context, d *iotv1al
 			util.SetDeviceCondition(deviceStatus, util.NewDeviceCondition(iotv1alpha1.DeviceSyncedCondition, corev1.ConditionFalse, iotv1alpha1.DeviceCreateSyncedReason, err.Error()))
 			return fmt.Errorf("could not add Device to edge platform: %v", err)
 		} else {
-			klog.V(4).Infof("Successfully add Device to edge platform, Name: %s, EdgeId: %s", edgeDeviceName, createdEdgeObj.Status.EdgeId)
-			newDeviceStatus.EdgeId = createdEdgeObj.Status.EdgeId
+			klog.V(4).Infof("Successfully add Device to edge platform, Name: %s, EdgeId: %s", edgeDeviceName, createdEdgeObj.Status.EdgeID)
+			newDeviceStatus.EdgeID = createdEdgeObj.Status.EdgeID
 			newDeviceStatus.Synced = true
 		}
 	} else {

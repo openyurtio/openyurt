@@ -95,7 +95,7 @@ func NewImprovedFakeNodeHandler(nodes []*v1.Node, pods *v1.PodList) *ImprovedFak
 		UpdatedNodes:        make([]*v1.Node, 0),
 		UpdatedNodeStatuses: make([]*v1.Node, 0),
 	}
-	m.ClientWrapper.NodeUpdateReactor = m.SyncNode
+	m.NodeUpdateReactor = m.SyncNode
 	m.DelegateNodeHandler.NodeUpdateReactor = m.SyncNode
 
 	for i := range nodes {
@@ -498,7 +498,7 @@ func (m *FakeNodeHandler) GetUpdatedNodesCopy() []*v1.Node {
 	if err != nil {
 		return []*v1.Node{}
 	}
-	updatedNodesCopy := make([]*v1.Node, len(nodeList.Items), len(nodeList.Items))
+	updatedNodesCopy := make([]*v1.Node, len(nodeList.Items))
 	for i := range nodeList.Items {
 		updatedNodesCopy[i] = &nodeList.Items[i]
 	}
@@ -508,7 +508,7 @@ func (m *FakeNodeHandler) GetUpdatedNodesCopy() []*v1.Node {
 // GetUpdatedNodeStatusesCopy returns a slice of Nodes status with updates applied.
 func (m *FakeNodeHandler) GetUpdatedNodeStatusesCopy() []*v1.NodeStatus {
 	nodes := m.GetUpdatedNodesCopy()
-	statuses := make([]*v1.NodeStatus, len(nodes), len(nodes))
+	statuses := make([]*v1.NodeStatus, len(nodes))
 	for i := range nodes {
 		statuses[i] = &nodes[i].Status
 	}

@@ -65,7 +65,7 @@ func downloadFileOnce(URL, savePath string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Server return non-200 status: %v\n", resp.Status)
+		return fmt.Errorf("server returned non-200 status: %v", resp.Status)
 	}
 	len, _ := strconv.Atoi(resp.Header.Get("Content-Length"))
 

@@ -80,12 +80,7 @@ func TestNewResetData(t *testing.T) {
 		{
 			"normal",
 			&opt,
-			resetData{
-				certificatesDir:       opt.certificatesDir,
-				criSocketPath:         opt.criSocketPath,
-				forceReset:            opt.forceReset,
-				ignorePreflightErrors: opt.ignorePreflightErrors,
-			},
+			resetData(opt),
 		},
 	}
 

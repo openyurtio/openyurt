@@ -141,9 +141,9 @@ install-helm: $(LOCALBIN)
 	fi
 
 install-golint: ## check golint if not exist install golint tools
-ifeq ($(shell $(GLOBAL_GOLANGCILINT) version --format short), $(GOLANGCILINT_VERSION))
+ifeq ($(shell $(GLOBAL_GOLANGCILINT) version --short), $(GOLANGCILINT_VERSION))
 GOLINT_BIN=$(GLOBAL_GOLANGCILINT)
-else ifeq ($(shell $(GOBIN_GOLANGCILINT) version --format short), $(GOLANGCILINT_VERSION))
+else ifeq ($(shell $(GOBIN_GOLANGCILINT) version --short), $(GOLANGCILINT_VERSION))
 GOLINT_BIN=$(GOBIN_GOLANGCILINT)
 else
 	@{ \

@@ -72,17 +72,17 @@ const (
 	DaemonReload      = "systemctl daemon-reload"
 	RestartKubeletSvc = "systemctl restart kubelet"
 
-	CniUrlFormat                    = "https://aliacs-edge-k8s-cn-hangzhou.oss-cn-hangzhou.aliyuncs.com/public/pkg/openyurt/cni/%s/cni-plugins-linux-%s-%s.tgz"
+	CniURLFormat                    = "https://aliacs-edge-k8s-cn-hangzhou.oss-cn-hangzhou.aliyuncs.com/public/pkg/openyurt/cni/%s/cni-plugins-linux-%s-%s.tgz"
 	DefaultKubernetesResourceServer = "dl.k8s.io"
-	KubeadmUrlFormat                = "https://%s/release/%s/bin/linux/%s/kubeadm"
-	KubeletUrlFormat                = "https://%s/release/%s/bin/linux/%s/kubelet"
+	KubeadmURLFormat                = "https://%s/release/%s/bin/linux/%s/kubeadm"
+	KubeletURLFormat                = "https://%s/release/%s/bin/linux/%s/kubelet"
 	TmpDownloadDir                  = "/tmp"
-	KubeadmInstallUrl               = "https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/"
+	KubeadmInstallURL               = "https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/"
 
 	// Yurthub Exec download url, Will be modified later, After the entire download method is determined
 	// YurtHubExecInstallUrlFormat = "https://alias-cn-hangzhou.oss-cn-beijing.aliyuncs.com/yurthub/v1.6.1/amd64/yurthub"
 	YurthubExecResourceServer = "alias-cn-hangzhou.oss-cn-beijing.aliyuncs.com"
-	YurthubExecUrlFormat      = "https://%s/yurthub/%s/%s/yurthub"
+	YurthubExecURLFormat      = "https://%s/yurthub/%s/%s/yurthub"
 	YurthubVersion            = "v1.6.1"
 
 	EdgeNode  = "edge"
@@ -123,8 +123,8 @@ const (
 	Namespace = "namespace"
 	// YurtHubImage flag sets the yurthub image for worker node.
 	YurtHubImage = "yurthub-image"
-	// YurtHubBinaryUrl flag sets the yurthub Binary for worker node.
-	YurtHubBinaryUrl = "yurthub-binary-url"
+	// YurtHubBinaryURL flag sets the yurthub Binary for worker node.
+	YurtHubBinaryURL = "yurthub-binary-url"
 	// HostControlPlaneAddr flag sets the address of host kubernetes cluster
 	HostControlPlaneAddr = "host-control-plane-addr"
 	// YurtHubServerAddr flag set the address of yurthub server (not proxy server!)

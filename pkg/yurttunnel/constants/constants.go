@@ -65,5 +65,5 @@ const (
 	UnixListenerNetwork                  = "unix"
 )
 const (
-	HttpsPrefix = "https://"
+	HTTPSPrefix = "https://"
 )

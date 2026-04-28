@@ -195,7 +195,7 @@ func (dps *DeviceProfileSyncer) completeUpdateContent(kubeDps *iotv1alpha1.Devic
 // syncEdgeToKube creates deviceProfiles on OpenYurt which are exists in edge platform but not in OpenYurt
 func (dps *DeviceProfileSyncer) syncEdgeToKube(edgeDps map[string]*iotv1alpha1.DeviceProfile) error {
 	for _, edp := range edgeDps {
-		if err := dps.Client.Create(context.TODO(), edp); err != nil {
+		if err := dps.Create(context.TODO(), edp); err != nil {
 			if apierrors.IsAlreadyExists(err) {
 				klog.V(5).Infof("DeviceProfile already exist on Kubernetes: %s", strings.ToLower(edp.Name))
 				continue
@@ -210,7 +210,7 @@ func (dps *DeviceProfileSyncer) syncEdgeToKube(edgeDps map[string]*iotv1alpha1.D
 // deleteDeviceProfiles deletes redundant deviceProfiles on OpenYurt
 func (dps *DeviceProfileSyncer) deleteDeviceProfiles(redundantKubeDeviceProfiles map[string]*iotv1alpha1.DeviceProfile) error {
 	for _, kdp := range redundantKubeDeviceProfiles {
-		if err := dps.Client.Delete(context.TODO(), kdp); err != nil {
+		if err := dps.Delete(context.TODO(), kdp); err != nil {
 			klog.V(5).ErrorS(err, "could not delete the DeviceProfile on Kubernetes: %s ",
 				"DeviceProfile", kdp.Name)
 			return err
@@ -220,7 +220,7 @@ func (dps *DeviceProfileSyncer) deleteDeviceProfiles(redundantKubeDeviceProfiles
 				"finalizers": []string{},
 			},
 		})
-		if err := dps.Client.Patch(context.TODO(), kdp, client.RawPatch(types.MergePatchType, patchData)); err != nil {
+		if err := dps.Patch(context.TODO(), kdp, client.RawPatch(types.MergePatchType, patchData)); err != nil {
 			klog.V(5).ErrorS(err, "could not remove finalizer of DeviceProfile on Kubernetes", "DeviceProfile", kdp.Name)
 			return err
 		}

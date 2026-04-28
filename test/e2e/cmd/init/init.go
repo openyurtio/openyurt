@@ -630,7 +630,7 @@ func (ki *Initializer) prepareKindConfigFile(kindConfigPath string) error {
 }
 
 func (ki *Initializer) configureAddons() error {
-	if err := ki.configureCoreDnsAddon(); err != nil {
+	if err := ki.configureCoreDNSAddon(); err != nil {
 		return err
 	}
 
@@ -655,30 +655,30 @@ func (ki *Initializer) configureAddons() error {
 	}
 
 	// wait for coredns pods available
-	for {
-		select {
-		case <-time.After(10 * time.Second):
-			dnsDp, err := ki.kubeClient.AppsV1().Deployments("kube-system").Get(context.TODO(), "coredns", metav1.GetOptions{})
-			if err != nil {
-				return fmt.Errorf("failed to get coredns deployment when waiting for available, %v", err)
-			}
-
-			if dnsDp.Status.ObservedGeneration < dnsDp.Generation {
-				klog.Infof("waiting for coredns generation(%d) to be observed. now observed generation is %d", dnsDp.Generation, dnsDp.Status.ObservedGeneration)
-				continue
-			}
-
-			if *dnsDp.Spec.Replicas != dnsDp.Status.AvailableReplicas {
-				klog.Infof("waiting for coredns replicas(%d) to be ready, now %d pods available", *dnsDp.Spec.Replicas, dnsDp.Status.AvailableReplicas)
-				continue
-			}
-			klog.Info("coredns deployment configuration is completed")
-			return nil
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		dnsDp, err := ki.kubeClient.AppsV1().Deployments("kube-system").Get(context.TODO(), "coredns", metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to get coredns deployment when waiting for available, %v", err)
 		}
+
+		if dnsDp.Status.ObservedGeneration < dnsDp.Generation {
+			klog.Infof("waiting for coredns generation(%d) to be observed. now observed generation is %d", dnsDp.Generation, dnsDp.Status.ObservedGeneration)
+			continue
+		}
+
+		if *dnsDp.Spec.Replicas != dnsDp.Status.AvailableReplicas {
+			klog.Infof("waiting for coredns replicas(%d) to be ready, now %d pods available", *dnsDp.Spec.Replicas, dnsDp.Status.AvailableReplicas)
+			continue
+		}
+		klog.Info("coredns deployment configuration is completed")
+		return nil
 	}
+	return nil
 }
 
-func (ki *Initializer) configureCoreDnsAddon() error {
+func (ki *Initializer) configureCoreDNSAddon() error {
 	dp, err := ki.kubeClient.AppsV1().Deployments("kube-system").Get(context.TODO(), "coredns", metav1.GetOptions{})
 	if err != nil {
 		return err

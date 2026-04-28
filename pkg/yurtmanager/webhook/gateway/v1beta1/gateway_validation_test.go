@@ -59,7 +59,7 @@ func TestGatewayHandler_ValidateCreate(t *testing.T) {
 		},
 		{
 			name:           "should return error when Gateway ip invalid",
-			obj:            mockGatewayWithIp("invalid-ip"),
+			obj:            mockGatewayWithIP("invalid-ip"),
 			expectedErrMsg: "the 'publicIP' field must be a validate IP address",
 		},
 		{
@@ -213,7 +213,7 @@ func mockGatewayWithNameChange() *v1beta1.Gateway {
 	return g
 }
 
-func mockGatewayWithIp(ip string) *v1beta1.Gateway {
+func mockGatewayWithIP(ip string) *v1beta1.Gateway {
 	g := mockGateway()
 	if ip != "" {
 		g.Spec.Endpoints[0].PublicIP = ip

@@ -182,7 +182,7 @@ func Run(cfg *config.CompletedConfig, stopCh <-chan struct{}) error {
 		return err
 	}
 
-	proxyClientTlsCfg, err := certmanager.GenTLSConfigUseCurrentCertAndCertPool(tunnelProxyCertMgr.Current, cfg.RootCert, "client")
+	proxyClientTLSCfg, err := certmanager.GenTLSConfigUseCurrentCertAndCertPool(tunnelProxyCertMgr.Current, cfg.RootCert, "client")
 	if err != nil {
 		return err
 	}
@@ -196,7 +196,7 @@ func Run(cfg *config.CompletedConfig, stopCh <-chan struct{}) error {
 		cfg.ListenAddrForAgent,
 		cfg.ServerCount,
 		tlsCfg,
-		proxyClientTlsCfg,
+		proxyClientTLSCfg,
 		wrappers,
 		cfg.ProxyStrategy)
 	if err := ts.Run(); err != nil {

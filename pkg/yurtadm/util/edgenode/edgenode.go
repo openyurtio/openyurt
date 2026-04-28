@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	NODE_NAME     = "NODE_NAME"
+	NodeName      = "NODE_NAME"
 	NodeNameSplit = "="
 )
 
@@ -100,7 +100,7 @@ func CopyFile(sourceFile string, destinationFile string, perm os.FileMode) error
 // in the configuration file or hostname
 func GetNodeName(kubeadmConfPath string) (string, error) {
 	//1. from env NODE_NAME
-	nodename := os.Getenv(NODE_NAME)
+	nodename := os.Getenv(NodeName)
 	if nodename != "" {
 		return nodename, nil
 	}

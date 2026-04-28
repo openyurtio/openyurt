@@ -54,7 +54,7 @@ type joinOptions struct {
 	organizations            string
 	pauseImage               string
 	yurthubImage             string
-	yurthubBinaryUrl         string
+	yurthubBinaryURL         string
 	hostControlPlaneAddr     string // hostControlPlaneAddr is the address (ip:port) of host kubernetes cluster that used for yurthub local mode.
 	namespace                string
 	caCertHashes             []string
@@ -159,7 +159,7 @@ func addJoinConfigFlags(flagSet *flag.FlagSet, joinOptions *joinOptions) {
 		"Sets the image version of yurthub component",
 	)
 	flagSet.StringVar(
-		&joinOptions.yurthubBinaryUrl, yurtconstants.YurtHubBinaryUrl, joinOptions.yurthubBinaryUrl,
+		&joinOptions.yurthubBinaryURL, yurtconstants.YurtHubBinaryURL, joinOptions.yurthubBinaryURL,
 		"Sets the binary URL of yurthub (tar.gz), we will download and untar it automatically, then deploy local mode yurthub in systemd",
 	)
 	flagSet.StringVar(
@@ -243,7 +243,7 @@ type joinData struct {
 	organizations            string
 	pauseImage               string
 	yurthubImage             string
-	yurthubBinaryUrl         string
+	yurthubBinaryURL         string
 	hostControlPlaneAddr     string
 	yurthubTemplate          string
 	yurthubManifest          string
@@ -277,7 +277,7 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 
 	if opt.nodeType == yurtconstants.LocalNode {
 		// in local mode, it is necessary to prepare yurthub binary URL for downloading and deploying yurthub in systemd.
-		if len(opt.yurthubBinaryUrl) == 0 {
+		if len(opt.yurthubBinaryURL) == 0 {
 			return nil, errors.New("yurthub binary URL is empty, so unable to download and run systemd yurthub in local mode.")
 		}
 
@@ -330,7 +330,7 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 		ignorePreflightErrors: ignoreErrors,
 		pauseImage:            opt.pauseImage,
 		yurthubImage:          opt.yurthubImage,
-		yurthubBinaryUrl:      opt.yurthubBinaryUrl,
+		yurthubBinaryURL:      opt.yurthubBinaryURL,
 		hostControlPlaneAddr:  opt.hostControlPlaneAddr,
 		yurthubServer:         opt.yurthubServer,
 		caCertHashes:          opt.caCertHashes,
@@ -363,7 +363,7 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 
 	if opt.nodeType == yurtconstants.LocalNode {
 		// download and deploy yurthub in systemd
-		if err := localnode.DownloadAndDeployYurthubInSystemd(data.HostControlPlaneAddr(), data.ServerAddr(), data.YurtHubBinaryUrl(), data.NodeRegistration().Name); err != nil {
+		if err := localnode.DownloadAndDeployYurthubInSystemd(data.HostControlPlaneAddr(), data.ServerAddr(), data.YurtHubBinaryURL(), data.NodeRegistration().Name); err != nil {
 			return nil, err
 		}
 		yurthubIsActive, err := localnode.CheckYurthubStatus()
@@ -496,9 +496,9 @@ func (j *joinData) YurtHubImage() string {
 	return j.yurthubImage
 }
 
-// YurtHubBinary returns the YurtHub binary.
-func (j *joinData) YurtHubBinaryUrl() string {
-	return j.yurthubBinaryUrl
+// YurtHubBinaryURL returns the YurtHub binary.
+func (j *joinData) YurtHubBinaryURL() string {
+	return j.yurthubBinaryURL
 }
 
 // HostControlPlaneAddr returns the host-K8s control plane address.

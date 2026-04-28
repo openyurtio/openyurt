@@ -21,6 +21,10 @@ linters:
     govet:
       enable:
         - nilness
+    staticcheck:
+      checks:
+        - all
+        - "-ST1001"
   exclusions:
     generated: lax
     presets:
