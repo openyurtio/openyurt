@@ -95,8 +95,6 @@ func handlePoolServiceUpdate(oldObject, newObject client.Object, q workqueue.Typ
 		return
 	}
 	enqueueService(newPs.Namespace, newServiceName, q)
-
-	return
 }
 
 func NewNodePoolEventHandler(c client.Client) handler.EventHandler {

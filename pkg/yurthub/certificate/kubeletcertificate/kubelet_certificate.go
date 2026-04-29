@@ -31,9 +31,9 @@ import (
 )
 
 var (
-	KubeConfNotExistErr   = errors.New("/etc/kubernetes/kubelet.conf file doesn't exist")
-	KubeletCANotExistErr  = errors.New("/etc/kubernetes/pki/ca.crt file doesn't exist")
-	KubeletPemNotExistErr = errors.New("/var/lib/kubelet/pki/kubelet-client-current.pem file doesn't exist")
+	ErrKubeConfNotExist   = errors.New("/etc/kubernetes/kubelet.conf file doesn't exist")
+	ErrKubeletCANotExist  = errors.New("/etc/kubernetes/pki/ca.crt file doesn't exist")
+	ErrKubeletPemNotExist = errors.New("/var/lib/kubelet/pki/kubelet-client-current.pem file doesn't exist")
 )
 
 type kubeletCertManager struct {
@@ -46,11 +46,11 @@ type kubeletCertManager struct {
 
 func NewKubeletCertManager(kubeConfFile, kubeletCAFile, kubeletPemFile string) (certificate.YurtClientCertificateManager, error) {
 	if exist, _ := util.FileExists(kubeConfFile); !exist {
-		return nil, KubeConfNotExistErr
+		return nil, ErrKubeConfNotExist
 	}
 
 	if exist, _ := util.FileExists(kubeletCAFile); !exist {
-		return nil, KubeletCANotExistErr
+		return nil, ErrKubeletCANotExist
 	}
 	caData, err := os.ReadFile(kubeletCAFile)
 	if err != nil {
@@ -58,7 +58,7 @@ func NewKubeletCertManager(kubeConfFile, kubeletCAFile, kubeletPemFile string) (
 	}
 
 	if exist, _ := util.FileExists(kubeletPemFile); !exist {
-		return nil, KubeletPemNotExistErr
+		return nil, ErrKubeletPemNotExist
 	}
 
 	cert, err := loadFile(kubeletPemFile)

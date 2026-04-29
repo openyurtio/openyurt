@@ -744,7 +744,7 @@ func TestUpdateNodeWithMultiplePods(t *testing.T) {
 func TestGetMinTolerationTime(t *testing.T) {
 	one := int64(1)
 	two := int64(2)
-	oneSec := 1 * time.Second
+	oneSecond := 1 * time.Second
 
 	tests := []struct {
 		tolerations []v1.Toleration
@@ -771,7 +771,7 @@ func TestGetMinTolerationTime(t *testing.T) {
 					TolerationSeconds: &two,
 				},
 			},
-			expected: oneSec,
+			expected: oneSecond,
 		},
 
 		{
@@ -783,7 +783,7 @@ func TestGetMinTolerationTime(t *testing.T) {
 					TolerationSeconds: nil,
 				},
 			},
-			expected: oneSec,
+			expected: oneSecond,
 		},
 		{
 			tolerations: []v1.Toleration{
@@ -794,7 +794,7 @@ func TestGetMinTolerationTime(t *testing.T) {
 					TolerationSeconds: &one,
 				},
 			},
-			expected: oneSec,
+			expected: oneSecond,
 		},
 	}
 

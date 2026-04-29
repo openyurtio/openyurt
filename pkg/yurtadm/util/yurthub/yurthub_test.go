@@ -365,7 +365,7 @@ func (m *mockYurtJoinData) Namespace() string {
 	return m.namespace
 }
 
-func (m *mockYurtJoinData) YurtHubBinaryUrl() string {
+func (m *mockYurtJoinData) YurtHubBinaryURL() string {
 	return ""
 }
 
@@ -1120,13 +1120,13 @@ func Test_CheckYurthubReadyzOnce_ReadBodyFail(t *testing.T) {
 func Test_useRealServerAddr_ScannerError(t *testing.T) {
 	var largeInput strings.Builder
 	for i := 0; i < 100000; i++ {
-		largeInput.WriteString(fmt.Sprintf("line %d\n", i))
+		fmt.Fprintf(&largeInput, "line %d\n", i)
 	}
 
-	largeInput.WriteString(fmt.Sprintf("- --%s=https://127.0.0.1:6443\n", constants.ServerAddr))
+	fmt.Fprintf(&largeInput, "- --%s=https://127.0.0.1:6443\n", constants.ServerAddr)
 
 	for i := 100000; i < 200000; i++ {
-		largeInput.WriteString(fmt.Sprintf("line %d\n", i))
+		fmt.Fprintf(&largeInput, "line %d\n", i)
 	}
 
 	_, err := useRealServerAddr(largeInput.String(), "https://192.168.1.1:6443")

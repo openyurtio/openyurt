@@ -40,7 +40,7 @@ func NewRevertOptions() *Options {
 // Complete completes all the required options.
 func (o *Options) Complete() error {
 	if o.nodeName == "" {
-		o.nodeName = os.Getenv(enutil.NODE_NAME)
+		o.nodeName = os.Getenv(enutil.NodeName)
 	}
 
 	openyurtDir := os.Getenv("OPENYURT_DIR")

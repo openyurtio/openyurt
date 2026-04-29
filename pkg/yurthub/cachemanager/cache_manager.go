@@ -254,12 +254,13 @@ func (cm *cacheManager) queryOneObject(req *http.Request) (runtime.Object, error
 	// query in-memory cache first
 	var isInMemoryCacheMiss bool
 	if obj, err := cm.queryInMemoryCache(ctx, info); err != nil {
-		if err == ErrInMemoryCacheMiss {
+		switch err {
+		case ErrInMemoryCacheMiss:
 			isInMemoryCacheMiss = true
 			klog.V(4).Infof("in-memory cache miss when handling request %s, fall back to storage query", util.ReqString(req))
-		} else if err == ErrNotNodeOrLease {
+		case ErrNotNodeOrLease:
 			klog.V(4).Infof("resource(%s) is not node or lease, it will be found in the disk not cache", info.Resource)
-		} else {
+		default:
 			klog.Errorf("cannot query in-memory cache for reqInfo %s, %v,", util.ReqInfoString(info), err)
 		}
 	} else {

@@ -564,7 +564,7 @@ func TestInitializer_ConfigureCoreDnsAddon(t *testing.T) {
 	}
 
 	initializer.kubeClient = clientsetfake.NewSimpleClientset(case1.configObj, case1.serviceObj, case1.deploymentObj, case1.nodeObj)
-	err := initializer.configureCoreDnsAddon()
+	err := initializer.configureCoreDNSAddon()
 	if err != case1.want {
 		t.Errorf("failed to configure core dns addon")
 	}
@@ -572,18 +572,17 @@ func TestInitializer_ConfigureCoreDnsAddon(t *testing.T) {
 
 func TestInitializer_ConfigureAddons(t *testing.T) {
 
-	var replicasNum int32
-	replicasNum = 3
+	var replicasNum int32 = 3
 
 	case1 := struct {
-		coreDnsConfigObj *corev1.ConfigMap
+		coreDNSConfigObj *corev1.ConfigMap
 		serviceObj       *corev1.Service
 		podObj           *corev1.Pod
 		deploymentObj    *v1.Deployment
 		nodeObjs         []*corev1.Node
 		want             interface{}
 	}{
-		coreDnsConfigObj: &corev1.ConfigMap{
+		coreDNSConfigObj: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{Namespace: "kube-system", Name: "coredns"},
 			Data: map[string]string{
 				"Corefile": "{ cd .. \n hosts /etc/edge/tunnels-nodes \n  kubernetes cluster.local {",
@@ -650,7 +649,7 @@ func TestInitializer_ConfigureAddons(t *testing.T) {
 
 	var fakeOut io.Writer
 	initializer := newKindInitializer(fakeOut, newKindOptions().Config())
-	client := clientsetfake.NewSimpleClientset(case1.coreDnsConfigObj, case1.serviceObj, case1.podObj, case1.deploymentObj)
+	client := clientsetfake.NewSimpleClientset(case1.coreDNSConfigObj, case1.serviceObj, case1.podObj, case1.deploymentObj)
 	for i := range case1.nodeObjs {
 		client.Tracker().Add(case1.nodeObjs[i])
 	}

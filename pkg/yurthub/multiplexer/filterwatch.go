@@ -74,7 +74,7 @@ func (f *filterWatch) receive() {
 			newObj = co.GetObject()
 		}
 
-		if !(result.Type == watch.Bookmark || result.Type == watch.Error) {
+		if result.Type != watch.Bookmark && result.Type != watch.Error {
 			if newObj = f.filter.Filter(newObj, f.done); yurtutil.IsNil(newObj) {
 				watchType = watch.Deleted
 				newObj = result.Object

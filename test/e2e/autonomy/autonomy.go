@@ -36,7 +36,7 @@ var (
 
 	flannelContainerID   string
 	kubeProxyContainerID string
-	coreDnsContainerID   string
+	coreDNSContainerID   string
 	nginxContainerID     string
 )
 
@@ -194,10 +194,10 @@ var _ = ginkgo.Describe("edge-autonomy"+constants.YurtE2ENamespaceName, ginkgo.O
 			cmd := `docker exec -t openyurt-e2e-test-worker /bin/bash -c "crictl ps | grep coredns | awk '{print \$1}'"`
 			opBytes, err := exec.Command("/bin/bash", "-c", cmd).CombinedOutput()
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to get coredns container ID")
-			coreDnsContainerID = strings.TrimSpace(string(opBytes))
+			coreDNSContainerID = strings.TrimSpace(string(opBytes))
 
 			// restart coredns
-			_, err = exec.Command("/bin/bash", "-c", "docker exec -t openyurt-e2e-test-worker /bin/bash -c 'crictl stop "+coreDnsContainerID+"'").CombinedOutput()
+			_, err = exec.Command("/bin/bash", "-c", "docker exec -t openyurt-e2e-test-worker /bin/bash -c 'crictl stop "+coreDNSContainerID+"'").CombinedOutput()
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to stop coredns")
 
 			// check periodically if coredns is able of dns resolution

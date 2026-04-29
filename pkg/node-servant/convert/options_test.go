@@ -44,7 +44,7 @@ func TestOptionsComplete(t *testing.T) {
 		return "", nil
 	}
 
-	t.Setenv(enutil.NODE_NAME, "")
+	t.Setenv(enutil.NodeName, "")
 	t.Setenv("OPENYURT_DIR", "/host/openyurt")
 
 	o := NewConvertOptions()

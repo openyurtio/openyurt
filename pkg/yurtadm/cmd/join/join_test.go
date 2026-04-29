@@ -236,7 +236,7 @@ func TestRun(t *testing.T) {
 			t.Parallel()
 			t.Logf("\tTestCase: %s", tt.name)
 			{
-				var nj *nodeJoiner = newJoinerWithJoinData(tt.inputData, os.Stdin, os.Stdout, os.Stderr)
+				nj := newJoinerWithJoinData(tt.inputData, os.Stdin, os.Stdout, os.Stderr)
 				get := nj.Run()
 				if !reflect.DeepEqual(tt.expectErr, get != nil) {
 					t.Fatalf("\t%s\texpect %v, but get %v", failed, tt.expectErr, get != nil)
@@ -299,12 +299,12 @@ func TestNewJoinData(t *testing.T) {
 			[]string{"localhost:8080"},
 			&joinOptions{
 				nodeType:         yurtconstants.LocalNode,
-				yurthubBinaryUrl: "https://openyurt.io/yurthub.tar.gz",
+				yurthubBinaryURL: "https://openyurt.io/yurthub.tar.gz",
 			},
 			nil,
 		},
 		{
-			"local node without yurthubBinaryUrl",
+			"local node without yurthubBinaryURL",
 			[]string{"localhost:8080"},
 			&joinOptions{
 				nodeType:             yurtconstants.LocalNode,
@@ -313,11 +313,11 @@ func TestNewJoinData(t *testing.T) {
 			nil,
 		},
 		{
-			"local node with yurthubBinaryUrl and hostControlPlaneAddr",
+			"local node with yurthubBinaryURL and hostControlPlaneAddr",
 			[]string{"localhost:8080"},
 			&joinOptions{
 				nodeType:                 yurtconstants.LocalNode,
-				yurthubBinaryUrl:         "https://openyurt.io/yurthub.tar.gz",
+				yurthubBinaryURL:         "https://openyurt.io/yurthub.tar.gz",
 				hostControlPlaneAddr:     "localhost:8080",
 				token:                    "v22u0b.17490yh3xp8azpr0",
 				unsafeSkipCAVerification: true,

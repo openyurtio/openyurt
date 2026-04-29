@@ -72,7 +72,7 @@ func (dic *dummyInterfaceController) EnsureDummyInterface(ifName string, ifIP ne
 func (dic *dummyInterfaceController) addDummyInterface(ifName string, ifIP net.IP) error {
 	_, err := dic.LinkByName(ifName)
 	if err == nil {
-		return fmt.Errorf("Link %s exists", ifName)
+		return fmt.Errorf("link %s exists", ifName)
 	}
 
 	dummy := &netlink.Dummy{

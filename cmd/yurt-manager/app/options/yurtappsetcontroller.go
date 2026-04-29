@@ -35,12 +35,12 @@ func NewYurtAppSetControllerOptions() *YurtAppSetControllerOptions {
 }
 
 // AddFlags adds flags related to nodePool for yurt-manager to the specified FlagSet.
-func (n *YurtAppSetControllerOptions) AddFlags(fs *pflag.FlagSet) {
-	if n == nil {
+func (o *YurtAppSetControllerOptions) AddFlags(fs *pflag.FlagSet) {
+	if o == nil {
 		return
 	}
 
-	fs.Int32Var(&n.ConcurrentYurtAppSetWorkers, "concurrent-yurtappset-workers", n.ConcurrentYurtAppSetWorkers, "The number of yurtappset objects that are allowed to reconcile concurrently. Larger number = more responsive yurtappsets, but more CPU (and network) load")
+	fs.Int32Var(&o.ConcurrentYurtAppSetWorkers, "concurrent-yurtappset-workers", o.ConcurrentYurtAppSetWorkers, "The number of yurtappset objects that are allowed to reconcile concurrently. Larger number = more responsive yurtappsets, but more CPU (and network) load")
 
 }
 

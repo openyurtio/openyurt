@@ -110,7 +110,7 @@ func TestEnqueueRequestForGatewayEvent(t *testing.T) {
 			eventHandler: func() {
 				oldGateWay := mockGateway()
 				newGateWay := oldGateWay.DeepCopy()
-				newGateWay.ObjectMeta.Name = "new" + MockGateway
+				newGateWay.Name = "new" + MockGateway
 				h.Update(ctx, event.UpdateEvent{ObjectOld: oldGateWay, ObjectNew: newGateWay}, queue)
 			},
 			expectedLen: 1,

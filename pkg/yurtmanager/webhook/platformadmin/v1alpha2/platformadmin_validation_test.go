@@ -35,7 +35,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/apis"
 	ut "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 	"github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha2"
-	version "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha2"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/platformadmin/config"
 )
 
@@ -307,7 +306,7 @@ func buildClient(nodePools []client.Object, platformAdmin []client.Object) clien
 	scheme := runtime.NewScheme()
 	_ = clientgoscheme.AddToScheme(scheme)
 	_ = apis.AddToScheme(scheme)
-	_ = version.SchemeBuilder.AddToScheme(scheme)
+	_ = v1alpha2.SchemeBuilder.AddToScheme(scheme)
 	return fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithObjects(nodePools...).
