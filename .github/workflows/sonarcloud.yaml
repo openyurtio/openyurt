@@ -41,13 +41,13 @@ jobs:
           publish_results: true
 
       - name: "Upload artifact"
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: my-artifact-${{ matrix.runs-on }}
           path: file-${{ matrix.runs-on }}.txt
           retention-days: 5
 
       - name: "Upload to code-scanning"
-        uses: github/codeql-action/upload-sarif@3ebbd71c74ef574dbc558c82f70e52732c8b44fe # v2.2.1
+        uses: github/codeql-action/upload-sarif@4.32.2
         with:
           sarif_file: results.sarif

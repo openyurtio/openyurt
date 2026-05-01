@@ -29,7 +29,6 @@ import (
 	"time"
 
 	apps "k8s.io/api/apps/v1"
-	coordinationv1 "k8s.io/api/coordination/v1"
 	coordv1 "k8s.io/api/coordination/v1"
 	v1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -61,7 +60,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/nodelifecycle/scheduler"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util"
 	controllerutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/node"
-	nodeutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/node"
 )
 
 func init() {
@@ -350,7 +348,7 @@ func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manage
 	}
 	c.Watch(source.Kind[client.Object](mgr.GetCache(), &v1.Node{}, &handler.Funcs{}, nodesUpdateQueuePredicate))
 	c.Watch(source.Kind[client.Object](mgr.GetCache(), &apps.DaemonSet{}, &handler.Funcs{}))
-	c.Watch(source.Kind[client.Object](mgr.GetCache(), &coordinationv1.Lease{}, &handler.Funcs{}))
+	c.Watch(source.Kind[client.Object](mgr.GetCache(), &coordv1.Lease{}, &handler.Funcs{}))
 
 	go nc.Run(ctx, c.WaitForStarted)
 	return nil
@@ -625,7 +623,7 @@ func (nc *ReconcileNodeLifeCycle) monitorNodeHealth(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	nodes := make([]*v1.Node, len(nodeList.Items), len(nodeList.Items))
+	nodes := make([]*v1.Node, len(nodeList.Items))
 	for i := range nodeList.Items {
 		nodes[i] = &nodeList.Items[i]
 	}
@@ -708,7 +706,7 @@ func (nc *ReconcileNodeLifeCycle) monitorNodeHealth(ctx context.Context) error {
 				fallthrough
 			case needsRetry && observedReadyCondition.Status != v1.ConditionTrue:
 				// Ignore mark the pods NotReady if the node has bounded to node.
-				if nodeutil.IsPodBoundenToNode(node) {
+				if controllerutil.IsPodBoundenToNode(node) {
 					return
 				}
 
@@ -885,9 +883,9 @@ func (nc *ReconcileNodeLifeCycle) tryUpdateNodeHealth(ctx context.Context, node 
 	// heartbeat leases, the node controller will assume the node is healthy and
 	// take no action.
 	//observedLease, _ := nc.leaseLister.Leases(v1.NamespaceNodeLease).Get(node.Name)
-	observedLease := new(coordinationv1.Lease)
+	observedLease := new(coordv1.Lease)
 	err := nc.controllerRuntimeClient.Get(ctx, types.NamespacedName{Namespace: v1.NamespaceNodeLease, Name: node.Name}, observedLease)
-	if err == nil && observedLease != nil && (savedLease == nil || savedLease.Spec.RenewTime.Before(observedLease.Spec.RenewTime)) {
+	if err == nil && (savedLease == nil || savedLease.Spec.RenewTime.Before(observedLease.Spec.RenewTime)) {
 		nodeHealth.lease = observedLease
 		nodeHealth.probeTimestamp = nc.now()
 	}
@@ -920,7 +918,7 @@ func (nc *ReconcileNodeLifeCycle) tryUpdateNodeHealth(ctx context.Context, node 
 				})
 			} else {
 				klog.V(2).InfoS("Node hasn't been updated",
-					"node", klog.KObj(node), "duration", nc.now().Time.Sub(nodeHealth.probeTimestamp.Time), "nodeConditionType", nodeConditionType, "currentCondition", currentCondition)
+					"node", klog.KObj(node), "duration", nc.now().Sub(nodeHealth.probeTimestamp.Time), "nodeConditionType", nodeConditionType, "currentCondition", currentCondition)
 				if currentCondition.Status != v1.ConditionUnknown {
 					currentCondition.Status = v1.ConditionUnknown
 					currentCondition.Reason = "NodeStatusUnknown"
@@ -1102,7 +1100,7 @@ func (nc *ReconcileNodeLifeCycle) processPod(ctx context.Context, podItem podUpd
 	}
 
 	// Ignore mark the pods NotReady if the node has bounded to node.
-	if nodeutil.IsPodBoundenToNode(node) {
+	if controllerutil.IsPodBoundenToNode(node) {
 		return
 	}
 

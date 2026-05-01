@@ -159,8 +159,8 @@ func (r *ControllerExpectations) SatisfiedExpectations(controllerKey string) boo
 // TODO: Extend ExpirationCache to support explicit expiration.
 // TODO: Make this possible to disable in tests.
 // TODO: Support injection of clock.
-func (exp *ControlleeExpectations) isExpired() bool {
-	return clock.RealClock{}.Since(exp.timestamp) > ExpectationsTimeout
+func (e *ControlleeExpectations) isExpired() bool {
+	return clock.RealClock{}.Since(e.timestamp) > ExpectationsTimeout
 }
 
 // SetExpectations registers new expectations for the given controller. Forgets existing expectations.
@@ -369,7 +369,7 @@ func (r RealPodControl) CreatePodsWithGenerateName(ctx context.Context, namespac
 		return err
 	}
 	if len(generateName) > 0 {
-		pod.ObjectMeta.GenerateName = generateName
+		pod.GenerateName = generateName
 	}
 	return r.createPods(ctx, namespace, pod, controllerObject)
 }

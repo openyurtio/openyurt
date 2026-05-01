@@ -66,9 +66,9 @@ var (
 )
 
 // DownloadAndDeployYurthubInSystemd downloads yurthub binary and deploys yurthub in systemd
-func DownloadAndDeployYurthubInSystemd(hostControlPlaneAddr string, serverAddr string, yurthubBinaryUrl string, nodeName string) error {
-	// download yurthub (tar.gz) from yurthubBinaryUrl and install it to /usr/bin/yurthub
-	if err := DownloadAndInstallYurthub(yurthubBinaryUrl); err != nil {
+func DownloadAndDeployYurthubInSystemd(hostControlPlaneAddr string, serverAddr string, yurthubBinaryURL string, nodeName string) error {
+	// download yurthub (tar.gz) from yurthubBinaryURL and install it to /usr/bin/yurthub
+	if err := DownloadAndInstallYurthub(yurthubBinaryURL); err != nil {
 		return err
 	}
 	// stop yurthub service at first
@@ -89,16 +89,16 @@ func DownloadAndDeployYurthubInSystemd(hostControlPlaneAddr string, serverAddr s
 }
 
 // DownloadAndInstallYurthub gets yurthub binary from URL and saves to /usr/bin/yurthub
-func DownloadAndInstallYurthub(yurthubBinaryUrl string) error {
-	//download yurthub (format: tar.gz) from yurthubBinaryUrl
-	originalFileName := path.Base(yurthubBinaryUrl)
+func DownloadAndInstallYurthub(yurthubBinaryURL string) error {
+	//download yurthub (format: tar.gz) from yurthubBinaryURL
+	originalFileName := path.Base(yurthubBinaryURL)
 	if err := osMkdirAll(yurthubTmpDir, 0755); err != nil {
 		return err
 	}
 	defer osRemoveAll(yurthubTmpDir)
 	savePath := fmt.Sprintf("%s/%s", yurthubTmpDir, originalFileName)
-	klog.V(1).Infof("Download yurthub from: %s", yurthubBinaryUrl)
-	if err := utilDownloadFile(yurthubBinaryUrl, savePath, 3); err != nil {
+	klog.V(1).Infof("Download yurthub from: %s", yurthubBinaryURL)
+	if err := utilDownloadFile(yurthubBinaryURL, savePath, 3); err != nil {
 		return fmt.Errorf("download yurthub fail: %w", err)
 	}
 	// untar the tar.gz file to YurthubTmpDir

@@ -79,7 +79,7 @@ type DeviceProfileSpec struct {
 
 // DeviceProfileStatus defines the observed state of DeviceProfile
 type DeviceProfileStatus struct {
-	EdgeId string `json:"id,omitempty"`
+	EdgeID string `json:"id,omitempty"`
 	Synced bool   `json:"synced,omitempty"`
 }
 

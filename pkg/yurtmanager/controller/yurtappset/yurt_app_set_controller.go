@@ -28,7 +28,6 @@ import (
 	"reflect"
 	"time"
 
-	apps "k8s.io/api/apps/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -313,13 +312,13 @@ func (r *ReconcileYurtAppSet) getWorkloadManagerFromYurtAppSet(
 	yas *unitv1beta1.YurtAppSet,
 ) (workloadmanager.WorkloadManager, error) {
 	switch {
-	case yas.Spec.Workload.WorkloadTemplate.StatefulSetTemplate != nil:
+	case yas.Spec.StatefulSetTemplate != nil:
 		return r.workloadManagers[workloadmanager.StatefulSetTemplateType], nil
-	case yas.Spec.Workload.WorkloadTemplate.DeploymentTemplate != nil:
+	case yas.Spec.DeploymentTemplate != nil:
 		return r.workloadManagers[workloadmanager.DeploymentTemplateType], nil
 	default:
 		klog.Errorf("Invalid WorkloadTemplate")
-		return nil, fmt.Errorf("The appropriate WorkloadTemplate was not found, Now Support(%s/%s)",
+		return nil, fmt.Errorf("the appropriate WorkloadTemplate was not found, now Support(%s/%s)",
 			workloadmanager.StatefulSetTemplateType, workloadmanager.DeploymentTemplateType)
 	}
 }
@@ -605,7 +604,7 @@ func (r *ReconcileYurtAppSet) conciliateWorkloads(
 func (r *ReconcileYurtAppSet) conciliateYurtAppSet(
 	yas *unitv1beta1.YurtAppSet,
 	curWorkloads []metav1.Object,
-	allRevisions []*apps.ControllerRevision,
+	allRevisions []*appsv1.ControllerRevision,
 	expectedRevision *appsv1.ControllerRevision,
 	expectedNps sets.Set[string],
 	newStatus *unitv1beta1.YurtAppSetStatus,
@@ -643,14 +642,15 @@ func (r *ReconcileYurtAppSet) conciliateYurtAppSetStatus(
 	newStatus.UpdatedWorkloads = int32(updatedWorkloads)
 	newStatus.CurrentRevision = expectedRevision.GetName()
 
-	if newStatus.TotalWorkloads == 0 {
+	switch newStatus.TotalWorkloads {
+	case 0:
 		SetYurtAppSetCondition(
 			newStatus,
 			NewYurtAppSetCondition(unitv1beta1.AppSetAppReady, corev1.ConditionFalse, "NoWorkloadFound", ""),
 		)
-	} else if newStatus.TotalWorkloads == newStatus.ReadyWorkloads {
+	case newStatus.ReadyWorkloads:
 		SetYurtAppSetCondition(newStatus, NewYurtAppSetCondition(unitv1beta1.AppSetAppReady, corev1.ConditionTrue, "AllWorkloadsReady", ""))
-	} else {
+	default:
 		SetYurtAppSetCondition(newStatus, NewYurtAppSetCondition(unitv1beta1.AppSetAppReady, corev1.ConditionFalse, "NotAllWorkloadsReady", ""))
 	}
 

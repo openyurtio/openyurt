@@ -178,7 +178,7 @@ func (ds *DeviceServiceSyncer) findDiffDeviceServices(
 // syncEdgeToKube creates deviceServices on OpenYurt which are exists in edge platform but not in OpenYurt
 func (ds *DeviceServiceSyncer) syncEdgeToKube(edgeDevs map[string]*iotv1alpha1.DeviceService) error {
 	for _, ed := range edgeDevs {
-		if err := ds.Client.Create(context.TODO(), ed); err != nil {
+		if err := ds.Create(context.TODO(), ed); err != nil {
 			if apierrors.IsAlreadyExists(err) {
 				klog.V(5).InfoS("DeviceService already exist on Kubernetes",
 					"DeviceService", strings.ToLower(ed.Name))
@@ -194,7 +194,7 @@ func (ds *DeviceServiceSyncer) syncEdgeToKube(edgeDevs map[string]*iotv1alpha1.D
 // deleteDeviceServices deletes redundant deviceServices on OpenYurt
 func (ds *DeviceServiceSyncer) deleteDeviceServices(redundantKubeDeviceServices map[string]*iotv1alpha1.DeviceService) error {
 	for _, kds := range redundantKubeDeviceServices {
-		if err := ds.Client.Delete(context.TODO(), kds); err != nil {
+		if err := ds.Delete(context.TODO(), kds); err != nil {
 			klog.V(5).ErrorS(err, "could not delete the DeviceService on Kubernetes",
 				"DeviceService", kds.Name)
 			return err
@@ -204,7 +204,7 @@ func (ds *DeviceServiceSyncer) deleteDeviceServices(redundantKubeDeviceServices 
 				"finalizers": []string{},
 			},
 		})
-		if err := ds.Client.Patch(context.TODO(), kds, client.RawPatch(types.MergePatchType, patchData)); err != nil {
+		if err := ds.Patch(context.TODO(), kds, client.RawPatch(types.MergePatchType, patchData)); err != nil {
 			klog.V(5).ErrorS(err, "could not remove finalizer of DeviceService on Kubernetes", "DeviceService", kds.Name)
 			return err
 		}
@@ -215,7 +215,7 @@ func (ds *DeviceServiceSyncer) deleteDeviceServices(redundantKubeDeviceServices 
 // updateDeviceServices updates deviceServices status on OpenYurt
 func (ds *DeviceServiceSyncer) updateDeviceServices(syncedDeviceServices map[string]*iotv1alpha1.DeviceService) error {
 	for _, sd := range syncedDeviceServices {
-		if sd.ObjectMeta.ResourceVersion == "" {
+		if sd.ResourceVersion == "" {
 			continue
 		}
 		if err := ds.Client.Status().Update(context.TODO(), sd); err != nil {

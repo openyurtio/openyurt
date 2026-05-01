@@ -216,7 +216,7 @@ func TestResolveProxyPortsAndMappings(t *testing.T) {
 }
 
 func TestRunMetaServer(t *testing.T) {
-	var addr string = ":9090"
+	addr := ":9090"
 	RunMetaServer(addr)
 
 	c := &http.Client{

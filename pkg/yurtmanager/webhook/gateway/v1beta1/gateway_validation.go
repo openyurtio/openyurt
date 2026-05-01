@@ -53,7 +53,7 @@ func (webhook *GatewayHandler) ValidateUpdate(ctx context.Context, oldObj, newOb
 	}
 
 	if newGw.GetName() != oldGw.GetName() {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("gateway name can not change"))
+		return nil, apierrors.NewBadRequest("gateway name can not change")
 	}
 	return validate(newGw)
 }

@@ -53,27 +53,27 @@ func (src *NodePool) ConvertTo(dstRaw conversion.Hub) error {
 	return nil
 }
 
-func (dst *NodePool) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*v1beta2.NodePool)
+func (src *NodePool) ConvertFrom(srcRaw conversion.Hub) error {
+	srcRawV1beta2 := srcRaw.(*v1beta2.NodePool)
 
-	dst.ObjectMeta = src.ObjectMeta
+	src.ObjectMeta = srcRawV1beta2.ObjectMeta
 
-	dst.Spec.Type = NodePoolType(src.Spec.Type)
-	dst.Spec.Labels = src.Spec.Labels
-	dst.Spec.Annotations = src.Spec.Annotations
-	dst.Spec.Taints = src.Spec.Taints
+	src.Spec.Type = NodePoolType(srcRawV1beta2.Spec.Type)
+	src.Spec.Labels = srcRawV1beta2.Spec.Labels
+	src.Spec.Annotations = srcRawV1beta2.Spec.Annotations
+	src.Spec.Taints = srcRawV1beta2.Spec.Taints
 
-	dst.Status.ReadyNodeNum = src.Status.ReadyNodeNum
-	dst.Status.UnreadyNodeNum = src.Status.UnreadyNodeNum
-	dst.Status.Nodes = src.Status.Nodes
+	src.Status.ReadyNodeNum = srcRawV1beta2.Status.ReadyNodeNum
+	src.Status.UnreadyNodeNum = srcRawV1beta2.Status.UnreadyNodeNum
+	src.Status.Nodes = srcRawV1beta2.Status.Nodes
 
-	if src.Spec.HostNetwork {
-		if dst.Annotations == nil {
-			dst.Annotations = make(map[string]string)
+	if srcRawV1beta2.Spec.HostNetwork {
+		if src.Annotations == nil {
+			src.Annotations = make(map[string]string)
 		}
-		dst.Annotations[apps.NodePoolHostNetworkLabel] = "true"
+		src.Annotations[apps.NodePoolHostNetworkLabel] = "true"
 	}
 
-	klog.V(4).Infof("convert from v1beta1 to v1alpha1 for nodepool %s", dst.Name)
+	klog.V(4).Infof("convert from v1beta1 to v1alpha1 for nodepool %s", src.Name)
 	return nil
 }

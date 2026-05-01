@@ -36,7 +36,7 @@ var (
 
 func RunResetNode(data resetdata.YurtResetData, in io.Reader, out io.Writer, outErr io.Writer) error {
 	if _, err := exec.LookPath("kubeadm"); err != nil {
-		klog.Fatalf("kubeadm is not installed, you can refer to this link for installation: %s.", constants.KubeadmInstallUrl)
+		klog.Fatalf("kubeadm is not installed, you can refer to this link for installation: %s.", constants.KubeadmInstallURL)
 		return err
 	}
 

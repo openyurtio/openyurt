@@ -123,7 +123,7 @@ func conciliateNodePoolStatus(
 	// update the node list on demand
 	sort.Strings(nodes)
 	sort.Strings(nodePool.Status.Nodes)
-	if !(len(nodes) == 0 && len(nodePool.Status.Nodes) == 0 || reflect.DeepEqual(nodes, nodePool.Status.Nodes)) {
+	if (len(nodes) != 0 || len(nodePool.Status.Nodes) != 0) && !reflect.DeepEqual(nodes, nodePool.Status.Nodes) {
 		nodePool.Status.Nodes = nodes
 		needUpdate = true
 	}
@@ -168,14 +168,14 @@ func removeTaint(taint corev1.Taint, taints []corev1.Taint) []corev1.Taint {
 // node's annotation
 func encodePoolAttrs(node *corev1.Node,
 	npra *NodePoolRelatedAttributes) error {
-	npraJson, err := json.Marshal(npra)
+	npraJSON, err := json.Marshal(npra)
 	if err != nil {
 		return err
 	}
 	if node.Annotations == nil {
 		node.Annotations = make(map[string]string)
 	}
-	node.Annotations[apps.AnnotationPrevAttrs] = string(npraJson)
+	node.Annotations[apps.AnnotationPrevAttrs] = string(npraJSON)
 	return nil
 }
 

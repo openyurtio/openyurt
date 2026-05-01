@@ -33,7 +33,7 @@ type hostConfigJoinData struct {
 	mockYurtJoinData
 }
 
-func (d *hostConfigJoinData) YurtHubBinaryUrl() string {
+func (d *hostConfigJoinData) YurtHubBinaryURL() string {
 	return ""
 }
 

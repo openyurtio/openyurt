@@ -64,10 +64,10 @@ func CheckAndInstallYurthub(yurthubVersion string) error {
 		return nil
 	}
 
-	packageUrl := fmt.Sprintf(constants.YurthubExecUrlFormat, constants.YurthubExecResourceServer, yurthubVersion, runtime.GOARCH)
+	packageURL := fmt.Sprintf(constants.YurthubExecURLFormat, constants.YurthubExecResourceServer, yurthubVersion, runtime.GOARCH)
 	savePath := fmt.Sprintf("%s/yurthub", constants.TmpDownloadDir)
-	klog.V(1).Infof("Download yurthub from: %s", packageUrl)
-	if err := downloadFile(packageUrl, savePath, 3); err != nil {
+	klog.V(1).Infof("Download yurthub from: %s", packageURL)
+	if err := downloadFile(packageURL, savePath, 3); err != nil {
 		return fmt.Errorf("download yurthub fail: %w", err)
 	}
 	if err := copyFile(savePath, yurthubExecStartPath, 0755); err != nil {

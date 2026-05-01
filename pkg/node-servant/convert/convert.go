@@ -29,7 +29,7 @@ import (
 const bootstrapModeKubeletCertificate = "kubeletcertificate"
 
 var (
-	getAPIServerAddressFunc = components.GetApiServerAddress
+	getAPIServerAddressFunc = components.GetAPIServerAddress
 	installYurthubFunc      = func(cfg *yurthubutil.YurthubHostConfig) error {
 		return components.NewYurthubOperator(cfg).Install()
 	}

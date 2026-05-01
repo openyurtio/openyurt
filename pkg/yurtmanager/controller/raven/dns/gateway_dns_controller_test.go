@@ -150,14 +150,14 @@ func mockKubeClient() client.Client {
 	return fake.NewClientBuilder().WithRuntimeObjects(objs...).Build()
 }
 
-func mockReconciler() *ReconcileDns {
-	return &ReconcileDns{
+func mockReconciler() *ReconcileDNS {
+	return &ReconcileDNS{
 		Client:   mockKubeClient(),
 		recorder: record.NewFakeRecorder(100),
 	}
 }
 
-func TestReconcileDns_Reconcile(t *testing.T) {
+func TestReconcileDNS_Reconcile(t *testing.T) {
 	r := mockReconciler()
 	t.Run("get dns configmap", func(t *testing.T) {
 		res, err := r.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Namespace: util.WorkingNamespace, Name: util.RavenProxyNodesConfig}})
@@ -166,16 +166,16 @@ func TestReconcileDns_Reconcile(t *testing.T) {
 	})
 }
 
-func TestReconcileDns_buildRavenDNSConfigMap(t *testing.T) {
+func TestReconcileDNS_buildRavenDNSConfigMap(t *testing.T) {
 	r := mockReconciler()
 	t.Run("build Raven DNS config map", func(t *testing.T) {
-		r.Client.Delete(context.TODO(), &v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: util.RavenProxyNodesConfig, Namespace: util.WorkingNamespace}})
+		r.Delete(context.TODO(), &v1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: util.RavenProxyNodesConfig, Namespace: util.WorkingNamespace}})
 
 		err := r.buildRavenDNSConfigMap()
 		assert.NoError(t, err, "expected no error")
 
 		cm := &v1.ConfigMap{}
-		err = r.Client.Get(context.TODO(), client.ObjectKey{
+		err = r.Get(context.TODO(), client.ObjectKey{
 			Namespace: util.WorkingNamespace,
 			Name:      util.RavenProxyNodesConfig,
 		}, cm)
@@ -187,7 +187,7 @@ func TestReconcileDns_buildRavenDNSConfigMap(t *testing.T) {
 	})
 }
 
-func TestReconcileDns_getService(t *testing.T) {
+func TestReconcileDNS_getService(t *testing.T) {
 
 	r := mockReconciler()
 	objectKey := types.NamespacedName{

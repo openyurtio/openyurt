@@ -112,7 +112,7 @@ func (m *Manager) FindResponseFilter(req *http.Request) (filter.ResponseFilter, 
 		return nil, false
 	}
 
-	approved, filterNames := m.Approver.Approve(req)
+	approved, filterNames := m.Approve(req)
 	if approved {
 		objectFilters := make([]filter.ObjectFilter, 0)
 		for i := range filterNames {
@@ -136,7 +136,7 @@ func (m *Manager) FindObjectFilter(req *http.Request) (filter.ObjectFilter, bool
 		return nil, false
 	}
 
-	approved, filterNames := m.Approver.Approve(req)
+	approved, filterNames := m.Approve(req)
 	if !approved {
 		return nil, false
 	}

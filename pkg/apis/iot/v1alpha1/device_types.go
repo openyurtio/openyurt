@@ -102,7 +102,7 @@ type DeviceStatus struct {
 	Synced bool `json:"synced,omitempty"`
 	// it represents the actual state of the device's properties
 	DeviceProperties map[string]ActualPropertyState `json:"deviceProperties,omitempty"`
-	EdgeId           string                         `json:"edgeId,omitempty"`
+	EdgeID           string                         `json:"edgeId,omitempty"`
 	// Admin state (locked/unlocked)
 	AdminState AdminState `json:"adminState,omitempty"`
 	// Operating state (up/down/unknown)

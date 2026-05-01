@@ -1164,7 +1164,7 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 		It("should create new version content if it does not exists", func() {
 			err = store.SaveClusterInfo(&storage.ClusterInfoKey{
 				ClusterInfoType: storage.Version,
-				UrlPath:         "/version",
+				URLPath:         "/version",
 			}, []byte(versionJSONBytes))
 			Expect(err).To(BeNil())
 			buf, err := checkFileAt(filepath.Join(baseDir, string(storage.Version)))
@@ -1178,7 +1178,7 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 			Expect(err).To(BeNil())
 			err = store.SaveClusterInfo(&storage.ClusterInfoKey{
 				ClusterInfoType: storage.Version,
-				UrlPath:         "/version",
+				URLPath:         "/version",
 			}, newVersionBytes)
 			Expect(err).To(BeNil())
 			buf, err := checkFileAt(path)
@@ -1201,7 +1201,7 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 			Expect(err).To(BeNil())
 			buf, err := store.GetClusterInfo(&storage.ClusterInfoKey{
 				ClusterInfoType: storage.Version,
-				UrlPath:         "/version",
+				URLPath:         "/version",
 			})
 			Expect(err).To(BeNil())
 			Expect(buf).To(Equal([]byte(versionJSONBytes)))
@@ -1209,7 +1209,7 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 		It("should return ErrStorageNotFound if version info has not been cached", func() {
 			_, err = store.GetClusterInfo(&storage.ClusterInfoKey{
 				ClusterInfoType: storage.Version,
-				UrlPath:         "/version",
+				URLPath:         "/version",
 			})
 			Expect(err).To(Equal(storage.ErrStorageNotFound))
 		})

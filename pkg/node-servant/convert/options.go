@@ -62,7 +62,7 @@ func (o *Options) Complete(flags *pflag.FlagSet) error {
 	if o.nodeName != "" {
 		return nil
 	}
-	if nodeName := os.Getenv(enutil.NODE_NAME); nodeName != "" {
+	if nodeName := os.Getenv(enutil.NodeName); nodeName != "" {
 		o.nodeName = nodeName
 		return nil
 	}

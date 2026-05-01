@@ -35,12 +35,12 @@ func NewPlatformAdminControllerOptions() *PlatformAdminControllerOptions {
 }
 
 // AddFlags adds flags related to nodePool for yurt-manager to the specified FlagSet.
-func (n *PlatformAdminControllerOptions) AddFlags(fs *pflag.FlagSet) {
-	if n == nil {
+func (o *PlatformAdminControllerOptions) AddFlags(fs *pflag.FlagSet) {
+	if o == nil {
 		return
 	}
 
-	fs.Int32Var(&n.ConcurrentPlatformAdminWorkers, "concurrent-platform-administrator-workers", n.ConcurrentPlatformAdminWorkers, "Max concurrent workers for PlatformAdmin controller.")
+	fs.Int32Var(&o.ConcurrentPlatformAdminWorkers, "concurrent-platform-administrator-workers", o.ConcurrentPlatformAdminWorkers, "Max concurrent workers for PlatformAdmin controller.")
 }
 
 // ApplyTo fills up nodePool config with options.
@@ -59,7 +59,7 @@ func (o *PlatformAdminControllerOptions) Validate() []error {
 	}
 	errs := []error{}
 	if o.PlatformAdminControllerConfiguration == nil {
-		errs = append(errs, errors.New("IoTControllerConfiguration can not be empty!"))
+		errs = append(errs, errors.New("IoTControllerConfiguration cannot be empty"))
 	}
 	return errs
 }

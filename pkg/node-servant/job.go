@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+//nolint:staticcheck // package name uses underscores for historical reasons
 package node_servant
 
 import (

@@ -60,7 +60,7 @@ func (f fakeJoinData) ServerAddr() string                           { return f.s
 func (f fakeJoinData) JoinToken() string                            { return f.joinToken }
 func (f fakeJoinData) PauseImage() string                           { return f.pauseImage }
 func (f fakeJoinData) YurtHubImage() string                         { return f.yurthubImage }
-func (f fakeJoinData) YurtHubBinaryUrl() string                     { return f.yurthubBinaryURL }
+func (f fakeJoinData) YurtHubBinaryURL() string                     { return f.yurthubBinaryURL }
 func (f fakeJoinData) HostControlPlaneAddr() string                 { return f.hostControlPlaneAddr }
 func (f fakeJoinData) YurtHubServer() string                        { return f.yurthubServer }
 func (f fakeJoinData) YurtHubTemplate() string                      { return f.yurthubTemplate }

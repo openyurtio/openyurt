@@ -138,17 +138,17 @@ func CheckAndInstallKubelet(kubernetesResourceServer, clusterVersion string) err
 				klog.Infof("Kubelet %s already exist, skip install.", clusterVersion)
 				kubeletExist = true
 			} else {
-				return fmt.Errorf("The existing kubelet version %s of the node is inconsistent with cluster version %s, please clean it. ", kubeletVersion, clusterVersion)
+				return fmt.Errorf("existing kubelet version %s of the node is inconsistent with cluster version %s, please clean it", kubeletVersion, clusterVersion)
 			}
 		}
 	}
 
 	if !kubeletExist {
 		//download and install kubelet
-		packageUrl := fmt.Sprintf(constants.KubeletUrlFormat, kubernetesResourceServer, clusterVersion, runtime.GOARCH)
+		packageURL := fmt.Sprintf(constants.KubeletURLFormat, kubernetesResourceServer, clusterVersion, runtime.GOARCH)
 		savePath := fmt.Sprintf("%s/kubelet", constants.TmpDownloadDir)
-		klog.V(1).Infof("Download kubelet from: %s", packageUrl)
-		if err := util.DownloadFile(packageUrl, savePath, 3); err != nil {
+		klog.V(1).Infof("Download kubelet from: %s", packageURL)
+		if err := util.DownloadFile(packageURL, savePath, 3); err != nil {
 			return fmt.Errorf("download kubelet fail: %w", err)
 		}
 		if err := edgenode.CopyFile(savePath, "/usr/bin/kubelet", constants.DirMode); err != nil {
@@ -172,11 +172,11 @@ func CheckAndInstallKubernetesCni(reuseCNIBin bool) error {
 	}
 
 	//download and install kubernetes-cni
-	cniUrl := fmt.Sprintf(constants.CniUrlFormat, constants.KubeCniVersion, runtime.GOARCH, constants.KubeCniVersion)
+	cniURL := fmt.Sprintf(constants.CniURLFormat, constants.KubeCniVersion, runtime.GOARCH, constants.KubeCniVersion)
 	savePath := fmt.Sprintf("%s/cni-plugins-linux-%s-%s.tgz", constants.TmpDownloadDir, runtime.GOARCH, constants.KubeCniVersion)
 	if _, err := os.Stat(savePath); errors.Is(err, os.ErrNotExist) {
-		klog.V(1).Infof("Download cni from: %s", cniUrl)
-		if err := util.DownloadFile(cniUrl, savePath, 3); err != nil {
+		klog.V(1).Infof("Download cni from: %s", cniURL)
+		if err := util.DownloadFile(cniURL, savePath, 3); err != nil {
 			return err
 		}
 	} else {
@@ -232,17 +232,17 @@ func CheckAndInstallKubeadm(kubernetesResourceServer, clusterVersion string) err
 				klog.Infof("Kubeadm %s already exist, skip install.", clusterVersion)
 				kubeadmExist = true
 			} else {
-				return fmt.Errorf("The existing kubeadm version %s of the node is inconsistent with cluster version %s, please clean it. ", kubeadmVersion, clusterVersion)
+				return fmt.Errorf("existing kubeadm version %s of the node is inconsistent with cluster version %s, please clean it", kubeadmVersion, clusterVersion)
 			}
 		}
 	}
 
 	if !kubeadmExist {
 		// download and install kubeadm
-		packageUrl := fmt.Sprintf(constants.KubeadmUrlFormat, kubernetesResourceServer, clusterVersion, runtime.GOARCH)
+		packageURL := fmt.Sprintf(constants.KubeadmURLFormat, kubernetesResourceServer, clusterVersion, runtime.GOARCH)
 		savePath := fmt.Sprintf("%s/kubeadm", TmpDownloadDir)
-		klog.V(1).Infof("Download kubeadm from %s", packageUrl)
-		if err := util.DownloadFile(packageUrl, savePath, 3); err != nil {
+		klog.V(1).Infof("Download kubeadm from %s", packageURL)
+		if err := util.DownloadFile(packageURL, savePath, 3); err != nil {
 			return fmt.Errorf("download kubeadm fail: %w", err)
 		}
 		if err := edgenode.CopyFile(savePath, "/usr/bin/kubeadm", constants.DirMode); err != nil {

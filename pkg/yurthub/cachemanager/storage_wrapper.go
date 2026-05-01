@@ -203,9 +203,10 @@ func (sw *storageWrapper) Update(key storage.Key, obj runtime.Object, rv uint64)
 	}
 
 	if buf, err := sw.store.Update(key, buf.Bytes(), rv); err != nil {
-		if err == storage.ErrStorageNotFound {
+		switch err {
+		case storage.ErrStorageNotFound:
 			return nil, err
-		} else if err == storage.ErrUpdateConflict {
+		case storage.ErrUpdateConflict:
 			// if error is ErrUpdateConflict, it's no need to record this error into errorKeys,
 			// because only old version object is rejected and there is no affect to the local cache.
 			//get the gvk from json data
