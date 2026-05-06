@@ -1,5 +1,133 @@
 # CHANGELOG
 
+## v1.7.0
+
+### What's New
+
+**OTA Upgrade Supports Image Preheating for DaemonSet**
+
+OTA (Over-The-Air) upgrade is a new upgrade model for DaemonSet workloads introduced by OpenYurt. In previous versions, image pulling occurred synchronously during the Pod restart phase of the upgrade, making it a critical-path operation that directly contributed to service downtime, especially in edge environments with limited or unstable network connectivity.
+
+In v1.7.0, OTA upgrade now supports image preheating, which decouples image pulling from the actual rollout cutover. A new `ImagePreHeat` controller is responsible for dispatching image preheating Jobs to edge nodes, allowing updated container images to be proactively downloaded before the upgrade is triggered. Two new Pod conditions (`PodNeedUpgrade` and `PodImageReady`) are introduced to track upgrade status and image readiness. Users can initiate preheating via a new OTA API endpoint (`POST /openyurt.io/v1/namespaces/{ns}/pods/{podname}/imagepull`). By pre-caching images ahead of the cutover, service interruption during the actual upgrade is minimized to near-zero.
+[#2482](https://github.com/openyurtio/openyurt/pull/2482)
+[#2474](https://github.com/openyurtio/openyurt/pull/2474)
+
+**Support Deploying Kubernetes Clusters Locally (K8s-on-K8s)**
+
+OpenYurt v1.7.0 introduces the ability to deploy a Kubernetes cluster on top of an existing OpenYurt cluster — referred to as K8s-on-K8s. This is particularly useful for scenarios such as testing, multi-tenant isolation, and edge IDC (Internet Data Center) deployments where a full bare-metal Kubernetes setup is not practical.
+
+This release adds YAML-based templates for deploying tenant control-plane components (tenant-apiserver, tenant-controller-manager, tenant-scheduler, tenant-pki-generator, etcd) along with post-install configuration (kube-proxy, kubelet, rbac, bootstrap-secret). `yurtadm` now supports a `local` mode for joining IDC nodes into a K8s-on-K8s cluster, and YurtHub is optimized for local mode operation. A setup script (`config/setup/K8s-on-K8s/setup.sh`) is also provided for quick bootstrapping.
+[#4a1f0ab3](https://github.com/openyurtio/openyurt/pull/2454)
+[#ed2f7dbf](https://github.com/openyurtio/openyurt/pull/2453)
+[#3a03b00d](https://github.com/openyurtio/openyurt/pull/2452)
+
+**Label-Driven YurtHub Deployment via YurtNodeConversion**
+
+Previously, YurtHub installation and lifecycle management on edge nodes required manual intervention through `yurtadm join` or `yurtadm reset` commands. In v1.7.0, a new `YurtNodeConversionController` in yurt-manager enables label-driven YurtHub deployment and conversion. By applying a label to a node, users can trigger the automatic installation, configuration, and startup of YurtHub via systemd. The conversion and revert process now uses reusable host lifecycle helpers, enabling a fully declarative, controller-driven workflow for edge node onboarding and offboarding.
+[#249a6714](https://github.com/openyurtio/openyurt/pull/2533)
+[#f7645df8](https://github.com/openyurtio/openyurt/pull/2530)
+[#3e02cefa](https://github.com/openyurtio/openyurt/pull/2541)
+
+**Support Kubernetes v1.34**
+
+All `k8s.io/xxx` dependencies and related modules have been upgraded to `v1.34.0`, ensuring OpenYurt is fully compatible with Kubernetes v1.34. E2E testing has been updated to validate the upgrade against a Kubernetes v1.34 cluster. This upgrade also includes vendor dependency updates and Go linting fixes for compatibility with the latest toolchain.
+[#5cccf119](https://github.com/openyurtio/openyurt/pull/2495)
+[#7589921e](https://github.com/openyurtio/openyurt/pull/2536)
+
+### Other Notable changes
+
+- Upgrade nodepool CRD to v1beta2 by @tnsimon in https://github.com/openyurtio/openyurt/pull/2266
+- Add hub election leader controller by @tnsimon in https://github.com/openyurtio/openyurt/pull/2281
+- Add hub leader config controller by @tnsimon in https://github.com/openyurtio/openyurt/pull/2299
+- Add hub leader RBAC controller by @tnsimon in https://github.com/openyurtio/openyurt/pull/2328
+- Add health checker for leader hub by @rambohe in https://github.com/openyurtio/openyurt/pull/2310
+- Support forward requests to leader hub for sharing pool scope metadata in nodepool by @rambohe in https://github.com/openyurtio/openyurt/pull/2325
+- Improve load balancer to support dynamically updating backends by @rambohe in https://github.com/openyurtio/openyurt/pull/2314
+- Add leader node names to v1beta2.nodepool by @tnsimon in https://github.com/openyurtio/openyurt/pull/2297
+- Rename enablePoolScopeMetadata to enableLeaderElections by @tnsimon in https://github.com/openyurtio/openyurt/pull/2316
+- Add consistent hashing strategy for yurthub by @tnsimon in https://github.com/openyurtio/openyurt/pull/2359
+- Improve proxy handler for yurthub and optimize metrics of multiplexer by @rambohe in https://github.com/openyurtio/openyurt/pull/2345
+- Refactor multiplexer by @zyjhtangtang in https://github.com/openyurtio/openyurt/pull/2349
+- Optimizing hub cache by @zyjhtangtang in https://github.com/openyurtio/openyurt/pull/2423
+- Improve direct clientsets for yurthub by @rambohe in https://github.com/openyurtio/openyurt/pull/2285
+- Improve readiness probe for yurthub component by @rambohe in https://github.com/openyurtio/openyurt/pull/2284
+- Improve config and start process of yurthub component by @rambohe in https://github.com/openyurtio/openyurt/pull/2303
+- Improve yurthub configmap management by @rambohe in https://github.com/openyurtio/openyurt/pull/2275
+- Systemd component support for yurthub by @yuyushui66 in https://github.com/openyurtio/openyurt/pull/2449
+- Release assets add yurthub binary by @zyjhtangtang in https://github.com/openyurtio/openyurt/pull/2448
+- Remove YurtAppOverrider by @Jessie in https://github.com/openyurtio/openyurt/pull/2280
+- Remove yurt-coordinator from yurthub by @rambohe in https://github.com/openyurtio/openyurt/pull/2276
+- Refactor: remove yurt-coordinator-cert controller from yurt-manager by @Lixx in https://github.com/openyurtio/openyurt/pull/2322
+- Refactor yurt-manager: update CRD categories and remove YurtAppDaemon related code by @Lu Chen in https://github.com/openyurtio/openyurt/pull/2320
+- Deprecate yurtmanager delegate lease controller by @tnsimon in https://github.com/openyurtio/openyurt/pull/2308
+- Deprecate YurtAppDaemon controller and webhook by @tnsimon in https://github.com/openyurtio/openyurt/pull/2309
+- Remove yurt-coordinator from Helm charts by @zyjhtangtang in https://github.com/openyurtio/openyurt/pull/2477
+- Support Kubernetes v1.32 by @zyjhtangtang in https://github.com/openyurtio/openyurt/pull/2387
+- Use autonomy duration label by @tnsimon in https://github.com/openyurtio/openyurt/pull/2313
+- Update Go version by @tnsimon in https://github.com/openyurtio/openyurt/pull/2357
+- Upgrade upload-artifact to v4 by @zyjhtangtang in https://github.com/openyurtio/openyurt/pull/2336
+- Update codecov-action by @zyjhtangtang in https://github.com/openyurtio/openyurt/pull/2538
+- Update README by @akhilmukkara in https://github.com/openyurtio/openyurt/pull/2464
+- Correct some inaccurate information by @zyjhtangtang in https://github.com/openyurtio/openyurt/pull/2476
+- Updated to CNCF Incubating Project by @zyjhtangtang in https://github.com/openyurtio/openyurt/pull/2470
+- Update the OpenYurt architecture diagram by @zyjhtangtang in https://github.com/openyurtio/openyurt/pull/2485
+- Update GVR for core.v1.services by @tnsimon in https://github.com/openyurtio/openyurt/pull/2321
+- yurt-manager chart support extraArgs by @William Wang in https://github.com/openyurtio/openyurt/pull/2489
+
+### Fixes
+
+- Always overwrite server-addr in yurt-static-set-yurt-hub configmap by yurtadm by @rayne-Li in https://github.com/openyurtio/openyurt/pull/2271
+- Test: fix nodepool e2e test by @tnsimon in https://github.com/openyurtio/openyurt/pull/2283
+- Fix openyurt fuzz test by @tnsimon in https://github.com/openyurtio/openyurt/pull/2319
+- Fix issue 2253 by @RG-Dou in https://github.com/openyurtio/openyurt/pull/2330
+- Ensure hub leader configmap is deleted with nodepool by @tnsimon in https://github.com/openyurtio/openyurt/pull/2324
+- Fix ota controller doesn't has permission to patch pod status by @PersistentJZH in https://github.com/openyurtio/openyurt/pull/2415
+- Fix: Fix the issue where the masterservice and serviceenvupdater modified the multiplexer cache by @zyjhtangtang in https://github.com/openyurtio/openyurt/pull/2481
+- Fix dummy-if name length exceeds 15 by @KubeKyrie in https://github.com/openyurtio/openyurt/pull/2486
+- Bugfix: remove deprecated rand.Seed() calls by @shiavm006 in https://github.com/openyurtio/openyurt/pull/2499
+- Fix: race condition in cache manager's inMemoryCache by @Shivam Mittal in https://github.com/openyurtio/openyurt/pull/2508
+- Fix: restore from backup and return error on ReplaceComponentList create/write failure by @Shivam Mittal in https://github.com/openyurtio/openyurt/pull/2507
+- Fix NodeAutonomy condition LastTransitionTime never being updated by @Aman Kumar in https://github.com/openyurtio/openyurt/pull/2502
+- Fix: guard nil request info in autonomy proxy by @Shivam Mittal in https://github.com/openyurtio/openyurt/pull/2517
+- Fix: nil pointer dereference in local proxy (localDelete/localPost) by @Shivam Mittal in https://github.com/openyurtio/openyurt/pull/2515
+- Fix: avoid panic on pod without owner refs by @zyjhtangtang in https://github.com/openyurtio/openyurt/pull/2509
+- Fix: add unit test cases for modifyresponse by @kartik angiras in https://github.com/openyurtio/openyurt/pull/2497
+- Fix/UT error by @tnsimon in https://github.com/openyurtio/openyurt/pull/2535
+
+### Proposals
+
+- Proposal: reuse list/watch requests in the nodepool for reducing cloud-edge network traffic by @rambohe in https://github.com/openyurtio/openyurt/pull/2226
+- Proposal: OTA upgrade supports image preheating by @zyjhtangtang in https://github.com/openyurtio/openyurt/pull/2474
+- Proposal: label driven yurthub by @Vacant-lot07734 in https://github.com/openyurtio/openyurt/pull/2530
+
+### Contributors
+
+**Thank you to everyone who contributed to this release!** ❤
+
+**🌟 New Contributors**
+
+* [@rayne-Li](https://github.com/rayne-Li) made their first contribution in [#2271](https://github.com/openyurtio/openyurt/pull/2271)
+* [@Lixxcn](https://github.com/Lixxcn) made their first contribution in [#2322](https://github.com/openyurtio/openyurt/pull/2322)
+* [@RG-Dou](https://github.com/RG-Dou) made their first contribution in [#2330](https://github.com/openyurtio/openyurt/pull/2330)
+* [@co63oc](https://github.com/co63oc) made their first contribution in [#2344](https://github.com/openyurtio/openyurt/pull/2344)
+* [@cangqiaoyuzhuo](https://github.com/cangqiaoyuzhuo) made their first contribution in [#2346](https://github.com/openyurtio/openyurt/pull/2346)
+* [@yuyushui66](https://github.com/yuyushui66) made their first contribution in [#2449](https://github.com/openyurtio/openyurt/pull/2449)
+* [@PersistentJZH](https://github.com/PersistentJZH) made their first contribution in [#2415](https://github.com/openyurtio/openyurt/pull/2415)
+* [@xichengliudui](https://github.com/xichengliudui) made their first contribution in [#2456](https://github.com/openyurtio/openyurt/pull/2456)
+* [@akhilmukkara](https://github.com/akhilmukkara) made their first contribution in [#2464](https://github.com/openyurtio/openyurt/pull/2464)
+* [@KubeKyrie](https://github.com/KubeKyrie) made their first contribution in [#2486](https://github.com/openyurtio/openyurt/pull/2486)
+* [@will4j](https://github.com/will4j) made their first contribution in [#2489](https://github.com/openyurtio/openyurt/pull/2489)
+* [@promalert](https://github.com/promalert) made their first contribution in [#2492](https://github.com/openyurtio/openyurt/pull/2492)
+* [@kartikangiras](https://github.com/kartikangiras) made their first contribution in [#2497](https://github.com/openyurtio/openyurt/pull/2497)
+* [@shiavm006](https://github.com/shiavm006) made their first contribution in [#2499](https://github.com/openyurtio/openyurt/pull/2499)
+* [@Aman-Cool](https://github.com/Aman-Cool) made their first contribution in [#2502](https://github.com/openyurtio/openyurt/pull/2502)
+* [@xenonnn4w](https://github.com/xenonnn4w) made their first contribution in [#2495](https://github.com/openyurtio/openyurt/pull/2495)
+* [@Vacant-lot07734](https://github.com/Vacant-lot07734) made their first contribution in [#2530](https://github.com/openyurtio/openyurt/pull/2530)
+* [@gaganhr94](https://github.com/gaganhr94) made their first contribution in [#2543](https://github.com/openyurtio/openyurt/pull/2543)
+
+And thank you very much to all our existing contributors, and to everyone else who contributed in other ways like filing issues,
+giving feedback, helping users in the community group, etc.
+
 ## v1.6.0
 
 ### What's New
