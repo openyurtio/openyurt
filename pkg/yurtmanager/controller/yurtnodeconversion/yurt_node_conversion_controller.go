@@ -43,6 +43,7 @@ import (
 	appsv1beta2 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 	nodeservant "github.com/openyurtio/openyurt/pkg/node-servant"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	nodeutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/node"
 	conversionconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtnodeconversion/config"
 )
@@ -60,6 +61,8 @@ const (
 	reasonReverted      = "Reverted"
 	reasonConvertFailed = "ConvertFailed"
 	reasonRevertFailed  = "RevertFailed"
+
+	zoneLabel = constants.KubernetesTopologyZoneLabel
 )
 
 type ReconcileYurtNodeConversion struct {
@@ -333,6 +336,12 @@ func (r *ReconcileYurtNodeConversion) handleSuccessfulAction(ctx context.Context
 		return err
 	}
 
+	// sync topology.kubernetes.io/zone label for Kubernetes native Service
+	nodePoolName := node.Labels[projectinfo.GetNodePoolLabel()]
+	if err := r.ensureTopologyZoneLabel(ctx, nodeName, action == actionConvert, nodePoolName); err != nil {
+		return err
+	}
+
 	if !hasSucceededConditionForAction(getConversionCondition(node), action) {
 		if err := r.ensureNodeConversionCondition(ctx, nodeName,
 			newConversionCondition(action, succeededReasonForAction(action), succeededMessage(action))); err != nil {
@@ -384,6 +393,70 @@ func (r *ReconcileYurtNodeConversion) ensureEdgeWorkerLabel(ctx context.Context,
 	}
 	klog.V(4).Info(Format("patch node(%s) %s=%t", nodeName, projectinfo.GetEdgeWorkerLabelKey(), enabled))
 	return r.Patch(ctx, updated, client.MergeFrom(node))
+}
+
+// ensureTopologyZoneLabel only manages the topology.kubernetes.io/zone label
+// when it is absent during convert or still points to a NodePool during revert.
+func (r *ReconcileYurtNodeConversion) ensureTopologyZoneLabel(ctx context.Context, nodeName string, isConvert bool, nodePoolName string) error {
+	node := &corev1.Node{}
+	if err := r.Get(ctx, types.NamespacedName{Name: nodeName}, node); err != nil {
+		return err
+	}
+
+	updated := node.DeepCopy()
+	existingZone, hasZone := node.Labels[zoneLabel]
+
+	if isConvert {
+		if len(nodePoolName) == 0 {
+			return nil
+		}
+		if hasZone {
+			if existingZone != nodePoolName {
+				klog.Info(Format("node(%s) already has %s=%s, keep it because it is not nodepool=%s",
+					nodeName, zoneLabel, existingZone, nodePoolName))
+			}
+			return nil
+		}
+		if updated.Labels == nil {
+			updated.Labels = map[string]string{}
+		}
+		updated.Labels[zoneLabel] = nodePoolName
+	} else {
+		if !hasZone {
+			return nil
+		}
+		isNodePool, err := r.isNodePoolName(ctx, existingZone)
+		if err != nil {
+			return err
+		}
+		if !isNodePool {
+			klog.Info(Format("node(%s) keeps %s=%s because it is not a NodePool",
+				nodeName, zoneLabel, existingZone))
+			return nil
+		}
+		delete(updated.Labels, zoneLabel)
+	}
+
+	if reflect.DeepEqual(node.Labels, updated.Labels) {
+		return nil
+	}
+	klog.V(4).Info(Format("patch node(%s) %s for native trafficDistribution compatibility", nodeName, zoneLabel))
+	return r.Patch(ctx, updated, client.MergeFrom(node))
+}
+
+func (r *ReconcileYurtNodeConversion) isNodePoolName(ctx context.Context, nodePoolName string) (bool, error) {
+	if len(strings.TrimSpace(nodePoolName)) == 0 {
+		return false, nil
+	}
+
+	np := &appsv1beta2.NodePool{}
+	if err := r.Get(ctx, types.NamespacedName{Name: nodePoolName}, np); err != nil {
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
 
 // ensureNodeConversionCondition upserts the single conversion condition that
