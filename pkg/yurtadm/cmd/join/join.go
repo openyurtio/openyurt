@@ -415,11 +415,6 @@ func newJoinData(args []string, opt *joinOptions) (*joinData, error) {
 			}
 			// add nodePool label for node by kubelet
 			data.nodeLabels[projectinfo.GetNodePoolLabel()] = opt.nodePoolName
-
-			// set nodePool as topology.kubernetes.io/zone label
-			klog.Infof("setting %s=%s for native trafficDistribution compatibility",
-				yurtconstants.KubernetesTopologyZoneLabel, opt.nodePoolName)
-			data.nodeLabels[yurtconstants.KubernetesTopologyZoneLabel] = opt.nodePoolName
 		}
 
 		// check static pods has value and yurtstaticset is already exist
