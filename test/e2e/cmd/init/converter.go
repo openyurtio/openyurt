@@ -48,13 +48,6 @@ const (
 	conversionConditionType corev1.NodeConditionType = "YurtNodeConversionFailed"
 )
 
-var (
-	converterExecCommand               = exec.Command
-	converterInstallRenderedComponents = func(kubeConfigPath, manifestPath string) error {
-		return kubeutil.NewBuilder(kubeConfigPath).InstallComponents(manifestPath, false)
-	}
-)
-
 type ClusterConverter struct {
 	RootDir                   string
 	ClientSet                 kubeclientset.Interface
@@ -86,12 +79,6 @@ func (c *ClusterConverter) Run() error {
 	klog.Info("Deploying yurt-manager")
 	if err := c.installYurtManagerByHelm(); err != nil {
 		klog.Errorf("failed to deploy yurt-manager with image %s, %s", c.YurtManagerImage, err)
-		return err
-	}
-
-	klog.Info("Deploying yurthub chart resources")
-	if err := c.installYurthubByHelm(); err != nil {
-		klog.Errorf("failed to deploy yurthub chart resources, %v", err)
 		return err
 	}
 
@@ -461,48 +448,6 @@ func (c *ClusterConverter) installYurtManagerByHelm() error {
 		return err
 	}
 
-	return nil
-}
-
-func (c *ClusterConverter) installYurthubByHelm() error {
-	helmPath := filepath.Join(c.RootDir, "bin", "helm")
-	yurthubChartPath := filepath.Join(c.RootDir, "charts", "yurthub")
-
-	cmd := converterExecCommand(
-		helmPath,
-		"template",
-		"yurthub",
-		yurthubChartPath,
-		"--namespace",
-		"kube-system",
-		"--show-only",
-		"templates/yurthub-cfg.yaml",
-	)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		klog.Errorf("couldn't install yurthub, %v, %s", err, string(output))
-		return err
-	}
-
-	manifestFile, err := os.CreateTemp("", "openyurt-yurthub-cfg-*.yaml")
-	if err != nil {
-		return fmt.Errorf("failed to create temp file for yurthub resources: %w", err)
-	}
-	defer os.Remove(manifestFile.Name())
-
-	if _, err := manifestFile.Write(output); err != nil {
-		_ = manifestFile.Close()
-		return fmt.Errorf("failed to write rendered yurthub resources: %w", err)
-	}
-	if err := manifestFile.Close(); err != nil {
-		return fmt.Errorf("failed to close rendered yurthub resources file: %w", err)
-	}
-
-	if err := converterInstallRenderedComponents(c.KubeConfigPath, manifestFile.Name()); err != nil {
-		return fmt.Errorf("failed to install rendered yurthub resources: %w", err)
-	}
-
-	klog.Infof("start to install yurthub shared resources, %s", string(output))
 	return nil
 }
 
