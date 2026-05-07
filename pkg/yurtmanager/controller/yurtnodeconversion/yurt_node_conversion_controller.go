@@ -406,6 +406,7 @@ func (r *ReconcileYurtNodeConversion) ensureTopologyZoneLabel(ctx context.Contex
 	updated := node.DeepCopy()
 	existingZone, hasZone := node.Labels[zoneLabel]
 
+	klog.Info(Format("node(%s) has %s=%s, isConvert=%t", nodeName, zoneLabel, existingZone, isConvert))
 	if isConvert {
 		if len(nodePoolName) == 0 {
 			return nil
