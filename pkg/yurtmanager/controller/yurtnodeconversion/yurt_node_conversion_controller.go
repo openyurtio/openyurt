@@ -403,45 +403,65 @@ func (r *ReconcileYurtNodeConversion) ensureTopologyZoneLabel(ctx context.Contex
 		return err
 	}
 
-	updated := node.DeepCopy()
-	existingZone, hasZone := node.Labels[zoneLabel]
-
+	existingZone := node.Labels[zoneLabel]
 	klog.Info(Format("node(%s) has %s=%s, isConvert=%t", nodeName, zoneLabel, existingZone, isConvert))
+
 	if isConvert {
-		if len(nodePoolName) == 0 {
-			return nil
-		}
-		if hasZone {
-			if existingZone != nodePoolName {
-				klog.Info(Format("node(%s) already has %s=%s, keep it because it is not nodepool=%s",
-					nodeName, zoneLabel, existingZone, nodePoolName))
-			}
-			return nil
-		}
-		if updated.Labels == nil {
-			updated.Labels = map[string]string{}
-		}
-		updated.Labels[zoneLabel] = nodePoolName
-	} else {
-		if !hasZone {
-			return nil
-		}
-		isNodePool, err := r.isNodePoolName(ctx, existingZone)
-		if err != nil {
-			return err
-		}
-		if !isNodePool {
-			klog.Info(Format("node(%s) keeps %s=%s because it is not a NodePool",
-				nodeName, zoneLabel, existingZone))
-			return nil
-		}
-		delete(updated.Labels, zoneLabel)
+		return r.ensureConvertZoneLabel(ctx, node, nodePoolName)
 	}
+	return r.ensureRevertZoneLabel(ctx, node)
+}
+
+func (r *ReconcileYurtNodeConversion) ensureConvertZoneLabel(ctx context.Context, node *corev1.Node, nodePoolName string) error {
+	if len(nodePoolName) == 0 {
+		return nil
+	}
+
+	existingZone, hasZone := node.Labels[zoneLabel]
+	if hasZone {
+		if existingZone != nodePoolName {
+			klog.Info(Format("node(%s) already has %s=%s, keep it because it is not nodepool=%s",
+				node.Name, zoneLabel, existingZone, nodePoolName))
+		}
+		return nil
+	}
+
+	updated := node.DeepCopy()
+	if updated.Labels == nil {
+		updated.Labels = map[string]string{}
+	}
+	updated.Labels[zoneLabel] = nodePoolName
 
 	if reflect.DeepEqual(node.Labels, updated.Labels) {
 		return nil
 	}
-	klog.V(4).Info(Format("patch node(%s) %s for native trafficDistribution compatibility", nodeName, zoneLabel))
+	klog.V(4).Info(Format("patch node(%s) %s for native trafficDistribution compatibility", node.Name, zoneLabel))
+	return r.Patch(ctx, updated, client.MergeFrom(node))
+}
+
+func (r *ReconcileYurtNodeConversion) ensureRevertZoneLabel(ctx context.Context, node *corev1.Node) error {
+	existingZone, hasZone := node.Labels[zoneLabel]
+	if !hasZone {
+		return nil
+	}
+
+	isNodePool, err := r.isNodePoolName(ctx, existingZone)
+	if err != nil {
+		return err
+	}
+	if !isNodePool {
+		klog.Info(Format("node(%s) keeps %s=%s because it is not a NodePool",
+			node.Name, zoneLabel, existingZone))
+		return nil
+	}
+
+	updated := node.DeepCopy()
+	delete(updated.Labels, zoneLabel)
+
+	if reflect.DeepEqual(node.Labels, updated.Labels) {
+		return nil
+	}
+	klog.V(4).Info(Format("patch node(%s) %s for native trafficDistribution compatibility", node.Name, zoneLabel))
 	return r.Patch(ctx, updated, client.MergeFrom(node))
 }
 
