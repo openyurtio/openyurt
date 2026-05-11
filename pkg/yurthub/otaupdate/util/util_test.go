@@ -82,8 +82,8 @@ func TestWriteJSONResponse(t *testing.T) {
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
 	}
-	if content := rr.Header().Get(yurtutil.HttpHeaderContentType); content != yurtutil.HttpContentTypeJson {
-		t.Errorf("handler returned wrong content type: got %v want %v", content, yurtutil.HttpContentTypeJson)
+	if content := rr.Header().Get(yurtutil.HTTPHeaderContentType); content != yurtutil.HTTPContentTypeJSON {
+		t.Errorf("handler returned wrong content type: got %v want %v", content, yurtutil.HTTPContentTypeJSON)
 	}
 	if rr.Body.String() != string(data) {
 		t.Errorf("handler returned unexpected body: got %v want %v", rr.Body.String(), string(data))

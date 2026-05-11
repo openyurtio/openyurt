@@ -32,12 +32,12 @@ func NewEndpointSliceControllerOptions() *EndpointSliceControllerOptions {
 }
 
 // AddFlags adds flags related to servicetopology endpointslice for yurt-manager to the specified FlagSet.
-func (n *EndpointSliceControllerOptions) AddFlags(fs *pflag.FlagSet) {
-	if n == nil {
+func (o *EndpointSliceControllerOptions) AddFlags(fs *pflag.FlagSet) {
+	if o == nil {
 		return
 	}
 
-	fs.Int32Var(&n.ConcurrentEndpointSliceWorkers, "concurrent-endpointslice-workers", n.ConcurrentEndpointSliceWorkers, "Max concurrent workers for servicetopology-endpointslice controller.")
+	fs.Int32Var(&o.ConcurrentEndpointSliceWorkers, "concurrent-endpointslice-workers", o.ConcurrentEndpointSliceWorkers, "Max concurrent workers for servicetopology-endpointslice controller.")
 }
 
 // ApplyTo fills up servicetopolgy endpointslice config with options.

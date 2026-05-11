@@ -161,8 +161,8 @@ func TestShareProxy_ServeHTTP_LIST(t *testing.T) {
 				Body: &bytes.Buffer{},
 			}
 
-			healthChecher := fakeHealthChecker.NewFakeChecker(map[*url.URL]bool{})
-			loadBalancer := remote.NewLoadBalancer("round-robin", []*url.URL{}, nil, nil, healthChecher, nil, context.Background().Done())
+			healthChecker := fakeHealthChecker.NewFakeChecker(map[*url.URL]bool{})
+			loadBalancer := remote.NewLoadBalancer("round-robin", []*url.URL{}, nil, nil, healthChecker, nil, context.Background().Done())
 			dsm := multiplexerstorage.NewDummyStorageManager(mockCacheMap())
 			cfg := &config.YurtHubConfiguration{
 				PoolScopeResources:       poolScopeResources,
@@ -170,7 +170,7 @@ func TestShareProxy_ServeHTTP_LIST(t *testing.T) {
 				SharedFactory:            factory,
 				LoadBalancerForLeaderHub: loadBalancer,
 			}
-			rmm := multiplexer.NewRequestMultiplexerManager(cfg, dsm, healthChecher)
+			rmm := multiplexer.NewRequestMultiplexerManager(cfg, dsm, healthChecker)
 
 			informerSynced := func() bool {
 				return rmm.Ready(&schema.GroupVersionResource{
@@ -339,8 +339,8 @@ func TestShareProxy_ServeHTTP_WATCH(t *testing.T) {
 		},
 	} {
 		t.Run(k, func(t *testing.T) {
-			healthChecher := fakeHealthChecker.NewFakeChecker(map[*url.URL]bool{})
-			loadBalancer := remote.NewLoadBalancer("round-robin", []*url.URL{}, nil, nil, healthChecher, nil, context.Background().Done())
+			healthChecker := fakeHealthChecker.NewFakeChecker(map[*url.URL]bool{})
+			loadBalancer := remote.NewLoadBalancer("round-robin", []*url.URL{}, nil, nil, healthChecker, nil, context.Background().Done())
 
 			dsm := multiplexerstorage.NewDummyStorageManager(mockCacheMap())
 			cfg := &config.YurtHubConfiguration{
@@ -349,7 +349,7 @@ func TestShareProxy_ServeHTTP_WATCH(t *testing.T) {
 				SharedFactory:            factory,
 				LoadBalancerForLeaderHub: loadBalancer,
 			}
-			rmm := multiplexer.NewRequestMultiplexerManager(cfg, dsm, healthChecher)
+			rmm := multiplexer.NewRequestMultiplexerManager(cfg, dsm, healthChecker)
 
 			informerSynced := func() bool {
 				return rmm.Ready(&schema.GroupVersionResource{

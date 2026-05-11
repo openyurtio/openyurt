@@ -29,9 +29,9 @@ import (
 )
 
 const (
-	ip_forward = "/proc/sys/net/ipv4/ip_forward"
-	bridgenf   = "/proc/sys/net/bridge/bridge-nf-call-iptables"
-	bridgenf6  = "/proc/sys/net/bridge/bridge-nf-call-ip6tables"
+	ipForward = "/proc/sys/net/ipv4/ip_forward"
+	bridgeNF  = "/proc/sys/net/bridge/bridge-nf-call-iptables"
+	bridgeNF6 = "/proc/sys/net/bridge/bridge-nf-call-ip6tables"
 
 	kubernetesBridgeSetting = `
 net.bridge.bridge-nf-call-ip6tables = 1
@@ -41,8 +41,8 @@ net.bridge.bridge-nf-call-iptables = 1`
 // SetIpv4Forward turn on the node ipv4 forward.
 func SetIpv4Forward() error {
 	klog.Infof("Setting ipv4 forward")
-	if err := os.WriteFile(ip_forward, []byte("1"), 0644); err != nil {
-		return fmt.Errorf("Write content 1 to file %s fail: %w ", ip_forward, err)
+	if err := os.WriteFile(ipForward, []byte("1"), 0644); err != nil {
+		return fmt.Errorf("write content 1 to file %s failed: %w", ipForward, err)
 	}
 	return nil
 }
@@ -51,20 +51,20 @@ func SetIpv4Forward() error {
 func SetBridgeSetting() error {
 	klog.Info("Setting bridge settings for kubernetes.")
 	if err := os.WriteFile(constants.SysctlK8sConfig, []byte(kubernetesBridgeSetting), 0644); err != nil {
-		return fmt.Errorf("Write file %s fail: %w ", constants.SysctlK8sConfig, err)
+		return fmt.Errorf("write file %s failed: %w", constants.SysctlK8sConfig, err)
 	}
 
-	if exist, _ := edgenode.FileExists(bridgenf); !exist {
+	if exist, _ := edgenode.FileExists(bridgeNF); !exist {
 		cmd := exec.Command("bash", "-c", "modprobe br-netfilter")
 		if err := edgenode.Exec(cmd); err != nil {
 			return err
 		}
 	}
-	if err := os.WriteFile(bridgenf, []byte("1"), 0644); err != nil {
-		return fmt.Errorf("Write file %s fail: %w ", bridgenf, err)
+	if err := os.WriteFile(bridgeNF, []byte("1"), 0644); err != nil {
+		return fmt.Errorf("write file %s failed: %w", bridgeNF, err)
 	}
-	if err := os.WriteFile(bridgenf6, []byte("1"), 0644); err != nil {
-		return fmt.Errorf("Write file %s fail: %w ", bridgenf, err)
+	if err := os.WriteFile(bridgeNF6, []byte("1"), 0644); err != nil {
+		return fmt.Errorf("write file %s failed: %w", bridgeNF6, err)
 	}
 	return nil
 }

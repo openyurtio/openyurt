@@ -477,7 +477,6 @@ func (im *iptablesManager) clearConnTrackEntries(ips, ports []string) {
 			im.clearConnTrackEntriesForIPPort(ip, port)
 		}
 	}
-	return
 }
 
 func (im *iptablesManager) clearConnTrackEntriesForIPPort(ip, port string) error {
@@ -548,9 +547,9 @@ func (im *iptablesManager) syncIptableSetting() {
 
 func getAddedAndDeletedNodes(lastNodesIP, currentNodesIP []string) (bool, []string, []string) {
 	currentNodesIPSet := sets.NewString(currentNodesIP...)
-	lastNodesIpSet := sets.NewString(lastNodesIP...)
+	lastNodesIPSet := sets.NewString(lastNodesIP...)
 
-	return !currentNodesIPSet.Equal(lastNodesIpSet), currentNodesIPSet.Difference(lastNodesIpSet).List(), lastNodesIpSet.Difference(currentNodesIPSet).List()
+	return !currentNodesIPSet.Equal(lastNodesIPSet), currentNodesIPSet.Difference(lastNodesIPSet).List(), lastNodesIPSet.Difference(currentNodesIPSet).List()
 }
 
 func getDeletedPorts(lastDnatPorts, currentPorts []string) (bool, []string) {

@@ -147,12 +147,12 @@ func TestKindOperator_KindLoadDockerImage(t *testing.T) {
 	}{
 		"multiNodes": {
 			clusterName: "openyurt",
-			image:       "openyurt/yurthub:latest",
+			image:       "openyurt/node-servant:latest",
 			nodeNames: []string{
 				"control-plane",
 				"worker",
 			},
-			want: "kind load docker-image openyurt/yurthub:latest --name openyurt --nodes control-plane,worker",
+			want: "kind load docker-image openyurt/node-servant:latest --name openyurt --nodes control-plane,worker",
 		},
 	}
 	for caseName, c := range cases {

@@ -132,58 +132,58 @@ func NewYurtHubOptions() *YurtHubOptions {
 }
 
 // Validate validates YurtHubOptions
-func (options *YurtHubOptions) Validate() error {
-	if len(options.NodeName) == 0 {
+func (o *YurtHubOptions) Validate() error {
+	if len(o.NodeName) == 0 {
 		return fmt.Errorf("node name is empty")
 	}
 
-	if len(options.ServerAddr) == 0 {
+	if len(o.ServerAddr) == 0 {
 		return fmt.Errorf("server-address is empty")
 	}
 
-	if !util.IsSupportedWorkingMode(util.WorkingMode(options.WorkingMode)) {
-		return fmt.Errorf("working mode %s is not supported", options.WorkingMode)
+	if !util.IsSupportedWorkingMode(util.WorkingMode(o.WorkingMode)) {
+		return fmt.Errorf("working mode %s is not supported", o.WorkingMode)
 	}
 
-	switch options.WorkingMode {
+	switch o.WorkingMode {
 	case string(util.WorkingModeLocal):
-		if len(options.HostControlPlaneAddr) == 0 {
+		if len(o.HostControlPlaneAddr) == 0 {
 			return fmt.Errorf("host-control-plane-address is empty")
 		}
 	default:
-		if options.BootstrapMode != certificate.KubeletCertificateBootstrapMode {
-			if len(options.JoinToken) == 0 && len(options.BootstrapFile) == 0 {
+		if o.BootstrapMode != certificate.KubeletCertificateBootstrapMode {
+			if len(o.JoinToken) == 0 && len(o.BootstrapFile) == 0 {
 				return fmt.Errorf("bootstrap token and bootstrap file are empty, one of them must be set")
 			}
 		}
 
-		if !util.IsSupportedLBMode(options.LBMode) {
-			return fmt.Errorf("lb mode(%s) is not supported", options.LBMode)
+		if !util.IsSupportedLBMode(o.LBMode) {
+			return fmt.Errorf("lb mode(%s) is not supported", o.LBMode)
 		}
 
-		if err := options.verifyDummyIP(); err != nil {
-			return fmt.Errorf("dummy ip %s is not invalid, %w", options.HubAgentDummyIfIP, err)
+		if err := o.verifyDummyIP(); err != nil {
+			return fmt.Errorf("dummy ip %s is not invalid, %w", o.HubAgentDummyIfIP, err)
 		}
 
-		if len(options.HubAgentDummyIfName) > 15 {
-			return fmt.Errorf("dummy name %s length should not be more than 15", options.HubAgentDummyIfName)
+		if len(o.HubAgentDummyIfName) > 15 {
+			return fmt.Errorf("dummy name %s length should not be more than 15", o.HubAgentDummyIfName)
 		}
 
-		if len(options.CACertHashes) == 0 && !options.UnsafeSkipCAVerification {
+		if len(o.CACertHashes) == 0 && !o.UnsafeSkipCAVerification {
 			return fmt.Errorf("set --discovery-token-unsafe-skip-ca-verification flag as true or pass CACertHashes to continue")
 		}
 
-		if len(options.NodePoolName) == 0 {
+		if len(o.NodePoolName) == 0 {
 			return errors.New("node-pool-name is empty")
 		}
 
-		if len(options.NodeIP) == 0 {
+		if len(o.NodeIP) == 0 {
 			ipAddr, err := apinet.ResolveBindAddress(nil)
 			if err != nil {
 				return fmt.Errorf("couldn't get the node ip, %v", err)
 			}
-			options.NodeIP = ipAddr.String()
-			klog.Infof("node ip is configured as %s", options.NodeIP)
+			o.NodeIP = ipAddr.String()
+			klog.Infof("node ip is configured as %s", o.NodeIP)
 		}
 	}
 

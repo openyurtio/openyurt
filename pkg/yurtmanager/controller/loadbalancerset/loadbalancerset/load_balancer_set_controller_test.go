@@ -46,8 +46,8 @@ import (
 const (
 	mockServiceName   = "test"
 	mockNodePoolLabel = "app=deploy"
-	mockServiceUid    = "c0af506a-7096-4ef9-b39a-eac2feb5c07g"
-	mockNodePoolUid   = "f47dd9db-d3bc-40f3-8d03-7409930b6289"
+	mockServiceUID    = "c0af506a-7096-4ef9-b39a-eac2feb5c07g"
+	mockNodePoolUID   = "f47dd9db-d3bc-40f3-8d03-7409930b6289"
 )
 
 var (
@@ -545,7 +545,7 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 				APIVersion:         "v1",
 				Kind:               "Service",
 				Name:               mockServiceName,
-				UID:                mockServiceUid,
+				UID:                mockServiceUID,
 				BlockOwnerDeletion: &blockOwnerDeletion,
 				Controller:         &controller,
 			},
@@ -553,7 +553,7 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 				APIVersion:         "apps.openyurt.io/v1beta1",
 				Kind:               "NodePool",
 				Name:               "np123",
-				UID:                mockNodePoolUid,
+				UID:                mockNodePoolUID,
 				BlockOwnerDeletion: &blockOwnerDeletion,
 			},
 		}
@@ -689,7 +689,7 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 				APIVersion:         "v1",
 				Kind:               "Service",
 				Name:               mockServiceName,
-				UID:                mockServiceUid,
+				UID:                mockServiceUID,
 				BlockOwnerDeletion: &blockOwnerDeletion,
 				Controller:         &controller,
 			},
@@ -697,7 +697,7 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 				APIVersion:         "apps.openyurt.io/v1beta1",
 				Kind:               "NodePool",
 				Name:               "np123",
-				UID:                mockNodePoolUid,
+				UID:                mockNodePoolUID,
 				BlockOwnerDeletion: &blockOwnerDeletion,
 			},
 		}
@@ -860,7 +860,7 @@ func newService(namespace string, name string) *corev1.Service {
 			},
 			Namespace: namespace,
 			Name:      name,
-			UID:       mockServiceUid,
+			UID:       mockServiceUID,
 		},
 		Spec: corev1.ServiceSpec{
 			Type:              corev1.ServiceTypeLoadBalancer,
@@ -889,7 +889,7 @@ func newNodepool(name string, labelStr string) *v1beta2.NodePool {
 		ObjectMeta: v1.ObjectMeta{
 			Labels:     labels,
 			Name:       name,
-			UID:        mockNodePoolUid,
+			UID:        mockNodePoolUID,
 			Finalizers: []string{"openyurt.io/nodepool"},
 		},
 	}
@@ -974,14 +974,14 @@ func newPoolService(
 					Controller:         &controller,
 					Kind:               "Service",
 					Name:               mockServiceName,
-					UID:                mockServiceUid,
+					UID:                mockServiceUID,
 				}, {
 					APIVersion:         "apps.openyurt.io/v1alpha1",
 					BlockOwnerDeletion: &blockOwnerDeletion,
 					Controller:         &controller,
 					Kind:               "NodePool",
 					Name:               poolName,
-					UID:                mockNodePoolUid,
+					UID:                mockNodePoolUID,
 				},
 			},
 		},

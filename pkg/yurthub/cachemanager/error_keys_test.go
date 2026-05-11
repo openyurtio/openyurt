@@ -56,7 +56,12 @@ func TestXxx(t *testing.T) {
 	}
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			ek := NewErrorKeys()
+			aofPath, err := os.MkdirTemp("", "errorkeys")
+			if err != nil {
+				t.Errorf("failed to create dir: %v", err)
+			}
+			defer os.RemoveAll(aofPath)
+			ek := NewErrorKeys(aofPath)
 			for i := range tc.keys {
 				ek.put(tc.keys[i], tc.err[i])
 			}
@@ -76,7 +81,6 @@ func TestXxx(t *testing.T) {
 				t.Errorf("expect length %v, got %v", tc.length, ek.length())
 			}
 			ek.queue.ShutDown()
-			os.RemoveAll(AOFPrefix)
 		})
 	}
 }
@@ -91,34 +95,33 @@ func TestRecover(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to marshal: %v", err)
 	}
-	AOFPrefix = "/tmp/errorkeys"
-	err = os.MkdirAll(AOFPrefix, 0755)
+	aofPath, err := os.MkdirTemp("", "errorkeys")
 	if err != nil {
 		t.Errorf("failed to create dir: %v", err)
 	}
-	file, err := os.OpenFile(filepath.Join(AOFPrefix, "aof"), os.O_CREATE|os.O_RDWR, 0644)
+	defer os.RemoveAll(aofPath)
+	file, err := os.OpenFile(filepath.Join(aofPath, "aof"), os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		t.Errorf("failed to open file: %v", err)
 	}
 	file.Write(data)
 	file.Sync()
 	file.Close()
-	ek := NewErrorKeys()
+	ek := NewErrorKeys(aofPath)
 	ek.recover()
 	if _, ok := ek.keys[op.Key]; !ok {
 		t.Errorf("failed to recover")
 	}
 	ek.queue.ShutDown()
-	os.RemoveAll(AOFPrefix)
 }
 
 func TestCompress(t *testing.T) {
-	AOFPrefix = "/tmp/errorkeys"
-	err := os.MkdirAll(AOFPrefix, 0755)
+	aofPath, err := os.MkdirTemp("", "errorkeys")
 	if err != nil {
 		t.Errorf("failed to create dir: %v", err)
 	}
-	keys := NewErrorKeys()
+	defer os.RemoveAll(aofPath)
+	keys := NewErrorKeys(aofPath)
 	for i := 0; i < 50; i++ {
 		keys.put(fmt.Sprintf("key-%d", i), fmt.Sprintf("value-%d", i))
 	}

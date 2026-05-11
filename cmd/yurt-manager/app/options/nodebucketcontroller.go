@@ -38,13 +38,13 @@ func NewNodeBucketControllerOptions() *NodeBucketControllerOptions {
 }
 
 // AddFlags adds flags related to nodebucket for yurt-manager to the specified FlagSet.
-func (n *NodeBucketControllerOptions) AddFlags(fs *pflag.FlagSet) {
-	if n == nil {
+func (o *NodeBucketControllerOptions) AddFlags(fs *pflag.FlagSet) {
+	if o == nil {
 		return
 	}
 
-	fs.Int32Var(&n.MaxNodesPerBucket, "max-nodes-per-bucket", n.MaxNodesPerBucket, "The maximum number of nodes that will be added to a NodeBucket. More nodes per bucket will result in less node buckets, but larger resources. Defaults to 100.")
-	fs.Int32Var(&n.ConcurrentNodeBucketWorkers, "concurrent-node-bucket-workers", n.ConcurrentNodeBucketWorkers, "The number of nodebucket objects that are allowed to reconcile concurrently. Larger number = more responsive nodebuckets, but more CPU (and network) load")
+	fs.Int32Var(&o.MaxNodesPerBucket, "max-nodes-per-bucket", o.MaxNodesPerBucket, "The maximum number of nodes that will be added to a NodeBucket. More nodes per bucket will result in less node buckets, but larger resources. Defaults to 100.")
+	fs.Int32Var(&o.ConcurrentNodeBucketWorkers, "concurrent-node-bucket-workers", o.ConcurrentNodeBucketWorkers, "The number of nodebucket objects that are allowed to reconcile concurrently. Larger number = more responsive nodebuckets, but more CPU (and network) load")
 }
 
 // ApplyTo fills up nodebucket config with options.

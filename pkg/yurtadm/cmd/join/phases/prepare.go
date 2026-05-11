@@ -70,18 +70,11 @@ func RunPrepare(data joindata.YurtJoinData) error {
 	}
 
 	if data.NodeRegistration().WorkingMode != constants.LocalNode {
-		if err := yurtadmutil.SetKubeletConfigForNode(); err != nil {
-			return err
-		}
-		if err := yurthub.SetHubBootstrapConfig(data.ServerAddr(), data.JoinToken(), data.CaCertHashes()); err != nil {
-			return err
-		}
+		// All non-local nodes: install yurthub binary
 		if err := yurthub.CheckAndInstallYurthub(constants.YurthubVersion); err != nil {
 			return err
 		}
-		if err := yurthub.CreateYurthubSystemdService(data); err != nil {
-			return err
-		}
+
 		if err := yurtadmutil.SetDiscoveryConfig(data); err != nil {
 			return err
 		}

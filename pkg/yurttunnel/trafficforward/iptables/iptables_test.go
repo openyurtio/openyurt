@@ -213,9 +213,9 @@ func TestGetIPOfNodesWithoutAgent(t *testing.T) {
 	fakeInformerFactory.Core().V1().Nodes().Informer().GetStore().Add(node2)
 
 	// call getIPOfNodesWithoutAgent and check the result
-	nodesIp := iptablesMgr.getIPOfNodesWithoutAgent()
-	if len(nodesIp) != 1 && nodesIp[0] != "192.168.2.1" {
-		t.Errorf("expect nodes ip 192.168.2.1, but got %v", nodesIp)
+	nodesIP := iptablesMgr.getIPOfNodesWithoutAgent()
+	if len(nodesIP) != 1 && nodesIP[0] != "192.168.2.1" {
+		t.Errorf("expect nodes ip 192.168.2.1, but got %v", nodesIP)
 	}
 }
 

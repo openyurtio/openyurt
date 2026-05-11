@@ -84,40 +84,40 @@ func (src *Gateway) ConvertTo(dstRaw conversion.Hub) error {
 // NOTE !!!!!!! @kadisi
 // If this version is not storageversion, you need to implement the ConvertTo and ConvertFrom methods
 
-func (dst *Gateway) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*v1beta1.Gateway)
-	dst.ObjectMeta = src.ObjectMeta
-	dst.Spec.NodeSelector = src.Spec.NodeSelector
-	dst.Spec.ExposeType = ExposeType(src.Spec.ExposeType)
-	for _, eps := range src.Spec.Endpoints {
-		dst.Spec.Endpoints = append(dst.Spec.Endpoints, Endpoint{
+func (src *Gateway) ConvertFrom(srcRaw conversion.Hub) error {
+	srcRawV1beta1 := srcRaw.(*v1beta1.Gateway)
+	src.ObjectMeta = srcRawV1beta1.ObjectMeta
+	src.Spec.NodeSelector = srcRawV1beta1.Spec.NodeSelector
+	src.Spec.ExposeType = ExposeType(srcRawV1beta1.Spec.ExposeType)
+	for _, eps := range srcRawV1beta1.Spec.Endpoints {
+		src.Spec.Endpoints = append(src.Spec.Endpoints, Endpoint{
 			NodeName: eps.NodeName,
 			PublicIP: eps.PublicIP,
 			UnderNAT: eps.UnderNAT,
 			Config:   eps.Config,
 		})
 	}
-	for _, node := range src.Status.Nodes {
-		dst.Status.Nodes = append(dst.Status.Nodes, NodeInfo{
+	for _, node := range srcRawV1beta1.Status.Nodes {
+		src.Status.Nodes = append(src.Status.Nodes, NodeInfo{
 			NodeName:  node.NodeName,
 			PrivateIP: node.PrivateIP,
 			Subnets:   node.Subnets,
 		})
 	}
-	if src.Status.ActiveEndpoints == nil {
-		klog.Infof("convert from v1beta1 to v1alpha1 for %s", dst.Name)
+	if srcRawV1beta1.Status.ActiveEndpoints == nil {
+		klog.Infof("convert from v1beta1 to v1alpha1 for %s", src.Name)
 		return nil
 	}
-	if len(src.Status.ActiveEndpoints) < 1 {
-		dst.Status.ActiveEndpoint = nil
+	if len(srcRawV1beta1.Status.ActiveEndpoints) < 1 {
+		src.Status.ActiveEndpoint = nil
 	} else {
-		dst.Status.ActiveEndpoint = &Endpoint{
-			NodeName: src.Status.ActiveEndpoints[0].NodeName,
-			PublicIP: src.Status.ActiveEndpoints[0].PublicIP,
-			UnderNAT: src.Status.ActiveEndpoints[0].UnderNAT,
-			Config:   src.Status.ActiveEndpoints[0].Config,
+		src.Status.ActiveEndpoint = &Endpoint{
+			NodeName: srcRawV1beta1.Status.ActiveEndpoints[0].NodeName,
+			PublicIP: srcRawV1beta1.Status.ActiveEndpoints[0].PublicIP,
+			UnderNAT: srcRawV1beta1.Status.ActiveEndpoints[0].UnderNAT,
+			Config:   srcRawV1beta1.Status.ActiveEndpoints[0].Config,
 		}
 	}
-	klog.Infof("convert from v1beta1 to v1alpha1 for %s", dst.Name)
+	klog.Infof("convert from v1beta1 to v1alpha1 for %s", src.Name)
 	return nil
 }

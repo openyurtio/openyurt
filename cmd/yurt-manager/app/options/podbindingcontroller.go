@@ -35,12 +35,12 @@ func NewPodBindingControllerOptions() *PodBindingControllerOptions {
 }
 
 // AddFlags adds flags related to nodePool for yurt-manager to the specified FlagSet.
-func (n *PodBindingControllerOptions) AddFlags(fs *pflag.FlagSet) {
-	if n == nil {
+func (o *PodBindingControllerOptions) AddFlags(fs *pflag.FlagSet) {
+	if o == nil {
 		return
 	}
 
-	fs.Int32Var(&n.ConcurrentPodBindingWorkers, "concurrent-podbinding-workers", n.ConcurrentPodBindingWorkers, "The number of podbinding objects that are allowed to reconcile concurrently. Larger number = more responsive podbindings, but more CPU (and network) load")
+	fs.Int32Var(&o.ConcurrentPodBindingWorkers, "concurrent-podbinding-workers", o.ConcurrentPodBindingWorkers, "The number of podbinding objects that are allowed to reconcile concurrently. Larger number = more responsive podbindings, but more CPU (and network) load")
 }
 
 // ApplyTo fills up nodePool config with options.

@@ -50,7 +50,7 @@ type DeviceServiceStatus struct {
 	// Synced indicates whether the device already exists on both OpenYurt and edge platform
 	Synced bool `json:"synced,omitempty"`
 	// the Id assigned by the edge platform
-	EdgeId string `json:"edgeId,omitempty"`
+	EdgeID string `json:"edgeId,omitempty"`
 	// time in milliseconds that the device last reported data to the core
 	LastConnected int64 `json:"lastConnected,omitempty"`
 	// time in milliseconds that the device last reported data to the core

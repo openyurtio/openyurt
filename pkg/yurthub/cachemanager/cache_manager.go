@@ -254,12 +254,13 @@ func (cm *cacheManager) queryOneObject(req *http.Request) (runtime.Object, error
 	// query in-memory cache first
 	var isInMemoryCacheMiss bool
 	if obj, err := cm.queryInMemoryCache(ctx, info); err != nil {
-		if err == ErrInMemoryCacheMiss {
+		switch err {
+		case ErrInMemoryCacheMiss:
 			isInMemoryCacheMiss = true
 			klog.V(4).Infof("in-memory cache miss when handling request %s, fall back to storage query", util.ReqString(req))
-		} else if err == ErrNotNodeOrLease {
+		case ErrNotNodeOrLease:
 			klog.V(4).Infof("resource(%s) is not node or lease, it will be found in the disk not cache", info.Resource)
-		} else {
+		default:
 			klog.Errorf("cannot query in-memory cache for reqInfo %s, %v,", util.ReqInfoString(info), err)
 		}
 	} else {
@@ -694,7 +695,15 @@ func (cm *cacheManager) storeObjectWithKey(key storage.Key, obj runtime.Object) 
 func (cm *cacheManager) inMemoryCacheFor(key string, obj runtime.Object) {
 	cm.Lock()
 	defer cm.Unlock()
-	cm.inMemoryCache[key] = obj
+	// Deep copy before storing to ensure cached objects are independent.
+	// This prevents race conditions where the original object might be modified
+	// by other goroutines after being stored in the cache.
+	if obj == nil {
+		// If obj is nil, don't store anything - queryInMemoryCache should return
+		// ErrInMemoryCacheMiss for non-existent keys, not return a nil object.
+		return
+	}
+	cm.inMemoryCache[key] = obj.DeepCopyObject()
 }
 
 // isNotAssignedPod check pod is assigned to node or not
@@ -841,13 +850,20 @@ func (cm *cacheManager) queryInMemoryCache(ctx context.Context, reqInfo *apirequ
 	}
 
 	cm.RLock()
-	defer cm.RUnlock()
 	obj, ok := cm.inMemoryCache[key]
 	if !ok {
+		cm.RUnlock()
 		return nil, ErrInMemoryCacheMiss
 	}
 
-	return obj, nil
+	// Deep copy the object while holding the lock to prevent race conditions
+	// where the map entry might be replaced after we release the lock.
+	// This ensures callers get an independent copy that won't be affected
+	// by concurrent updates to the cache.
+	objCopy := obj.DeepCopyObject()
+	cm.RUnlock()
+
+	return objCopy, nil
 }
 
 func isKubeletPodRequest(req *http.Request) bool {

@@ -95,7 +95,7 @@ func Add(_ context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manager)
 
 	// Create a new controller
 	c, err := controller.New(names.CsrApproverController, mgr, controller.Options{
-		Reconciler: r, MaxConcurrentReconciles: int(cfg.Config.ComponentConfig.CsrApproverController.ConcurrentCsrApproverWorkers),
+		Reconciler: r, MaxConcurrentReconciles: int(cfg.ComponentConfig.CsrApproverController.ConcurrentCsrApproverWorkers),
 	})
 	if err != nil {
 		return err

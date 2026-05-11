@@ -382,26 +382,25 @@ func (ds *diskStorage) ReplaceComponentList(component string, gvr schema.GroupVe
 	}
 
 	// 2. create new file with contents
-	// TODO: if error happens, we may need retry mechanism, or add some mechanism to do consistency check.
-	// create abspath dir in case that contents is empty
+	// On any create/write failure: restore from tmpPath (original data) and return error.
 	if err := ds.fsOperator.CreateDir(absPath); err != nil {
 		klog.Errorf("could not create dir at %s, %v", absPath, err)
-		return err
+		return ds.restoreReplaceFromBackup(tmpPath, absPath, fmt.Errorf("could not create dir at %s, %v", absPath, err))
 	}
 	for key, data := range contents {
 		path := filepath.Join(ds.baseDir, key.Key())
 		if err := ds.fsOperator.CreateDir(filepath.Dir(path)); err != nil && err != fs.ErrExists {
 			klog.Errorf("could not create dir at %s, %v", filepath.Dir(path), err)
-			continue
+			return ds.restoreReplaceFromBackup(tmpPath, absPath, fmt.Errorf("could not create dir at %s, %v", filepath.Dir(path), err))
 		}
 		if err := ds.fsOperator.CreateFile(path, data); err != nil {
 			klog.Errorf("could not write data to %s, %v", path, err)
-			continue
+			return ds.restoreReplaceFromBackup(tmpPath, absPath, fmt.Errorf("could not write data to %s, %v", path, err))
 		}
 		klog.V(4).Infof("[diskStorage] ReplaceComponentList store data at %s", path)
 	}
 
-	//  3. delete old tmp dir
+	// 3. delete old tmp dir only when replacement fully succeeded
 	return ds.fsOperator.DeleteDir(tmpPath)
 }
 
@@ -543,6 +542,17 @@ func (ds *diskStorage) recoverDir(tmpPath string) error {
 		return err
 	}
 	return nil
+}
+
+// restoreReplaceFromBackup moves tmpPath back to absPath and returns restoreErr.
+// Use when ReplaceComponentList step 2 fails: partial new content is discarded, original is restored.
+func (ds *diskStorage) restoreReplaceFromBackup(tmpPath, absPath string, restoreErr error) error {
+	if re := ds.fsOperator.Rename(tmpPath, absPath); re != nil {
+		klog.Errorf("could not restore from backup %s to %s after error: %v; restore failed: %v", tmpPath, absPath, restoreErr, re)
+		return fmt.Errorf("replace failed: %v; restore from backup failed: %v", restoreErr, re)
+	}
+	klog.V(2).Infof("restored from backup %s to %s after error: %v", tmpPath, absPath, restoreErr)
+	return restoreErr
 }
 
 func (ds *diskStorage) lockKey(key storageKey) bool {

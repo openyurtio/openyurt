@@ -80,7 +80,7 @@ func (r *DeviceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// 1. Handle the deviceService deletion event
 	if err := r.reconcileDeleteDeviceService(ctx, &ds); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
-	} else if !ds.ObjectMeta.DeletionTimestamp.IsZero() {
+	} else if !ds.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
 	}
 
@@ -124,7 +124,7 @@ func (r *DeviceServiceReconciler) SetupWithManager(mgr ctrl.Manager, opts *optio
 func (r *DeviceServiceReconciler) reconcileDeleteDeviceService(ctx context.Context, ds *iotv1alpha1.DeviceService) error {
 	// gets the actual name of deviceService on the edge platform from the Label of the device
 	edgeDeviceServiceName := util.GetEdgeDeviceServiceName(ds, EdgeXObjectName)
-	if ds.ObjectMeta.DeletionTimestamp.IsZero() {
+	if ds.DeletionTimestamp.IsZero() {
 		if len(ds.GetFinalizers()) == 0 {
 			patchString := map[string]interface{}{
 				"metadata": map[string]interface{}{
@@ -180,8 +180,8 @@ func (r *DeviceServiceReconciler) reconcileCreateDeviceService(ctx context.Conte
 				return fmt.Errorf("could not create DeviceService to edge platform: %v", err)
 			}
 
-			klog.V(4).Infof("Successfully add DeviceService to Edge Platform, Name: %s, EdgeId: %s", ds.GetName(), createdDs.Status.EdgeId)
-			ds.Status.EdgeId = createdDs.Status.EdgeId
+			klog.V(4).Infof("Successfully add DeviceService to Edge Platform, Name: %s, EdgeId: %s", ds.GetName(), createdDs.Status.EdgeID)
+			ds.Status.EdgeID = createdDs.Status.EdgeID
 			ds.Status.Synced = true
 			util.SetDeviceServiceCondition(deviceServiceStatus, util.NewDeviceServiceCondition(iotv1alpha1.DeviceServiceSyncedCondition, corev1.ConditionTrue, "", ""))
 			return r.Status().Update(ctx, ds)
@@ -190,7 +190,7 @@ func (r *DeviceServiceReconciler) reconcileCreateDeviceService(ctx context.Conte
 		// a. If object exists, the status of the device on OpenYurt is updated
 		klog.V(4).Infof("DeviceServiceName: %s, obj already exists on edge platform", ds.GetName())
 		ds.Status.Synced = true
-		ds.Status.EdgeId = edgeDs.Status.EdgeId
+		ds.Status.EdgeID = edgeDs.Status.EdgeID
 		return r.Status().Update(ctx, ds)
 	}
 }

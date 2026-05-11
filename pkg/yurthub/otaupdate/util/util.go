@@ -53,7 +53,7 @@ func WriteJSONResponse(w http.ResponseWriter, data []byte) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	w.Header().Set(yurtutil.HttpHeaderContentType, yurtutil.HttpContentTypeJson)
+	w.Header().Set(yurtutil.HTTPHeaderContentType, yurtutil.HTTPContentTypeJSON)
 	w.WriteHeader(http.StatusOK)
 	n, err := w.Write(data)
 	if err != nil || n != len(data) {

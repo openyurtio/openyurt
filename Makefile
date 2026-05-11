@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-KUBERNETESVERSION ?=v1.32
-GOLANGCILINT_VERSION ?= v1.64.7
+KUBERNETESVERSION ?=v1.34
+GOLANGCILINT_VERSION ?= v2.11.4
 GLOBAL_GOLANGCILINT := $(shell which golangci-lint)
 GOBIN := $(shell go env GOPATH)/bin
 GOBIN_GOLANGCILINT := $(shell which $(GOBIN)/golangci-lint)
@@ -64,7 +64,7 @@ KUSTOMIZE_VERSION ?= v4.5.7
 ## Tool Binaries
 KUSTOMIZE ?= $(LOCALBIN)/kustomize
 
-KUBECTL_VERSION ?= v1.30.1
+KUBECTL_VERSION ?= v1.34.3
 KUBECTL ?= $(LOCALBIN)/kubectl
 
 YQ_VERSION := 4.13.2
@@ -141,15 +141,15 @@ install-helm: $(LOCALBIN)
 	fi
 
 install-golint: ## check golint if not exist install golint tools
-ifeq ($(shell $(GLOBAL_GOLANGCILINT) version --format short), $(GOLANGCILINT_VERSION))
+ifeq ($(shell $(GLOBAL_GOLANGCILINT) version --short), $(GOLANGCILINT_VERSION))
 GOLINT_BIN=$(GLOBAL_GOLANGCILINT)
-else ifeq ($(shell $(GOBIN_GOLANGCILINT) version --format short), $(GOLANGCILINT_VERSION))
+else ifeq ($(shell $(GOBIN_GOLANGCILINT) version --short), $(GOLANGCILINT_VERSION))
 GOLINT_BIN=$(GOBIN_GOLANGCILINT)
 else
 	@{ \
     set -e ;\
     echo 'installing golangci-lint-$(GOLANGCILINT_VERSION)' ;\
-    go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCILINT_VERSION) ;\
+    go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCILINT_VERSION) ;\
     echo 'Successfully installed' ;\
     }
 GOLINT_BIN=$(GOBIN)/golangci-lint
@@ -239,7 +239,7 @@ $(KUBECTL): $(LOCALBIN)
 		echo "$(LOCALBIN)/kubectl version is not expected $(KUBECTL_VERSION). Removing it before installing."; \
 		rm -rf $(LOCALBIN)/kubectl; \
 	fi
-	test -s $(LOCALBIN)/kubectl || curl https://storage.googleapis.com/kubernetes-release/release/$(KUBECTL_VERSION)/bin/$(shell go env GOOS)/$(shell go env GOARCH)/kubectl -o $(KUBECTL)
+	test -s $(LOCALBIN)/kubectl || curl https://dl.k8s.io/release/$(KUBECTL_VERSION)/bin/$(shell go env GOOS)/$(shell go env GOARCH)/kubectl -o $(KUBECTL)
 	chmod +x $(KUBECTL)
 
 KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"

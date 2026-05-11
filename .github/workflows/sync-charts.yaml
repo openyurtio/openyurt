@@ -8,6 +8,9 @@ on:
       - 'charts/**'
   workflow_dispatch: {}
 
+permissions:
+  contents: read
+
 jobs:
   sync-charts:
     if: github.repository == 'openyurtio/openyurt'

@@ -30,12 +30,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/metrics"
-)
-
-var (
-	AOFPrefix = "/var/lib/" + projectinfo.GetHubName() + "/autonomy"
 )
 
 const (
@@ -44,23 +39,25 @@ const (
 
 type errorKeys struct {
 	sync.RWMutex
-	keys  map[string]string
-	queue workqueue.TypedRateLimitingInterface[operation]
-	file  *os.File
-	count int
+	keys    map[string]string
+	queue   workqueue.TypedRateLimitingInterface[operation]
+	file    *os.File
+	count   int
+	aofPath string
 }
 
-func NewErrorKeys() *errorKeys {
+func NewErrorKeys(aofPath string) *errorKeys {
 	ek := &errorKeys{
-		keys:  make(map[string]string),
-		queue: workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedItemBasedRateLimiter[operation](), workqueue.TypedRateLimitingQueueConfig[operation]{Name: "error-keys"}),
+		keys:    make(map[string]string),
+		queue:   workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedItemBasedRateLimiter[operation](), workqueue.TypedRateLimitingQueueConfig[operation]{Name: "error-keys"}),
+		aofPath: aofPath,
 	}
-	err := os.MkdirAll(AOFPrefix, 0755)
+	err := os.MkdirAll(aofPath, 0755)
 	if err != nil {
 		klog.Errorf("failed to create dir: %v", err)
 		return ek
 	}
-	file, err := os.OpenFile(filepath.Join(AOFPrefix, "aof"), os.O_CREATE|os.O_RDWR, 0644)
+	file, err := os.OpenFile(filepath.Join(aofPath, "aof"), os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		klog.Errorf("failed to open file, persistency is disabled: %v", err)
 		return ek
@@ -161,7 +158,7 @@ func (ek *errorKeys) rewrite() {
 	ek.RLock()
 	defer ek.RUnlock()
 	count := 0
-	file, err := os.OpenFile(filepath.Join(AOFPrefix, "tmp_aof"), os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0644)
+	file, err := os.OpenFile(filepath.Join(ek.aofPath, "tmp_aof"), os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0644)
 	if err != nil {
 		klog.Errorf("failed to open file: %v", err)
 		return
@@ -197,13 +194,13 @@ func (ek *errorKeys) rewrite() {
 	}
 	ek.file.Close()
 
-	err = os.Rename(filepath.Join(AOFPrefix, "tmp_aof"), filepath.Join(AOFPrefix, "aof"))
+	err = os.Rename(filepath.Join(ek.aofPath, "tmp_aof"), filepath.Join(ek.aofPath, "aof"))
 	if err != nil {
 		klog.Errorf("failed to rename tmp_aof to aof, %v", err)
 	}
-	file, err = os.OpenFile(filepath.Join(AOFPrefix, "aof"), os.O_RDWR, 0644)
+	file, err = os.OpenFile(filepath.Join(ek.aofPath, "aof"), os.O_RDWR, 0644)
 	if err != nil {
-		klog.ErrorS(err, "failed to open file", "name", filepath.Join(AOFPrefix, "aof"))
+		klog.ErrorS(err, "failed to open file", "name", filepath.Join(ek.aofPath, "aof"))
 		metrics.Metrics.SetErrorKeysPersistencyStatus(0)
 		ek.queue.ShutDown()
 		return
@@ -216,7 +213,7 @@ func (ek *errorKeys) recover() {
 	var file *os.File
 	var err error
 	if ek.file == nil {
-		file, err = os.OpenFile(filepath.Join(AOFPrefix, "aof"), os.O_RDWR, 0644)
+		file, err = os.OpenFile(filepath.Join(ek.aofPath, "aof"), os.O_RDWR, 0644)
 		if err != nil {
 			return
 		}

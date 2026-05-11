@@ -56,9 +56,9 @@ func Add(ctx context.Context, c *appconfig.CompletedConfig, mgr manager.Manager)
 	return add(mgr, c, newReconciler(mgr))
 }
 
-var _ reconcile.Reconciler = &ReconcileDns{}
+var _ reconcile.Reconciler = &ReconcileDNS{}
 
-type ReconcileDns struct {
+type ReconcileDNS struct {
 	client.Client
 	scheme   *runtime.Scheme
 	recorder record.EventRecorder
@@ -66,7 +66,7 @@ type ReconcileDns struct {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileDns{
+	return &ReconcileDNS{
 		Client:   yurtClient.GetClientByControllerNameOrDie(mgr, names.GatewayDNSController),
 		scheme:   mgr.GetScheme(),
 		recorder: mgr.GetEventRecorderFor(names.GatewayDNSController),
@@ -112,7 +112,7 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;create;update;delete
 // +kubebuilder:rbac:groups=apps.openyurt.io,resources=nodepools,verbs=get
 
-func (r *ReconcileDns) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileDNS) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	klog.V(4).Info(Format("Reconcile DNS configMap for gateway %s", req.Name))
 	defer func() {
 		klog.V(4).Info(Format("finished DNS configMap for gateway %s", req.Name))
@@ -148,7 +148,7 @@ func (r *ReconcileDns) Reconcile(ctx context.Context, req reconcile.Request) (re
 
 	//3. update dns record
 	nodeList := corev1.NodeList{}
-	err = r.Client.List(ctx, &nodeList, &client.ListOptions{})
+	err = r.List(ctx, &nodeList, &client.ListOptions{})
 	if err != nil {
 		klog.Error(Format("could not list node, error %s", err.Error()))
 		return reconcile.Result{Requeue: true, RequeueAfter: 2 * time.Second}, err
@@ -163,10 +163,10 @@ func (r *ReconcileDns) Reconcile(ctx context.Context, req reconcile.Request) (re
 	return reconcile.Result{}, nil
 }
 
-func (r ReconcileDns) getProxyDNS(ctx context.Context, objKey client.ObjectKey) (*corev1.ConfigMap, error) {
+func (r ReconcileDNS) getProxyDNS(ctx context.Context, objKey client.ObjectKey) (*corev1.ConfigMap, error) {
 	var cm corev1.ConfigMap
 	waitErr := wait.PollUntilContextTimeout(ctx, 5*time.Second, time.Minute, true, func(ctx context.Context) (done bool, err error) {
-		err = r.Client.Get(ctx, objKey, &cm)
+		err = r.Get(ctx, objKey, &cm)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				err = r.buildRavenDNSConfigMap()
@@ -187,7 +187,7 @@ func (r ReconcileDns) getProxyDNS(ctx context.Context, objKey client.ObjectKey) 
 	return cm.DeepCopy(), nil
 }
 
-func (r *ReconcileDns) buildRavenDNSConfigMap() error {
+func (r *ReconcileDNS) buildRavenDNSConfigMap() error {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      util.RavenProxyNodesConfig,
@@ -197,40 +197,40 @@ func (r *ReconcileDns) buildRavenDNSConfigMap() error {
 			util.ProxyNodesKey: "",
 		},
 	}
-	err := r.Client.Create(context.TODO(), cm, &client.CreateOptions{})
+	err := r.Create(context.TODO(), cm, &client.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("could not create ConfigMap %s/%s, error %s", cm.GetNamespace(), cm.GetName(), err.Error())
 	}
 	return nil
 }
 
-func (r *ReconcileDns) getService(ctx context.Context, objectKey client.ObjectKey) (*corev1.Service, error) {
+func (r *ReconcileDNS) getService(ctx context.Context, objectKey client.ObjectKey) (*corev1.Service, error) {
 	svc := corev1.Service{}
-	err := r.Client.Get(ctx, objectKey, &svc)
+	err := r.Get(ctx, objectKey, &svc)
 	if err != nil {
 		return nil, err
 	}
 	return svc.DeepCopy(), nil
 }
 
-func (r *ReconcileDns) updateDNS(cm *corev1.ConfigMap) error {
-	err := r.Client.Update(context.TODO(), cm, &client.UpdateOptions{})
+func (r *ReconcileDNS) updateDNS(cm *corev1.ConfigMap) error {
+	err := r.Update(context.TODO(), cm, &client.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("could not update configmap %s/%s, %s", cm.GetNamespace(), cm.GetName(), err.Error())
 	}
 	return nil
 }
 
-func buildDNSRecords(nodeList *corev1.NodeList, needProxy bool, proxyIp string) string {
+func buildDNSRecords(nodeList *corev1.NodeList, needProxy bool, proxyIP string) string {
 	// record node name <-> ip address
-	if needProxy && proxyIp == "" {
+	if needProxy && proxyIP == "" {
 		klog.Infoln(Format("internal proxy address is empty for dns record, redirect node internal address"))
 		needProxy = false
 	}
 	var err error
 	dns := make([]string, 0, len(nodeList.Items))
 	for _, node := range nodeList.Items {
-		ip := proxyIp
+		ip := proxyIP
 		if !needProxy {
 			ip, err = getHostIP(&node)
 			if err != nil {

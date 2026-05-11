@@ -45,8 +45,7 @@ func TestName(t *testing.T) {
 
 func TestFilter(t *testing.T) {
 	masterServiceHost := "169.251.2.1"
-	var masterServicePort int32
-	masterServicePort = 10268
+	var masterServicePort int32 = 10268
 	masterServicePortStr := "10268"
 
 	testcases := map[string]struct {

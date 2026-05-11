@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated but still supported for backward compatibility
 package informers
 
 import (
@@ -44,6 +45,7 @@ func RegisterInformersForTunnelServer(informerFactory informers.SharedInformerFa
 	informerFactory.InformerFor(&corev1.ConfigMap{}, newConfigMapInformer)
 
 	// add endpoints informers
+	//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated but still supported for backward compatibility
 	informerFactory.InformerFor(&corev1.Endpoints{}, newEndPointsInformer)
 }
 

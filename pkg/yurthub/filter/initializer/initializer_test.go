@@ -46,7 +46,7 @@ func TestNew(t *testing.T) {
 	masterServicePort := "8080"
 
 	obj := New(sharedFactory, fakeClient, nodeName, nodePoolName, masterServiceHost, masterServicePort)
-	_, ok := obj.(filter.Initializer)
+	_, ok := interface{}(obj).(filter.Initializer)
 	if !ok {
 		t.Errorf("expect a filter Initializer object, but got %v", reflect.TypeOf(obj))
 	}
@@ -79,27 +79,27 @@ func TestInitialize(t *testing.T) {
 		},
 		"init node err filter": {
 			fn:     NewNodeErrFilter,
-			result: nodeNameErr,
+			result: errNodeName,
 		},
 		"init pool err filter": {
 			fn:     NewPoolErrFilter,
-			result: poolNameErr,
+			result: errPoolName,
 		},
 		"init master svc host err filter": {
 			fn:     NewMasterSvcHostErrFilter,
-			result: masterSvcHostErr,
+			result: errMasterSvcHost,
 		},
 		"init master svc port err filter": {
 			fn:     NewMasterSvcPortErrFilter,
-			result: masterSvcPortErr,
+			result: errMasterSvcPort,
 		},
 		"init factory err filter": {
 			fn:     NewFactoryErrFilter,
-			result: factoryErr,
+			result: errFactory,
 		},
 		"init kube client err filter": {
 			fn:     NewKubeClientErrFilter,
-			result: kubeClientErr,
+			result: errKubeClient,
 		},
 	}
 	fakeClient := &fake.Clientset{}
@@ -139,12 +139,12 @@ func (bef *baseErrFilter) Filter(obj runtime.Object, _ <-chan struct{}) runtime.
 }
 
 var (
-	nodeNameErr      = errors.New("node name error")
-	poolNameErr      = errors.New("pool name error")
-	masterSvcHostErr = errors.New("master svc host error")
-	masterSvcPortErr = errors.New("master svc port error")
-	factoryErr       = errors.New("factory error")
-	kubeClientErr    = errors.New("kube client error")
+	errNodeName      = errors.New("node name error")
+	errPoolName      = errors.New("pool name error")
+	errMasterSvcHost = errors.New("master svc host error")
+	errMasterSvcPort = errors.New("master svc port error")
+	errFactory       = errors.New("factory error")
+	errKubeClient    = errors.New("kube client error")
 )
 
 type nodeErrFilter struct {
@@ -154,7 +154,7 @@ type nodeErrFilter struct {
 
 func NewNodeErrFilter() (filter.ObjectFilter, error) {
 	return &nodeErrFilter{
-		err: nodeNameErr,
+		err: errNodeName,
 	}, nil
 }
 
@@ -169,7 +169,7 @@ type poolErrFilter struct {
 
 func NewPoolErrFilter() (filter.ObjectFilter, error) {
 	return &poolErrFilter{
-		err: poolNameErr,
+		err: errPoolName,
 	}, nil
 }
 
@@ -184,7 +184,7 @@ type masterSvcHostErrFilter struct {
 
 func NewMasterSvcHostErrFilter() (filter.ObjectFilter, error) {
 	return &masterSvcHostErrFilter{
-		err: masterSvcHostErr,
+		err: errMasterSvcHost,
 	}, nil
 }
 
@@ -203,7 +203,7 @@ type masterSvcPortErrFilter struct {
 
 func NewMasterSvcPortErrFilter() (filter.ObjectFilter, error) {
 	return &masterSvcPortErrFilter{
-		err: masterSvcPortErr,
+		err: errMasterSvcPort,
 	}, nil
 }
 
@@ -222,7 +222,7 @@ type factoryErrFilter struct {
 
 func NewFactoryErrFilter() (filter.ObjectFilter, error) {
 	return &factoryErrFilter{
-		err: factoryErr,
+		err: errFactory,
 	}, nil
 }
 
@@ -237,7 +237,7 @@ type kubeClientErrFilter struct {
 
 func NewKubeClientErrFilter() (filter.ObjectFilter, error) {
 	return &kubeClientErrFilter{
-		err: kubeClientErr,
+		err: errKubeClient,
 	}, nil
 }
 

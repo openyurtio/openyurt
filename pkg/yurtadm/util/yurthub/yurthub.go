@@ -49,38 +49,38 @@ var (
 	execCommand             = exec.Command
 	lookPath                = exec.LookPath
 	checkYurthubHealthzFunc = CheckYurthubHealthz
+	downloadFile            = yurtadmutil.DownloadFile
+	copyFile                = edgenode.CopyFile
 )
 
 func CheckAndInstallYurthub(yurthubVersion string) error {
-
 	klog.Infof("Check and install yurthub %s", yurthubVersion)
 	if yurthubVersion == "" {
 		return errors.New("yurthub version should not be empty")
 	}
 
-	if _, err := lookPath(constants.YurthubExecStart); err == nil {
+	if _, err := lookPath(yurthubExecStartPath); err == nil {
 		klog.Infof("Yurthub binary already exists, skip install.")
 		return nil
 	}
 
-	packageUrl := fmt.Sprintf(constants.YurthubExecUrlFormat, constants.YurthubExecResourceServer, yurthubVersion, runtime.GOARCH)
+	packageURL := fmt.Sprintf(constants.YurthubExecURLFormat, constants.YurthubExecResourceServer, yurthubVersion, runtime.GOARCH)
 	savePath := fmt.Sprintf("%s/yurthub", constants.TmpDownloadDir)
-	klog.V(1).Infof("Download yurthub from: %s", packageUrl)
-	if err := yurtadmutil.DownloadFile(packageUrl, savePath, 3); err != nil {
+	klog.V(1).Infof("Download yurthub from: %s", packageURL)
+	if err := downloadFile(packageURL, savePath, 3); err != nil {
 		return fmt.Errorf("download yurthub fail: %w", err)
 	}
-	if err := edgenode.CopyFile(savePath, constants.YurthubExecStart, 0755); err != nil {
+	if err := copyFile(savePath, yurthubExecStartPath, 0755); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func setYurthubMainService() error {
+func setYurthubMainService(serviceDir string) error {
 	klog.Info("Setting yurthub main service.")
 
-	serviceFile := constants.YurthubServicePath
-	serviceDir := filepath.Dir(serviceFile)
+	serviceFile := serviceDir + "/yurthub.service"
 
 	if _, err := os.Stat(serviceDir); err != nil {
 		if os.IsNotExist(err) {
@@ -102,41 +102,49 @@ func setYurthubMainService() error {
 	return nil
 }
 
-func setYurthubUnitService(data joindata.YurtJoinData) error {
+func setYurthubUnitService(hubUnitConfigDir string, data joindata.YurtJoinData) error {
+	return setYurthubUnitServiceWithConfig(hubUnitConfigDir, NewYurthubHostConfigFromJoinData(data))
+}
+
+func setYurthubUnitServiceWithConfig(hubUnitConfigDir string, cfg *YurthubHostConfig) error {
 	klog.Info("Setting yurthub unit service.")
 
-	ctx := map[string]string{
-		"bindAddress":   "127.0.0.1",
-		"serverAddr":    fmt.Sprintf("https://%s", data.ServerAddr()),
-		"nodeName":      data.NodeRegistration().Name,
-		"bootstrapFile": constants.YurtHubBootstrapConfig,
-		"workingMode":   data.NodeRegistration().WorkingMode,
-		"namespace":     data.Namespace(),
+	if err := cfg.validateForSystemdService(); err != nil {
+		return err
 	}
 
-	if len(data.NodeRegistration().NodePoolName) != 0 {
-		ctx["nodePoolName"] = data.NodeRegistration().NodePoolName
+	ctx := map[string]string{
+		"bindAddress":   cfg.bindAddress(),
+		"bootstrapArgs": cfg.bootstrapArgs(),
+		"namespace":     cfg.namespace(),
+		"nodeName":      cfg.NodeName,
+		"serverAddr":    cfg.normalizedServerAddr(),
+		"workingMode":   cfg.WorkingMode,
+	}
+
+	if len(cfg.NodePoolName) != 0 {
+		ctx["nodePoolName"] = cfg.NodePoolName
 	}
 
 	unitContent, err := templates.SubstituteTemplate(constants.YurtHubUnitConfig, ctx)
 	if err != nil {
+		klog.Errorf("SubstituteTemplate error: %v", err)
 		return err
 	}
 
-	unitDir := filepath.Dir(constants.YurthubServiceConfPath)
-	if _, err := os.Stat(unitDir); err != nil {
+	if _, err := os.Stat(hubUnitConfigDir); err != nil {
 		if os.IsNotExist(err) {
-			if err := os.MkdirAll(unitDir, os.ModePerm); err != nil {
-				klog.Errorf("Create dir %s fail: %v", unitDir, err)
+			if err := os.MkdirAll(hubUnitConfigDir, os.ModePerm); err != nil {
+				klog.Errorf("Create dir %s fail: %v", hubUnitConfigDir, err)
 				return err
 			}
 		} else {
-			klog.Errorf("Describe dir %s fail: %v", unitDir, err)
+			klog.Errorf("Describe dir %s fail: %v", hubUnitConfigDir, err)
 			return err
 		}
 	}
 
-	unitFile := constants.YurthubServiceConfPath
+	unitFile := filepath.Join(hubUnitConfigDir, filepath.Base(yurthubServiceConfFilePath))
 	if err := os.WriteFile(unitFile, []byte(unitContent), 0644); err != nil {
 		klog.Errorf("Write file %s fail: %v", unitFile, err)
 		return err
@@ -146,30 +154,118 @@ func setYurthubUnitService(data joindata.YurtJoinData) error {
 }
 
 func CreateYurthubSystemdService(data joindata.YurtJoinData) error {
-	if err := setYurthubMainService(); err != nil {
+	return CreateYurthubSystemdServiceWithConfig(NewYurthubHostConfigFromJoinData(data))
+}
+
+func CreateYurthubSystemdServiceWithConfig(cfg *YurthubHostConfig) error {
+	if err := setYurthubMainService(filepath.Dir(yurthubServiceFilePath)); err != nil {
 		return err
 	}
 
-	if err := setYurthubUnitService(data); err != nil {
+	if err := setYurthubUnitServiceWithConfig(filepath.Dir(yurthubServiceConfFilePath), cfg); err != nil {
 		return err
 	}
 
-	cmd := execCommand("systemctl", "daemon-reload")
-	if err := cmd.Run(); err != nil {
+	if err := ReloadYurthubSystemdConfig(); err != nil {
 		return err
 	}
 
-	cmd = execCommand("systemctl", "enable", constants.YurtHubServiceName)
-	if err := cmd.Run(); err != nil {
+	if err := EnableYurthubService(); err != nil {
 		return err
 	}
 
-	cmd = execCommand("systemctl", "start", constants.YurtHubServiceName)
-	if err := cmd.Run(); err != nil {
+	if err := StartYurthubService(); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func ReloadYurthubSystemdConfig() error {
+	return runSystemctl("daemon-reload")
+}
+
+func EnableYurthubService() error {
+	return runSystemctl("enable", constants.YurtHubServiceName)
+}
+
+func StartYurthubService() error {
+	return runSystemctl("start", constants.YurtHubServiceName)
+}
+
+func StopYurthubService() error {
+	return runSystemctlWithIgnoredErrors([]string{"not loaded", "not found", "does not exist"}, "stop", constants.YurtHubServiceName)
+}
+
+func DisableYurthubService() error {
+	return runSystemctlWithIgnoredErrors([]string{"not loaded", "not found", "does not exist"}, "disable", constants.YurtHubServiceName)
+}
+
+func RemoveYurthubSystemdService() error {
+	if err := os.RemoveAll(yurthubServiceFilePath); err != nil {
+		return err
+	}
+
+	if err := os.RemoveAll(filepath.Dir(yurthubServiceConfFilePath)); err != nil {
+		return err
+	}
+
+	return ReloadYurthubSystemdConfig()
+}
+
+func RemoveYurthubBinary() error {
+	return os.RemoveAll(yurthubExecStartPath)
+}
+
+func CleanYurthubHostArtifacts() error {
+	if err := StopYurthubService(); err != nil {
+		return err
+	}
+	if err := DisableYurthubService(); err != nil {
+		return err
+	}
+	if err := RemoveYurthubSystemdService(); err != nil {
+		return err
+	}
+	if err := RemoveYurthubBinary(); err != nil {
+		return err
+	}
+	if err := CleanHubBootstrapConfig(); err != nil {
+		return err
+	}
+	if err := os.RemoveAll(yurthubWorkDirPath); err != nil {
+		return err
+	}
+	if err := os.RemoveAll(yurthubCacheDirPath); err != nil {
+		return err
+	}
+	return nil
+}
+
+func runSystemctl(args ...string) error {
+	return runSystemctlWithIgnoredErrors(nil, args...)
+}
+
+func runSystemctlWithIgnoredErrors(ignoredSubstrings []string, args ...string) error {
+	cmd := execCommand("systemctl", args...)
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		return nil
+	}
+
+	outputText := strings.ToLower(strings.TrimSpace(string(output)))
+	for _, ignoredSubstring := range ignoredSubstrings {
+		if strings.Contains(outputText, ignoredSubstring) {
+			klog.V(1).Infof("Ignore systemctl error, args=%v, output=%s", args, outputText)
+			return nil
+		}
+	}
+
+	if len(outputText) == 0 {
+		return err
+	}
+
+	return fmt.Errorf("%w: %s", err, outputText)
 }
 
 // AddYurthubStaticYaml generate YurtHub static yaml for worker node.
@@ -245,11 +341,11 @@ func SetHubBootstrapConfig(serverAddr string, joinToken string, caCertHashes []s
 		)
 
 		// make sure the parent directory of YurtHubBootstrapConfig exists
-		if err := os.MkdirAll(filepath.Dir(constants.YurtHubBootstrapConfig), os.ModePerm); err != nil {
+		if err := os.MkdirAll(filepath.Dir(yurthubBootstrapConfigPath), os.ModePerm); err != nil {
 			return err
 		}
 
-		if err = kubeconfigutil.WriteToDisk(constants.YurtHubBootstrapConfig, tlsBootstrapCfg); err != nil {
+		if err = kubeconfigutil.WriteToDisk(yurthubBootstrapConfigPath, tlsBootstrapCfg); err != nil {
 			return errors.Wrap(err, "couldn't save bootstrap-hub.conf to disk")
 		}
 	}
@@ -328,8 +424,8 @@ func CheckYurthubReadyzOnce(yurthubServer string) bool {
 }
 
 func CleanHubBootstrapConfig() error {
-	if err := os.RemoveAll(constants.YurtHubBootstrapConfig); err != nil {
-		klog.Warningf("Clean file %s fail: %v, please clean it manually.", constants.YurtHubBootstrapConfig, err)
+	if err := os.RemoveAll(yurthubBootstrapConfigPath); err != nil {
+		klog.Warningf("Clean file %s fail: %v, please clean it manually.", yurthubBootstrapConfigPath, err)
 	}
 	return nil
 }

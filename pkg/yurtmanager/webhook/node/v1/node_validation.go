@@ -19,6 +19,7 @@ package v1
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -26,8 +27,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/openyurtio/openyurt/cmd/yurt-manager/names"
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	webhookutil "github.com/openyurtio/openyurt/pkg/yurtmanager/webhook/util"
 )
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
@@ -46,7 +49,8 @@ func (webhook *NodeHandler) ValidateUpdate(ctx context.Context, oldObj, newObj r
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a Node} but got a %T", oldObj))
 	}
 
-	if allErrs := validateNodeUpdate(newNode, oldNode); len(allErrs) > 0 {
+	username := requestUsernameFromContext(ctx)
+	if allErrs := validateNodeUpdate(newNode, oldNode, username); len(allErrs) > 0 {
 		return nil, apierrors.NewInvalid(v1.SchemeGroupVersion.WithKind("Node").GroupKind(), newNode.Name, allErrs)
 	}
 
@@ -58,16 +62,18 @@ func (webhook *NodeHandler) ValidateDelete(_ context.Context, obj runtime.Object
 	return nil, nil
 }
 
-func validateNodeUpdate(newNode, oldNode *v1.Node) field.ErrorList {
+func validateNodeUpdate(newNode, oldNode *v1.Node, username string) field.ErrorList {
 	oldNp := oldNode.Labels[projectinfo.GetNodePoolLabel()]
 	newNp := newNode.Labels[projectinfo.GetNodePoolLabel()]
 	oldNpHostNetwork := oldNode.Labels[apps.NodePoolHostNetworkLabel]
 	newNpHostNetwork := newNode.Labels[apps.NodePoolHostNetworkLabel]
+	oldEdgeWorker := oldNode.Labels[projectinfo.GetEdgeWorkerLabelKey()]
+	newEdgeWorker := newNode.Labels[projectinfo.GetEdgeWorkerLabelKey()]
 
 	var errList field.ErrorList
-	// it is not allowed to change NodePoolLabel if it has been set
-	if len(oldNp) != 0 && oldNp != newNp {
-		errList = append(errList, field.Forbidden(field.NewPath("metadata").Child("labels").Child(projectinfo.GetNodePoolLabel()), "apps.openyurt.io/nodepool can not be changed"))
+	// apps.openyurt.io/nodepool can be added or removed, but in-place value mutation is forbidden.
+	if len(oldNp) != 0 && len(newNp) != 0 && oldNp != newNp {
+		errList = append(errList, field.Forbidden(field.NewPath("metadata").Child("labels").Child(projectinfo.GetNodePoolLabel()), "apps.openyurt.io/nodepool can only be added or removed, not modified in-place"))
 	}
 
 	// it is not allowed to change NodePoolHostNetworkLabel if it has been set
@@ -75,8 +81,37 @@ func validateNodeUpdate(newNode, oldNode *v1.Node) field.ErrorList {
 		errList = append(errList, field.Forbidden(field.NewPath("metadata").Child("labels").Child(apps.NodePoolHostNetworkLabel), "nodepool.openyurt.io/hostnetwork can not be changed"))
 	}
 
+	if oldEdgeWorker != newEdgeWorker && !isAllowedToModifyEdgeWorkerLabel(username) {
+		errList = append(errList, field.Forbidden(
+			field.NewPath("metadata").Child("labels").Child(projectinfo.GetEdgeWorkerLabelKey()),
+			"openyurt.io/is-edge-worker can only be modified by YurtNodeConversionController or the node certificate process",
+		))
+	}
+
 	if len(errList) != 0 {
 		return errList
 	}
 	return nil
+}
+
+func requestUsernameFromContext(ctx context.Context) string {
+	req, err := admission.RequestFromContext(ctx)
+	if err != nil {
+		return ""
+	}
+	return req.UserInfo.Username
+}
+
+func isAllowedToModifyEdgeWorkerLabel(username string) bool {
+	if strings.HasPrefix(username, "system:node:") {
+		return true
+	}
+
+	expectedControllerUser := fmt.Sprintf(
+		"system:serviceaccount:%s:%s-%s",
+		webhookutil.GetNamespace(),
+		projectinfo.GetYurtManagerName(),
+		names.YurtNodeConversionController,
+	)
+	return username == expectedControllerUser
 }

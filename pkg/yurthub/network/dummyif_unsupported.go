@@ -47,6 +47,6 @@ func (uic *unsupportedInterfaceController) DeleteDummyInterface(ifName string) e
 }
 
 // ListDummyInterface unimplemented
-func (dic *unsupportedInterfaceController) ListDummyInterface(ifName string) ([]net.IP, error) {
+func (uic *unsupportedInterfaceController) ListDummyInterface(ifName string) ([]net.IP, error) {
 	return []net.IP{}, nil
 }

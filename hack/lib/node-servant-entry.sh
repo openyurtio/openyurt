@@ -22,8 +22,10 @@ fi
 
 mkdir -p /openyurt/usr/local/servant
 cp /usr/local/bin/node-servant /openyurt/usr/local/servant/
+if [ -f /usr/local/bin/yurthub ]; then
+    cp /usr/local/bin/yurthub /openyurt/usr/local/servant/
+fi
 
 chmod -R +x /openyurt/usr/local/servant/
 chroot /openyurt /usr/local/servant/node-servant "$@"
 rm -rf /openyurt/usr/local/servant
-

@@ -100,7 +100,7 @@ func PodsCreatedByLabel(c clientset.Interface, ns, name string, replicas int32, 
 			return pods, nil
 		}
 	}
-	return nil, fmt.Errorf("Pod name %s: Gave up waiting %v for %d pods to come up", name, timeout, replicas)
+	return nil, fmt.Errorf("pod name %s: gave up waiting %v for %d pods to come up", name, timeout, replicas)
 }
 
 func podsRunning(c clientset.Interface, pods *apiv1.PodList) []error {

@@ -114,7 +114,7 @@ func (matcher ErrorMatcher) FailureMessage(actual interface{}) (message string) 
 	}
 
 	if actualOK && !expectedOK {
-		return format.Message(actualError.Error(), "to equal", expectedError.Error())
+		return format.Message(actualError.Error(), "to equal", "<nil>")
 	}
 
 	if !actualOK && expectedOK {
@@ -135,7 +135,7 @@ func (matcher ErrorMatcher) NegatedFailureMessage(actual interface{}) (message s
 	}
 
 	if actualOK && !expectedOK {
-		return format.Message(actualError.Error(), "not to equal", expectedError.Error())
+		return format.Message(actualError.Error(), "not to equal", "<nil>")
 	}
 
 	if !actualOK && expectedOK {

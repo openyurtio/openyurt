@@ -32,12 +32,12 @@ func NewEndpointsControllerOptions() *EndpointsControllerOptions {
 }
 
 // AddFlags adds flags related to servicetopology endpoints for yurt-manager to the specified FlagSet.
-func (n *EndpointsControllerOptions) AddFlags(fs *pflag.FlagSet) {
-	if n == nil {
+func (o *EndpointsControllerOptions) AddFlags(fs *pflag.FlagSet) {
+	if o == nil {
 		return
 	}
 
-	fs.Int32Var(&n.ConcurrentEndpointsWorkers, "concurrent-endpoints-workers", n.ConcurrentEndpointsWorkers, "Max concurrent workers for servicetopology-endpoints controller.")
+	fs.Int32Var(&o.ConcurrentEndpointsWorkers, "concurrent-endpoints-workers", o.ConcurrentEndpointsWorkers, "Max concurrent workers for servicetopology-endpoints controller.")
 }
 
 // ApplyTo fills up servicetopolgy endpoints config with options.

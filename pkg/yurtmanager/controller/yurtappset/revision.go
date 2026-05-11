@@ -111,7 +111,7 @@ func (r *ReconcileYurtAppSet) constructYurtAppSetRevisions(yas *appsbetav1.YurtA
 		// if the equivalent revision is valid and not immediately prior, we will roll back by incrementing the
 		// Revision of the equivalent revision
 		equalRevisions[equalCount-1].Revision = updateRevision.Revision
-		err := r.Client.Update(context.TODO(), equalRevisions[equalCount-1])
+		err := r.Update(context.TODO(), equalRevisions[equalCount-1])
 		if err != nil {
 			return nil, nil, collisionCount, err
 		}

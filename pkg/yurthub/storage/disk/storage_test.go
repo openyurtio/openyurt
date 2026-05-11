@@ -246,6 +246,32 @@ var _ = Describe("Test DiskStorage Setup", func() {
 		})
 	})
 
+	Context("Test restoreReplaceFromBackup", func() {
+		It("should move tmpPath to absPath and return restoreErr", func() {
+			tmpPath := filepath.Join(baseDir, "kubelet/configmaps.v1.core/tmp_default")
+			absPath := filepath.Join(baseDir, "kubelet/configmaps.v1.core/default")
+			tmpData := []byte("tmp")
+			err = fileGenerator(tmpPath, tmpData)
+			Expect(err).To(BeNil())
+
+			restoreErr := fmt.Errorf("replace failed: create dir error")
+			err = store.restoreReplaceFromBackup(tmpPath, absPath, restoreErr)
+			Expect(err).To(Equal(restoreErr))
+			Expect(fs.IfExists(tmpPath)).To(BeFalse())
+			err = fileChecker(absPath, tmpData)
+			Expect(err).To(BeNil())
+		})
+		It("should return combined error when Rename fails", func() {
+			tmpPath := filepath.Join(baseDir, "nonexistent/tmp_backup")
+			absPath := filepath.Join(baseDir, "nonexistent/backup")
+			restoreErr := fmt.Errorf("create failed")
+			err = store.restoreReplaceFromBackup(tmpPath, absPath, restoreErr)
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(ContainSubstring("replace failed"))
+			Expect(err.Error()).To(ContainSubstring("restore from backup failed"))
+		})
+	})
+
 	Context("Test Recover", func() {
 		It("should recover cache", func() {
 			tmpResourcesDir := filepath.Join(baseDir, "kubelet/tmp_configmaps")
@@ -1138,7 +1164,7 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 		It("should create new version content if it does not exists", func() {
 			err = store.SaveClusterInfo(&storage.ClusterInfoKey{
 				ClusterInfoType: storage.Version,
-				UrlPath:         "/version",
+				URLPath:         "/version",
 			}, []byte(versionJSONBytes))
 			Expect(err).To(BeNil())
 			buf, err := checkFileAt(filepath.Join(baseDir, string(storage.Version)))
@@ -1152,7 +1178,7 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 			Expect(err).To(BeNil())
 			err = store.SaveClusterInfo(&storage.ClusterInfoKey{
 				ClusterInfoType: storage.Version,
-				UrlPath:         "/version",
+				URLPath:         "/version",
 			}, newVersionBytes)
 			Expect(err).To(BeNil())
 			buf, err := checkFileAt(path)
@@ -1175,7 +1201,7 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 			Expect(err).To(BeNil())
 			buf, err := store.GetClusterInfo(&storage.ClusterInfoKey{
 				ClusterInfoType: storage.Version,
-				UrlPath:         "/version",
+				URLPath:         "/version",
 			})
 			Expect(err).To(BeNil())
 			Expect(buf).To(Equal([]byte(versionJSONBytes)))
@@ -1183,7 +1209,7 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 		It("should return ErrStorageNotFound if version info has not been cached", func() {
 			_, err = store.GetClusterInfo(&storage.ClusterInfoKey{
 				ClusterInfoType: storage.Version,
-				UrlPath:         "/version",
+				URLPath:         "/version",
 			})
 			Expect(err).To(Equal(storage.ErrStorageNotFound))
 		})

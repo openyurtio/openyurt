@@ -45,7 +45,7 @@ var profileClient = NewEdgexDeviceProfile("edgex-core-metadata:59881")
 
 func Test_ListProfile(t *testing.T) {
 
-	httpmock.ActivateNonDefault(profileClient.Client.GetClient())
+	httpmock.ActivateNonDefault(profileClient.GetClient())
 	defer httpmock.DeactivateAndReset()
 
 	httpmock.RegisterResponder("GET", "http://edgex-core-metadata:59881/api/v3/deviceprofile/all?limit=-1",
@@ -57,7 +57,7 @@ func Test_ListProfile(t *testing.T) {
 }
 
 func Test_GetProfile(T *testing.T) {
-	httpmock.ActivateNonDefault(profileClient.Client.GetClient())
+	httpmock.ActivateNonDefault(profileClient.GetClient())
 	defer httpmock.DeactivateAndReset()
 
 	httpmock.RegisterResponder("GET", "http://edgex-core-metadata:59881/api/v3/deviceprofile/name/Random-Boolean-Device",
@@ -68,7 +68,7 @@ func Test_GetProfile(T *testing.T) {
 }
 
 func Test_CreateProfile(t *testing.T) {
-	httpmock.ActivateNonDefault(profileClient.Client.GetClient())
+	httpmock.ActivateNonDefault(profileClient.GetClient())
 	defer httpmock.DeactivateAndReset()
 
 	httpmock.RegisterResponder("POST", "http://edgex-core-metadata:59881/api/v3/deviceprofile",
@@ -93,7 +93,7 @@ func Test_CreateProfile(t *testing.T) {
 }
 
 func Test_DeleteProfile(t *testing.T) {
-	httpmock.ActivateNonDefault(profileClient.Client.GetClient())
+	httpmock.ActivateNonDefault(profileClient.GetClient())
 	defer httpmock.DeactivateAndReset()
 
 	httpmock.RegisterResponder("DELETE", "http://edgex-core-metadata:59881/api/v3/deviceprofile/name/test-Random-Boolean-Device",

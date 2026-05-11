@@ -31,6 +31,7 @@ type YurtManagerOptions struct {
 	CsrApproverController        *CsrApproverControllerOptions
 	NodePoolController           *NodePoolControllerOptions
 	YurtStaticSetController      *YurtStaticSetControllerOptions
+	YurtNodeConversionController *YurtNodeConversionControllerOptions
 	YurtAppSetController         *YurtAppSetControllerOptions
 	PlatformAdminController      *PlatformAdminControllerOptions
 	NodeLifeCycleController      *NodeLifecycleControllerOptions
@@ -57,6 +58,7 @@ func NewYurtManagerOptions() (*YurtManagerOptions, error) {
 		CsrApproverController:        NewCsrApproverControllerOptions(),
 		NodePoolController:           NewNodePoolControllerOptions(),
 		YurtStaticSetController:      NewYurtStaticSetControllerOptions(),
+		YurtNodeConversionController: NewYurtNodeConversionControllerOptions(),
 		YurtAppSetController:         NewYurtAppSetControllerOptions(),
 		PlatformAdminController:      NewPlatformAdminControllerOptions(),
 		NodeLifeCycleController:      NewNodeLifecycleControllerOptions(),
@@ -85,6 +87,7 @@ func (y *YurtManagerOptions) Flags(allControllers, disabledByDefaultControllers 
 	y.NodePoolController.AddFlags(fss.FlagSet("nodepool controller"))
 	y.YurtAppSetController.AddFlags(fss.FlagSet("yurtappset controller"))
 	y.YurtStaticSetController.AddFlags(fss.FlagSet("yurtstaticset controller"))
+	y.YurtNodeConversionController.AddFlags(fss.FlagSet("yurtnodeconversion controller"))
 	y.PlatformAdminController.AddFlags(fss.FlagSet("iot controller"))
 	y.NodeLifeCycleController.AddFlags(fss.FlagSet("nodelifecycle controller"))
 	y.NodeBucketController.AddFlags(fss.FlagSet("nodebucket controller"))
@@ -111,6 +114,7 @@ func (y *YurtManagerOptions) Validate(allControllers []string, controllerAliases
 	errs = append(errs, y.NodePoolController.Validate()...)
 	errs = append(errs, y.YurtAppSetController.Validate()...)
 	errs = append(errs, y.YurtStaticSetController.Validate()...)
+	errs = append(errs, y.YurtNodeConversionController.Validate()...)
 	errs = append(errs, y.PlatformAdminController.Validate()...)
 	errs = append(errs, y.NodeLifeCycleController.Validate()...)
 	errs = append(errs, y.NodeBucketController.Validate()...)
@@ -148,6 +152,9 @@ func (y *YurtManagerOptions) ApplyTo(c *config.Config, controllerAliases map[str
 		return err
 	}
 	if err := y.YurtStaticSetController.ApplyTo(&c.ComponentConfig.YurtStaticSetController); err != nil {
+		return err
+	}
+	if err := y.YurtNodeConversionController.ApplyTo(&c.ComponentConfig.YurtNodeConversionController); err != nil {
 		return err
 	}
 	if err := y.PlatformAdminController.ApplyTo(&c.ComponentConfig.PlatformAdminController); err != nil {

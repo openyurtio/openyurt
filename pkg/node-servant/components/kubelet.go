@@ -35,6 +35,7 @@ const (
 	apiserverAddrRegularExpression = "server: (http(s)?:\\/\\/)?[\\w][-\\w]{0,62}(\\.[\\w][-\\w]{0,62})*(:[\\d]{1,5})?"
 
 	kubeAdmFlagsEnvFile = "/var/lib/kubelet/kubeadm-flags.env"
+	fileMode            = 0666
 	dirMode             = 0755
 )
 
@@ -219,8 +220,8 @@ func restartKubeletService() error {
 	return nil
 }
 
-// GetApiServerAddress parse apiServer address from conf file
-func GetApiServerAddress(kubeadmConfPaths []string) (string, error) {
+// GetAPIServerAddress parse apiServer address from conf file
+func GetAPIServerAddress(kubeadmConfPaths []string) (string, error) {
 	var kbcfg string
 	for _, path := range kubeadmConfPaths {
 		if exist, _ := enutil.FileExists(path); exist {

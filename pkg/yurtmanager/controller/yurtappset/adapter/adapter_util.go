@@ -72,7 +72,6 @@ func attachTolerations(podSpec *corev1.PodSpec, poolConfig *appsv1alpha1.Pool) {
 		podSpec.Tolerations = []corev1.Toleration{}
 	}
 	podSpec.Tolerations = append(podSpec.Tolerations, poolConfig.Tolerations...)
-	return
 }
 func getRevision(objMeta metav1.Object) string {
 	if objMeta.GetLabels() == nil {

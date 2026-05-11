@@ -30,13 +30,27 @@ readonly IMAGE_TARGETS=(
 
 http_proxy=${http_proxy:-}
 https_proxy=${https_proxy:-}
-targets=${@:-${IMAGE_TARGETS[@]}}
+targets=("$@")
+if [[ ${#targets[@]} -eq 0 ]]; then
+    targets=("${IMAGE_TARGETS[@]}")
+fi
+
+build_targets=("${targets[@]}")
+for target in "${targets[@]}"; do
+    if [[ ${target} == "yurt-node-servant" ]]; then
+        if [[ ! " ${build_targets[*]} " =~ " yurthub " ]]; then
+            build_targets+=("yurthub")
+        fi
+        break
+    fi
+done
+
 REGION=${REGION:-}
 IMAGE_REPO=${IMAGE_REPO:-"openyurt"}
 IMAGE_TAG=${IMAGE_TAG:-$(get_image_tag)}
 DOCKER_BUILD_ARGS=""
 DOCKER_EXTRA_ENVS=""
-BUILD_BASE_IMAGE="golang:1.24.1"
+BUILD_BASE_IMAGE="golang:1.25.0"
 BUILD_GOPROXY=$(go env GOPROXY)
 GOPROXY_CN="https://goproxy.cn"
 APKREPO_MIRROR_CN="mirrors.aliyun.com"
@@ -70,9 +84,17 @@ fi
 # --user $(id -u ${USER}):$(id -g ${USER})
 # to enable the docker container to build binaries with the
 # same user:group as the current user:group of host.
+
+# Use bind-mount with SELinux relabel (,z) only when running under Podman,
+# as Docker's --mount syntax does not support the 'z' field.
+MOUNT_OPT="type=bind,dst=/build/,src=${YURT_ROOT}"
+if command -v podman &> /dev/null && docker --version 2>&1 | grep -qi podman; then
+    MOUNT_OPT="${MOUNT_OPT},z"
+fi
+
 docker run \
     --rm --name openyurt-build \
-    --mount type=bind,dst=/build/,src=${YURT_ROOT} \
+    --mount "${MOUNT_OPT}" \
     --workdir=/build/ \
     --env GOPROXY=${BUILD_GOPROXY} \
     --env GOOS=${TARGETOS} \
@@ -80,7 +102,7 @@ docker run \
     --env GOCACHE=/tmp/ \
     ${DOCKER_EXTRA_ENVS} \
     ${BUILD_BASE_IMAGE} \
-    /bin/bash -c "git config --global --add safe.directory /build && GIT_VERSION=${GIT_VERSION} ./hack/make-rules/build.sh ${targets[@]}"
+    /bin/bash -c "git config --global --add safe.directory /build && GIT_VERSION=${GIT_VERSION} ./hack/make-rules/build.sh ${build_targets[*]}"
 
 # build images
 for image in ${targets[@]}; do

@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated but still supported for backward compatibility
 package locallb
 
 import (
@@ -65,6 +66,7 @@ func newLocalLBManagerWithDeps(tenantKasAddress string, iptMgr IptablesManagerIn
 }
 
 func (m *locallbManager) addEndpoints(obj interface{}) {
+	//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated but still supported for backward compatibility
 	endpoints, ok := obj.(*corev1.Endpoints)
 	if !ok {
 		klog.Errorf("could not convert to *corev1.Endpoints")
@@ -84,6 +86,7 @@ func (m *locallbManager) addEndpoints(obj interface{}) {
 	m.iptablesManager.updateIptablesRules(m.tenantKasService, m.apiserverAddrs)
 }
 
+//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated but still supported for backward compatibility
 func (m *locallbManager) updateEndpoints(oldObj, newObj interface{}) {
 	oldEndpoints, ok := oldObj.(*corev1.Endpoints)
 	if !ok {

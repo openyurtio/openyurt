@@ -150,7 +150,7 @@ func (webhook *PlatformAdminHandler) validatePlatformAdminWithNodePools(
 
 	nodePoolMap := make(map[string]bool)
 	for _, nodePool := range nodepools.Items {
-		nodePoolMap[nodePool.ObjectMeta.Name] = true
+		nodePoolMap[nodePool.Name] = true
 	}
 
 	invalidPools := []string{}

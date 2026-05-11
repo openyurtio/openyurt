@@ -116,7 +116,12 @@ func UpdatePod(clientset kubernetes.Interface, nodeName string) http.Handler {
 		}
 
 		var upgrader OTAUpgrader
-		kind := pod.GetOwnerReferences()[0].Kind
+		ownerRefs := pod.GetOwnerReferences()
+		if len(ownerRefs) == 0 {
+			util.WriteErr(w, "Pod has no owner references", http.StatusBadRequest)
+			return
+		}
+		kind := ownerRefs[0].Kind
 		switch kind {
 		case StaticPod:
 			ok, staticName, err := upgrade.PreCheck(podName, nodeName, namespace, clientset)

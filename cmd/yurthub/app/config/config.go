@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated but still supported for backward compatibility
 package config
 
 import (
@@ -126,6 +127,7 @@ func Complete(options *options.YurtHubOptions, stopCh <-chan struct{}) (*YurtHub
 			informer.SetTransform(pkgutil.TransformStripManagedFields())
 			return informer
 		}
+		//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated but still supported for backward compatibility
 		sharedFactory.InformerFor(&corev1.Endpoints{}, newEndpointsInformer)
 		cfg.SharedFactory = sharedFactory
 	case util.WorkingModeCloud, util.WorkingModeEdge:
@@ -135,7 +137,7 @@ func Complete(options *options.YurtHubOptions, stopCh <-chan struct{}) (*YurtHub
 		}
 		cfg.RemoteServers = us
 		cfg.LBMode = options.LBMode
-		tenantNamespce := util.ParseTenantNsFromOrgs(options.YurtHubCertOrganizations)
+		tenantNamespace := util.ParseTenantNsFromOrgs(options.YurtHubCertOrganizations)
 		cfg.PoolScopeResources = options.PoolScopeResources
 		cfg.PortForMultiplexer = options.PortForMultiplexer
 		cfg.NodePoolName = options.NodePoolName
@@ -166,7 +168,7 @@ func Complete(options *options.YurtHubOptions, stopCh <-chan struct{}) (*YurtHub
 			options.NodePoolName,
 			options.NodeName,
 			(cfg.WorkingMode == util.WorkingModeCloud),
-			tenantNamespce,
+			tenantNamespace,
 		)
 
 		certMgr, err := certificatemgr.NewYurtHubCertManager(options, us)
@@ -207,7 +209,7 @@ func Complete(options *options.YurtHubOptions, stopCh <-chan struct{}) (*YurtHub
 		cfg.DynamicSharedFactory = dynamicSharedFactory
 		cfg.CertManager = certMgr
 		cfg.TransportAndDirectClientManager = transportAndClientManager
-		cfg.TenantManager = tenant.New(tenantNamespce, sharedFactory, stopCh)
+		cfg.TenantManager = tenant.New(tenantNamespace, sharedFactory, stopCh)
 
 		// create feature configurations for both cloud and edge working mode as following:
 		// - configuration manager: monitor yurt-hub-cfg configmap and adopting changes dynamically.

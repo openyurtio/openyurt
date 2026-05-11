@@ -123,7 +123,7 @@ func toKubeDeviceService(ds dtos.DeviceService, namespace string) iotv1alpha1.De
 			BaseAddress: ds.BaseAddress,
 		},
 		Status: iotv1alpha1.DeviceServiceStatus{
-			EdgeId:     ds.Id,
+			EdgeID:     ds.Id,
 			AdminState: iotv1alpha1.AdminState(ds.AdminState),
 			// TODO: Metric LastConnected / LastReported
 		},
@@ -143,8 +143,8 @@ func toEdgeXDevice(d *iotv1alpha1.Device) dtos.Device {
 		ServiceName: d.Spec.Service,
 		ProfileName: d.Spec.Profile,
 	}
-	if d.Status.EdgeId != "" {
-		md.Id = d.Status.EdgeId
+	if d.Status.EdgeID != "" {
+		md.Id = d.Status.EdgeID
 	}
 	return md
 }
@@ -164,8 +164,8 @@ func toEdgeXUpdateDevice(d *iotv1alpha1.Device) dtos.UpdateDevice {
 		ProfileName:    &d.Spec.Profile,
 		// TODO: Metric LastConnected / LastReported
 	}
-	if d.Status.EdgeId != "" {
-		md.Id = &d.Status.EdgeId
+	if d.Status.EdgeID != "" {
+		md.Id = &d.Status.EdgeID
 	}
 	return md
 }
@@ -191,9 +191,10 @@ func toEdgeXAdminState(as iotv1alpha1.AdminState) models.AdminState {
 }
 
 func toEdgeXOperatingState(os iotv1alpha1.OperatingState) models.OperatingState {
-	if os == iotv1alpha1.Up {
+	switch os {
+	case iotv1alpha1.Up:
 		return models.Up
-	} else if os == iotv1alpha1.Down {
+	case iotv1alpha1.Down:
 		return models.Down
 	}
 	return models.Unknown
@@ -227,7 +228,7 @@ func toKubeDevice(ed dtos.Device, namespace string) iotv1alpha1.Device {
 		Status: iotv1alpha1.DeviceStatus{
 			// TODO: Metric LastConnected / LastReported
 			Synced:         true,
-			EdgeId:         ed.Id,
+			EdgeID:         ed.Id,
 			AdminState:     iotv1alpha1.AdminState(ed.AdminState),
 			OperatingState: iotv1alpha1.OperatingState(ed.OperatingState),
 		},
@@ -281,7 +282,7 @@ func toKubeDeviceProfile(dp *dtos.DeviceProfile, namespace string) iotv1alpha1.D
 			DeviceCommands:  toKubeDeviceCommand(dp.DeviceCommands),
 		},
 		Status: iotv1alpha1.DeviceProfileStatus{
-			EdgeId: dp.Id,
+			EdgeID: dp.Id,
 			Synced: true,
 		},
 	}

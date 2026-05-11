@@ -94,7 +94,12 @@ func (lp *LocalProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 // localDelete handles Delete requests when remote servers are unhealthy
 func localDelete(w http.ResponseWriter, req *http.Request) error {
 	ctx := req.Context()
-	info, _ := apirequest.RequestInfoFrom(ctx)
+	info, ok := apirequest.RequestInfoFrom(ctx)
+	if !ok || info == nil {
+		klog.Errorf("request info not found for delete request %s", hubutil.ReqString(req))
+		return apierrors.NewInternalError(fmt.Errorf("request info not found"))
+	}
+
 	s := &metav1.Status{
 		Status: metav1.StatusFailure,
 		Code:   http.StatusForbidden,
@@ -115,7 +120,11 @@ func (lp *LocalProxy) localPost(w http.ResponseWriter, req *http.Request) error 
 	var buf bytes.Buffer
 
 	ctx := req.Context()
-	info, _ := apirequest.RequestInfoFrom(ctx)
+	info, ok := apirequest.RequestInfoFrom(ctx)
+	if !ok || info == nil {
+		klog.Errorf("request info not found for post request %s", hubutil.ReqString(req))
+		return apierrors.NewInternalError(fmt.Errorf("request info not found"))
+	}
 	reqContentType, _ := hubutil.ReqContentTypeFrom(ctx)
 	if info.Resource == "events" && len(reqContentType) != 0 {
 		ctx = hubutil.WithRespContentType(ctx, reqContentType)
@@ -129,7 +138,7 @@ func (lp *LocalProxy) localPost(w http.ResponseWriter, req *http.Request) error 
 		req.Body = rc
 	}
 
-	headerNStr := req.Header.Get(yurtutil.HttpHeaderContentLength)
+	headerNStr := req.Header.Get(yurtutil.HTTPHeaderContentLength)
 	headerN, _ := strconv.Atoi(headerNStr)
 	n, err := buf.ReadFrom(req.Body)
 	if err != nil || (headerN != 0 && int(n) != headerN) {
@@ -168,8 +177,8 @@ func (lp *LocalProxy) localWatch(w http.ResponseWriter, req *http.Request) error
 
 	ctx := req.Context()
 	contentType, _ := hubutil.ReqContentTypeFrom(ctx)
-	w.Header().Set(yurtutil.HttpHeaderContentType, contentType)
-	w.Header().Set(yurtutil.HttpHeaderTransferEncoding, "chunked")
+	w.Header().Set(yurtutil.HTTPHeaderContentType, contentType)
+	w.Header().Set(yurtutil.HTTPHeaderTransferEncoding, "chunked")
 	w.WriteHeader(http.StatusOK)
 	flusher.Flush()
 
@@ -212,7 +221,10 @@ func (lp *LocalProxy) localReqCache(w http.ResponseWriter, req *http.Request) er
 	obj, err := lp.cacheMgr.QueryCache(req)
 	if errors.Is(err, storage.ErrStorageNotFound) || errors.Is(err, hubmeta.ErrGVRNotRecognized) {
 		klog.Errorf("object not found for %s", hubutil.ReqString(req))
-		reqInfo, _ := apirequest.RequestInfoFrom(req.Context())
+		reqInfo, ok := apirequest.RequestInfoFrom(req.Context())
+		if !ok || reqInfo == nil {
+			return apierrors.NewInternalError(fmt.Errorf("request info not found"))
+		}
 		return apierrors.NewNotFound(schema.GroupResource{Group: reqInfo.APIGroup, Resource: reqInfo.Resource}, reqInfo.Name)
 	} else if err != nil {
 		klog.Errorf("could not query cache for %s, %v", hubutil.ReqString(req), err)
@@ -227,7 +239,7 @@ func (lp *LocalProxy) localReqCache(w http.ResponseWriter, req *http.Request) er
 
 func copyHeader(dst, src http.Header) {
 	for k, vv := range src {
-		if k == yurtutil.HttpHeaderContentType || k == yurtutil.HttpHeaderContentLength {
+		if k == yurtutil.HTTPHeaderContentType || k == yurtutil.HTTPHeaderContentLength {
 			for _, v := range vv {
 				dst.Add(k, v)
 			}

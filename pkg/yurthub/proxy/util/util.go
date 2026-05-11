@@ -315,7 +315,8 @@ func WithRequestTimeout(handler http.Handler) http.Handler {
 		if info, ok := apirequest.RequestInfoFrom(req.Context()); ok {
 			if info.IsResourceRequest && needModifyTimeoutVerb[info.Verb] {
 				var timeout time.Duration
-				if info.Verb == "list" || info.Verb == "watch" {
+				switch info.Verb {
+				case "list", "watch":
 					opts := metainternalversion.ListOptions{}
 					if err := metainternalversionscheme.ParameterCodec.DecodeParameters(req.URL.Query(), metav1.SchemeGroupVersion, &opts); err != nil {
 						klog.Errorf("could not decode parameter for list/watch request: %s", util.ReqString(req))
@@ -329,7 +330,7 @@ func WithRequestTimeout(handler http.Handler) http.Handler {
 							timeout = time.Duration(*opts.TimeoutSeconds-getAndListTimeoutReduce) * time.Second
 						}
 					}
-				} else if info.Verb == "get" {
+				case "get":
 					query := req.URL.Query()
 					if str := query["timeout"]; len(str) > 0 {
 						if t, err := time.ParseDuration(str[0]); err == nil {

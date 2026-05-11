@@ -49,8 +49,7 @@ func TestNewCertManagerFactoryWithFnAndStore(t *testing.T) {
 	}
 
 	cmf := NewCertManagerFactoryWithFnAndStore(csFn, store)
-
-	if _, ok := cmf.(CertManagerFactory); !ok {
+	if _, ok := interface{}(cmf).(CertManagerFactory); !ok {
 		t.Errorf("expect CertManagerFactory object, but got %v", cmf)
 	}
 }

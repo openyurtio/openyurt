@@ -30,8 +30,11 @@ func NewRevertCmd() *cobra.Command {
 		Use:   "revert",
 		Short: "",
 		Run: func(cmd *cobra.Command, args []string) {
-			if err := o.Complete(cmd.Flags()); err != nil {
+			if err := o.Complete(); err != nil {
 				klog.Fatalf("could not complete the revert option: %s", err)
+			}
+			if err := o.Validate(); err != nil {
+				klog.Fatalf("could not validate the revert option: %s", err)
 			}
 
 			r := revert.NewReverterWithOptions(o)
@@ -42,13 +45,7 @@ func NewRevertCmd() *cobra.Command {
 		},
 		Args: cobra.NoArgs,
 	}
-	setFlags(cmd)
 
+	o.AddFlags(cmd.Flags())
 	return cmd
-}
-
-// setFlags sets flags.
-func setFlags(cmd *cobra.Command) {
-	cmd.Flags().String("kubeadm-conf-path", "",
-		"The path to kubelet service conf that is used by kubelet component to join the cluster on the edge node.")
 }

@@ -177,7 +177,7 @@ func (frc *filterReadCloser) streamResponseFilter(rc io.ReadCloser, ch chan *byt
 
 		newObj := obj
 		// BOOKMARK and ERROR response are unnecessary to filter
-		if !(watchType == watch.Bookmark || watchType == watch.Error) {
+		if watchType != watch.Bookmark && watchType != watch.Error {
 			if newObj = frc.objectFilter.Filter(obj, frc.stopCh); yurtutil.IsNil(newObj) {
 				// if an object is removed in the filter chain, it means that this object is not needed
 				// to return back to clients(like kube-proxy). but in order to update the client's local cache,

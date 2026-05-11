@@ -26,15 +26,17 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/reset/resetdata"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
+	"github.com/openyurtio/openyurt/pkg/yurtadm/util/yurthub"
 )
 
 var (
-	execCommand = exec.Command
+	stopYurthubServiceFunc    = yurthub.StopYurthubService
+	disableYurthubServiceFunc = yurthub.DisableYurthubService
 )
 
 func RunResetNode(data resetdata.YurtResetData, in io.Reader, out io.Writer, outErr io.Writer) error {
 	if _, err := exec.LookPath("kubeadm"); err != nil {
-		klog.Fatalf("kubeadm is not installed, you can refer to this link for installation: %s.", constants.KubeadmInstallUrl)
+		klog.Fatalf("kubeadm is not installed, you can refer to this link for installation: %s.", constants.KubeadmInstallURL)
 		return err
 	}
 
@@ -60,15 +62,13 @@ func RunResetNode(data resetdata.YurtResetData, in io.Reader, out io.Writer, out
 	return nil
 }
 
+// runStopYurthubService stops and disables the yurthub systemd service.
+// Uses fault-tolerant helpers that silently ignore "not loaded" / "not found"
+// errors, so reset works correctly on nodes that never had yurthub installed
+// (e.g. local-mode nodes).
 func runStopYurthubService() error {
-	cmd := execCommand("systemctl", "stop", constants.YurtHubServiceName)
-	if err := cmd.Run(); err != nil {
+	if err := stopYurthubServiceFunc(); err != nil {
 		return err
 	}
-
-	cmd = execCommand("systemctl", "disable", constants.YurtHubServiceName)
-	if err := cmd.Run(); err != nil {
-		return err
-	}
-	return nil
+	return disableYurthubServiceFunc()
 }

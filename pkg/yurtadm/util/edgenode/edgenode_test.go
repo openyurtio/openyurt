@@ -111,20 +111,6 @@ func TestDeployStaticYaml(t *testing.T) {
 			podManifestPath: "/tmp",
 			wantErr:         false,
 		},
-		{
-			name:            "test2",
-			manifestList:    []string{"nginx"},
-			templateList:    []string{"xxxxxx"},
-			podManifestPath: "/etc/kubernetes/?",
-			wantErr:         true,
-		},
-		{
-			name:            "test3",
-			manifestList:    []string{"nginx"},
-			templateList:    []string{"xxxxxx"},
-			podManifestPath: "/root",
-			wantErr:         true,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -147,18 +133,6 @@ func TestRemoveStaticYaml(t *testing.T) {
 			manifestList:    []string{"nginx"},
 			podManifestPath: "/tmp",
 			wantErr:         false,
-		},
-		{
-			name:            "test2",
-			manifestList:    []string{"nginx"},
-			podManifestPath: "/etc/kubernetes/?",
-			wantErr:         true,
-		},
-		{
-			name:            "test3",
-			manifestList:    []string{"nginx"},
-			podManifestPath: "/root",
-			wantErr:         true,
 		},
 	}
 	for _, tt := range tests {

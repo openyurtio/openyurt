@@ -35,12 +35,12 @@ func NewLoadBalancerSetControllerOptions() *LoadBalancerSetControllerOptions {
 }
 
 // AddFlags adds flags related to poolservice for yurt-manager to the specified FlagSet.
-func (n *LoadBalancerSetControllerOptions) AddFlags(fs *pflag.FlagSet) {
-	if n == nil {
+func (o *LoadBalancerSetControllerOptions) AddFlags(fs *pflag.FlagSet) {
+	if o == nil {
 		return
 	}
 
-	fs.Int32Var(&n.ConcurrentLoadBalancerSetWorkers, "concurrent-load-balancer-set-workers", n.ConcurrentLoadBalancerSetWorkers, "The number of load-balancer-set service objects that are allowed to reconcile concurrently. Larger number = more responsive load-balancer-set services, but more CPU (and network) load")
+	fs.Int32Var(&o.ConcurrentLoadBalancerSetWorkers, "concurrent-load-balancer-set-workers", o.ConcurrentLoadBalancerSetWorkers, "The number of load-balancer-set service objects that are allowed to reconcile concurrently. Larger number = more responsive load-balancer-set services, but more CPU (and network) load")
 }
 
 // ApplyTo fills up poolservice config with options.

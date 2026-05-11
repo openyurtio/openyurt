@@ -181,7 +181,7 @@ func (ds *DeviceSyncer) findDiffDevice(
 // syncEdgeToKube creates device on OpenYurt which are exists in edge platform but not in OpenYurt
 func (ds *DeviceSyncer) syncEdgeToKube(edgeDevs map[string]*iotv1alpha1.Device) error {
 	for _, ed := range edgeDevs {
-		if err := ds.Client.Create(context.TODO(), ed); err != nil {
+		if err := ds.Create(context.TODO(), ed); err != nil {
 			if apierrors.IsAlreadyExists(err) {
 				continue
 			}
@@ -195,7 +195,7 @@ func (ds *DeviceSyncer) syncEdgeToKube(edgeDevs map[string]*iotv1alpha1.Device) 
 // deleteDevices deletes redundant device on OpenYurt
 func (ds *DeviceSyncer) deleteDevices(redundantKubeDevices map[string]*iotv1alpha1.Device) error {
 	for _, kd := range redundantKubeDevices {
-		if err := ds.Client.Delete(context.TODO(), kd); err != nil {
+		if err := ds.Delete(context.TODO(), kd); err != nil {
 			klog.V(5).ErrorS(err, "could not delete the device on OpenYurt",
 				"DeviceName", kd.Name)
 			return err
@@ -205,7 +205,7 @@ func (ds *DeviceSyncer) deleteDevices(redundantKubeDevices map[string]*iotv1alph
 				"finalizers": []string{},
 			},
 		})
-		if err := ds.Client.Patch(context.TODO(), kd, client.RawPatch(types.MergePatchType, patchData)); err != nil {
+		if err := ds.Patch(context.TODO(), kd, client.RawPatch(types.MergePatchType, patchData)); err != nil {
 			klog.V(5).ErrorS(err, "could not remove finalizer of Device on Kubernetes", "Device", kd.Name)
 			return err
 		}

@@ -133,7 +133,7 @@ func TestGetRandomBalancingProbability(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			actual := im.getRamdomBalancingProbability(tc.numOfIPs)
+			actual := im.getRandomBalancingProbability(tc.numOfIPs)
 			assert.InDeltaSlice(t, tc.expected, actual, 0.00001, "Calculated probabilities do not match expected values")
 		})
 	}

@@ -252,10 +252,7 @@ func NewNodePoolPredicated() predicate.Predicate {
 }
 
 func isNodePoolChange(oldNp, newNp *v1beta2.NodePool) bool {
-	if !reflect.DeepEqual(oldNp.Labels, newNp.Labels) {
-		return true
-	}
-	return false
+	return !reflect.DeepEqual(oldNp.Labels, newNp.Labels)
 }
 
 func nodePoolHasLabels(np *v1beta2.NodePool) bool {

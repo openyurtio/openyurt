@@ -31,6 +31,27 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 )
 
+func TestWithFakeTokenInjectNilRequestInfo(t *testing.T) {
+	t.Run("nil request info delegates to inner handler", func(t *testing.T) {
+		innerCalled := false
+		innerHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			innerCalled = true
+			w.WriteHeader(http.StatusOK)
+		})
+
+		sm := serializer.NewSerializerManager()
+		wrapped := WithFakeTokenInject(innerHandler, sm)
+
+		req, _ := http.NewRequest("POST", "/api/v1/namespaces/default/serviceaccounts/test/token", nil)
+		w := httptest.NewRecorder()
+
+		wrapped.ServeHTTP(w, req)
+
+		assert.True(t, innerCalled, "inner handler should be called when RequestInfo is nil")
+		assert.Equal(t, http.StatusOK, w.Result().StatusCode)
+	})
+}
+
 func TestCreateSerializer(t *testing.T) {
 	tests := []struct {
 		name             string

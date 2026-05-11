@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 )
 
@@ -62,7 +63,7 @@ type storageWrapper struct {
 func NewStorageWrapper(storage storage.Store) StorageWrapper {
 	sw := &storageWrapper{
 		store:             storage,
-		errorKeys:         NewErrorKeys(),
+		errorKeys:         NewErrorKeys("/var/lib/" + projectinfo.GetHubName() + "/autonomy"),
 		backendSerializer: json.NewSerializerWithOptions(json.DefaultMetaFactory, scheme.Scheme, scheme.Scheme, json.SerializerOptions{}),
 	}
 	sw.errorKeys.recover()
@@ -202,9 +203,10 @@ func (sw *storageWrapper) Update(key storage.Key, obj runtime.Object, rv uint64)
 	}
 
 	if buf, err := sw.store.Update(key, buf.Bytes(), rv); err != nil {
-		if err == storage.ErrStorageNotFound {
+		switch err {
+		case storage.ErrStorageNotFound:
 			return nil, err
-		} else if err == storage.ErrUpdateConflict {
+		case storage.ErrUpdateConflict:
 			// if error is ErrUpdateConflict, it's no need to record this error into errorKeys,
 			// because only old version object is rejected and there is no affect to the local cache.
 			//get the gvk from json data

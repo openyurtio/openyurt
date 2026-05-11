@@ -536,10 +536,6 @@ func TestReconcile(t *testing.T) {
 			if err != nil {
 				t.Errorf("expect an error, but got no error")
 			} else {
-				if err != nil {
-					t.Errorf("expect no error, but got an error, %v", err)
-					return
-				}
 
 				if tc.csrV1Supported {
 					v1Instance := &certificatesv1.CertificateSigningRequest{}
