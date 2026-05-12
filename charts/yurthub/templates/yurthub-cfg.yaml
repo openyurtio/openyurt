@@ -82,6 +82,12 @@ rules:
       - yurt-static-set-yurt-hub-cloud
     verbs:
       - get
+  - apiGroups:
+      - apps.openyurt.io
+    resources:
+      - nodepools
+    verbs:
+      - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
