@@ -37,6 +37,9 @@ nodeServant:
     repository: node-servant
     tag: "latest"
 
+yurthub:
+  cacheAgents: ""
+
 # support extra args of yurt-manager cmd
 extraArgs: []
 

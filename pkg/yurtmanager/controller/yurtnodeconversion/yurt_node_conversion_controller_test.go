@@ -89,6 +89,7 @@ func TestReconcileConvertSuccess(t *testing.T) {
 	require.NoError(t, cli.Get(context.Background(), types.NamespacedName{Name: "node-a"}, updatedNode))
 	assert.False(t, updatedNode.Spec.Unschedulable)
 	assert.Equal(t, "true", updatedNode.Labels[projectinfo.GetEdgeWorkerLabelKey()])
+	assert.Equal(t, "pool-a", updatedNode.Labels["topology.kubernetes.io/zone"])
 
 	cond := getConversionCondition(updatedNode)
 	require.NotNil(t, cond)
@@ -196,6 +197,7 @@ func TestReconcileRevertSuccess(t *testing.T) {
 	require.NoError(t, cli.Get(context.Background(), types.NamespacedName{Name: "node-a"}, updatedNode))
 	assert.False(t, updatedNode.Spec.Unschedulable)
 	assert.NotContains(t, updatedNode.Labels, projectinfo.GetEdgeWorkerLabelKey())
+	assert.NotContains(t, updatedNode.Labels, "topology.kubernetes.io/zone")
 
 	cond := getConversionCondition(updatedNode)
 	require.NotNil(t, cond)
@@ -564,4 +566,73 @@ func newCloudNodePool(name string) *appsv1beta2.NodePool {
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 		Spec:       appsv1beta2.NodePoolSpec{Type: appsv1beta2.Cloud},
 	}
+}
+
+func TestConvertSuccessKeepsExistingNonNodePoolZoneLabel(t *testing.T) {
+	node := newNode("node-a", map[string]string{
+		projectinfo.GetNodePoolLabel(): "pool-a",
+		"topology.kubernetes.io/zone":  "old-zone",
+	}, true, newNodeCondition(reasonConverting, corev1.ConditionFalse))
+	job := newConversionJobForTest(t, actionConvert, "node-a")
+	job.Status.Conditions = []batchv1.JobCondition{{
+		Type:   batchv1.JobComplete,
+		Status: corev1.ConditionTrue,
+	}}
+	job.Status.Succeeded = 1
+
+	r, cli := newReconcilerForTest(t, node, job)
+
+	_, err := r.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Name: "node-a"}})
+	require.NoError(t, err)
+
+	updatedNode := &corev1.Node{}
+	require.NoError(t, cli.Get(context.Background(), types.NamespacedName{Name: "node-a"}, updatedNode))
+	assert.Equal(t, "old-zone", updatedNode.Labels["topology.kubernetes.io/zone"],
+		"zone label should be kept when it does not match the nodepool name")
+}
+
+func TestRevertSuccessRemovesNodePoolZoneLabel(t *testing.T) {
+	node := newNode("node-a", map[string]string{
+		projectinfo.GetEdgeWorkerLabelKey(): "true",
+		"topology.kubernetes.io/zone":       "pool-a",
+	}, true, newNodeCondition(reasonReverting, corev1.ConditionFalse))
+	job := newConversionJobForTest(t, actionRevert, "node-a")
+	job.Status.Conditions = []batchv1.JobCondition{{
+		Type:   batchv1.JobComplete,
+		Status: corev1.ConditionTrue,
+	}}
+	job.Status.Succeeded = 1
+
+	r, cli := newReconcilerForTest(t, node, job, newEdgeNodePool("pool-a"))
+
+	_, err := r.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Name: "node-a"}})
+	require.NoError(t, err)
+
+	updatedNode := &corev1.Node{}
+	require.NoError(t, cli.Get(context.Background(), types.NamespacedName{Name: "node-a"}, updatedNode))
+	assert.NotContains(t, updatedNode.Labels, "topology.kubernetes.io/zone",
+		"nodepool zone label should be removed after revert")
+}
+
+func TestRevertSuccessKeepsNonNodePoolZoneLabel(t *testing.T) {
+	node := newNode("node-a", map[string]string{
+		projectinfo.GetEdgeWorkerLabelKey(): "true",
+		"topology.kubernetes.io/zone":       "old-zone",
+	}, true, newNodeCondition(reasonReverting, corev1.ConditionFalse))
+	job := newConversionJobForTest(t, actionRevert, "node-a")
+	job.Status.Conditions = []batchv1.JobCondition{{
+		Type:   batchv1.JobComplete,
+		Status: corev1.ConditionTrue,
+	}}
+	job.Status.Succeeded = 1
+
+	r, cli := newReconcilerForTest(t, node, job, newEdgeNodePool("pool-a"))
+
+	_, err := r.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Name: "node-a"}})
+	require.NoError(t, err)
+
+	updatedNode := &corev1.Node{}
+	require.NoError(t, cli.Get(context.Background(), types.NamespacedName{Name: "node-a"}, updatedNode))
+	assert.Equal(t, "old-zone", updatedNode.Labels["topology.kubernetes.io/zone"],
+		"non-nodepool zone label should be kept after revert")
 }

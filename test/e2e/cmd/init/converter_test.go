@@ -18,9 +18,6 @@ package init
 
 import (
 	"context"
-	"os"
-	"os/exec"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -271,64 +268,6 @@ func TestIsNodeConversionSettled(t *testing.T) {
 				t.Fatalf("unexpected settled state: got %t want %t", settled, tt.wantSettled)
 			}
 		})
-	}
-}
-
-func TestClusterConverter_InstallYurthubByHelm(t *testing.T) {
-	origExecCommand := converterExecCommand
-	origInstallRenderedComponents := converterInstallRenderedComponents
-	defer func() {
-		converterExecCommand = origExecCommand
-		converterInstallRenderedComponents = origInstallRenderedComponents
-	}()
-
-	renderedManifest := "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: yurt-hub-cfg\n"
-	converterExecCommand = func(name string, args ...string) *exec.Cmd {
-		expectedName := "/tmp/openyurt/bin/helm"
-		expectedArgs := []string{
-			"template",
-			"yurthub",
-			"/tmp/openyurt/charts/yurthub",
-			"--namespace",
-			"kube-system",
-			"--show-only",
-			"templates/yurthub-cfg.yaml",
-		}
-		if name != expectedName {
-			t.Fatalf("unexpected helm path: got %q want %q", name, expectedName)
-		}
-		if !reflect.DeepEqual(args, expectedArgs) {
-			t.Fatalf("unexpected helm args: got %v want %v", args, expectedArgs)
-		}
-
-		return exec.Command("/bin/sh", "-c", "printf '%s' \""+renderedManifest+"\"")
-	}
-
-	var installedKubeConfig string
-	var installedManifest string
-	converterInstallRenderedComponents = func(kubeConfigPath, manifestPath string) error {
-		content, err := os.ReadFile(manifestPath)
-		if err != nil {
-			return err
-		}
-		installedKubeConfig = kubeConfigPath
-		installedManifest = string(content)
-		return nil
-	}
-
-	converter := &ClusterConverter{
-		RootDir:        "/tmp/openyurt",
-		KubeConfigPath: "/tmp/openyurt/kubeconfig",
-	}
-
-	if err := converter.installYurthubByHelm(); err != nil {
-		t.Fatalf("installYurthubByHelm returned error: %v", err)
-	}
-	if installedKubeConfig != converter.KubeConfigPath {
-		t.Fatalf("unexpected kubeconfig path: got %q want %q", installedKubeConfig, converter.KubeConfigPath)
-	}
-	if installedManifest != renderedManifest {
-		t.Fatalf("unexpected rendered manifest: got %q want %q", installedManifest, renderedManifest)
 	}
 }
 

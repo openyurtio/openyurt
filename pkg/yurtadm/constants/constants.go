@@ -136,6 +136,8 @@ const (
 	// StaticPods flag set the specified static pods on this node want to install
 	StaticPods = "static-pods"
 
+	KubernetesTopologyZoneLabel = "topology.kubernetes.io/zone"
+
 	KubeletConfFileAvailableError = "FileAvailable--etc-kubernetes-kubelet.conf"
 	ManifestsDirAvailableError    = "DirAvailable--etc-kubernetes-manifests"
 
