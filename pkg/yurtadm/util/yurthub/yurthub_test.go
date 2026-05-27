@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -421,10 +422,12 @@ func TestCheckAndInstallYurthub(t *testing.T) {
 
 	oldLookPath := lookPath
 	oldDownloadFile := downloadFile
+	oldUntar := untar
 	oldCopyFile := copyFile
 	defer func() {
 		lookPath = oldLookPath
 		downloadFile = oldDownloadFile
+		untar = oldUntar
 		copyFile = oldCopyFile
 	}()
 
@@ -441,17 +444,17 @@ func TestCheckAndInstallYurthub(t *testing.T) {
 			return oldLookPath(file)
 		}
 
-		err = CheckAndInstallYurthub("v1.6.1")
+		err = CheckAndInstallYurthub("v1.7.0")
 		if err != nil {
 			t.Errorf("CheckAndInstallYurthub() error = %v, wantErr %v", err, nil)
 		}
 	})
 
-	t.Run("Yurthub version is empty", func(t *testing.T) {
+	t.Run("Yurthub version falls back when empty", func(t *testing.T) {
 		lookPath = oldLookPath
-		err := CheckAndInstallYurthub("")
-		if err == nil {
-			t.Errorf("CheckAndInstallYurthub() should return error for empty version but got nil")
+		got := resolveYurthubReleaseVersion("")
+		if got != constants.YurthubVersion {
+			t.Errorf("resolveYurthubReleaseVersion() = %s, want %s", got, constants.YurthubVersion)
 		}
 	})
 
@@ -464,18 +467,80 @@ func TestCheckAndInstallYurthub(t *testing.T) {
 		}
 
 		downloadFile = func(url, savePath string, retry int) error {
+			wantURL := fmt.Sprintf(constants.YurthubExecURLFormat, "v1.7.0", "v1.7.0", runtime.GOARCH)
+			if url != wantURL {
+				t.Fatalf("unexpected download url: %s, want %s", url, wantURL)
+			}
+			if filepath.Base(savePath) != fmt.Sprintf("yurthub-v1.7.0-linux-%s.tar.gz", runtime.GOARCH) {
+				t.Fatalf("unexpected save path: %s", savePath)
+			}
 			return nil
 		}
+		untar = func(src, dst string) error {
+			binaryDir := filepath.Join(dst, fmt.Sprintf("linux-%s", runtime.GOARCH))
+			if err := os.MkdirAll(binaryDir, 0755); err != nil {
+				return err
+			}
+			return os.WriteFile(filepath.Join(binaryDir, constants.Yurthub), []byte("dummy"), 0755)
+		}
 		copyFile = func(src, dest string, mode os.FileMode) error {
+			if filepath.Base(src) != constants.Yurthub {
+				t.Fatalf("unexpected copy source: %s", src)
+			}
 			if dest != yurthubExecStartPath {
 				t.Fatalf("unexpected copy destination: %s", dest)
+			}
+			if mode != 0755 {
+				t.Fatalf("unexpected copy mode: %v", mode)
 			}
 			return nil
 		}
 
-		err := CheckAndInstallYurthub("v1.6.1")
+		err := CheckAndInstallYurthub("v1.7.0")
 		assert.NoError(t, err)
 	})
+}
+
+func TestResolveYurthubReleaseVersion(t *testing.T) {
+	tests := []struct {
+		name    string
+		version string
+		want    string
+	}{
+		{
+			name:    "release tag",
+			version: "v1.7.0",
+			want:    "v1.7.0",
+		},
+		{
+			name:    "empty version",
+			version: "",
+			want:    constants.YurthubVersion,
+		},
+		{
+			name:    "default build version",
+			version: "v0.0.0",
+			want:    constants.YurthubVersion,
+		},
+		{
+			name:    "commit hash",
+			version: "9926136",
+			want:    constants.YurthubVersion,
+		},
+		{
+			name:    "tag with commit suffix",
+			version: "v1.7.0-9926136",
+			want:    constants.YurthubVersion,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := resolveYurthubReleaseVersion(tt.version); got != tt.want {
+				t.Errorf("resolveYurthubReleaseVersion(%q) = %q, want %q", tt.version, got, tt.want)
+			}
+		})
+	}
 }
 
 func TestCreateYurthubSystemdService(t *testing.T) {

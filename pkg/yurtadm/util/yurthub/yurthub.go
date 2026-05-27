@@ -50,31 +50,79 @@ var (
 	lookPath                = exec.LookPath
 	checkYurthubHealthzFunc = CheckYurthubHealthz
 	downloadFile            = yurtadmutil.DownloadFile
+	untar                   = yurtadmutil.Untar
 	copyFile                = edgenode.CopyFile
+
+	yurthubReleaseVersionRegexp = regexp.MustCompile(`^v[0-9]+\.[0-9]+\.[0-9]+$`)
 )
 
 func CheckAndInstallYurthub(yurthubVersion string) error {
+	yurthubVersion = resolveYurthubReleaseVersion(yurthubVersion)
 	klog.Infof("Check and install yurthub %s", yurthubVersion)
-	if yurthubVersion == "" {
-		return errors.New("yurthub version should not be empty")
-	}
 
 	if _, err := lookPath(yurthubExecStartPath); err == nil {
 		klog.Infof("Yurthub binary already exists, skip install.")
 		return nil
 	}
 
-	packageURL := fmt.Sprintf(constants.YurthubExecURLFormat, constants.YurthubExecResourceServer, yurthubVersion, runtime.GOARCH)
-	savePath := fmt.Sprintf("%s/yurthub", constants.TmpDownloadDir)
+	packageName := fmt.Sprintf("yurthub-%s-linux-%s.tar.gz", yurthubVersion, runtime.GOARCH)
+	packageURL := fmt.Sprintf(constants.YurthubExecURLFormat, yurthubVersion, yurthubVersion, runtime.GOARCH)
+	tmpDir, err := os.MkdirTemp(constants.TmpDownloadDir, "yurthub-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmpDir)
+
+	savePath := filepath.Join(tmpDir, packageName)
 	klog.V(1).Infof("Download yurthub from: %s", packageURL)
 	if err := downloadFile(packageURL, savePath, 3); err != nil {
 		return fmt.Errorf("download yurthub fail: %w", err)
 	}
-	if err := copyFile(savePath, yurthubExecStartPath, 0755); err != nil {
+	if err := untar(savePath, tmpDir); err != nil {
+		return fmt.Errorf("untar yurthub package fail: %w", err)
+	}
+
+	yurthubBinaryPath, err := findYurthubBinary(tmpDir)
+	if err != nil {
+		return err
+	}
+	if err := copyFile(yurthubBinaryPath, yurthubExecStartPath, 0755); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func resolveYurthubReleaseVersion(yurthubVersion string) string {
+	if yurthubVersion != "v0.0.0" && yurthubReleaseVersionRegexp.MatchString(yurthubVersion) {
+		return yurthubVersion
+	}
+
+	klog.Infof("Invalid yurthub release version %q, fallback to %s", yurthubVersion, constants.YurthubVersion)
+	return constants.YurthubVersion
+}
+
+func findYurthubBinary(root string) (string, error) {
+	var foundBinaryPath string
+	if err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && info.Name() == constants.Yurthub {
+			foundBinaryPath = path
+			return io.EOF
+		}
+		return nil
+	}); err != nil && err != io.EOF {
+		return "", fmt.Errorf("error looking up %s: %w", constants.Yurthub, err)
+	}
+
+	if foundBinaryPath == "" {
+		return "", fmt.Errorf("no binary file named %q found in the archive", constants.Yurthub)
+	}
+
+	klog.V(1).Infof("Yurthub binary found: %s", foundBinaryPath)
+	return foundBinaryPath, nil
 }
 
 func setYurthubMainService(serviceDir string) error {
