@@ -450,11 +450,10 @@ func TestCheckAndInstallYurthub(t *testing.T) {
 		}
 	})
 
-	t.Run("Yurthub version falls back when empty", func(t *testing.T) {
+	t.Run("Yurthub version is invalid when empty", func(t *testing.T) {
 		lookPath = oldLookPath
-		got := resolveYurthubReleaseVersion("")
-		if got != constants.YurthubVersion {
-			t.Errorf("resolveYurthubReleaseVersion() = %s, want %s", got, constants.YurthubVersion)
+		if _, err := resolveYurthubReleaseVersion(""); err == nil {
+			t.Errorf("resolveYurthubReleaseVersion() should return error for empty version")
 		}
 	})
 
@@ -496,8 +495,26 @@ func TestCheckAndInstallYurthub(t *testing.T) {
 			return nil
 		}
 
-		err := CheckAndInstallYurthub("v1.7.0")
+		err := CheckAndInstallYurthub("v1.7.0-6fc029d")
 		assert.NoError(t, err)
+	})
+
+	t.Run("Yurthub version parse failure stops download", func(t *testing.T) {
+		lookPath = func(file string) (string, error) {
+			if file == yurthubExecStartPath {
+				return "", &os.PathError{Op: "stat", Path: file, Err: os.ErrNotExist}
+			}
+			return oldLookPath(file)
+		}
+
+		downloadFile = func(url, savePath string, retry int) error {
+			t.Fatalf("downloadFile should not be called when version is invalid")
+			return nil
+		}
+
+		err := CheckAndInstallYurthub("6fc029d")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "can not parse yurthub release version")
 	})
 }
 
@@ -506,6 +523,7 @@ func TestResolveYurthubReleaseVersion(t *testing.T) {
 		name    string
 		version string
 		want    string
+		wantErr bool
 	}{
 		{
 			name:    "release tag",
@@ -513,30 +531,46 @@ func TestResolveYurthubReleaseVersion(t *testing.T) {
 			want:    "v1.7.0",
 		},
 		{
+			name:    "tag with commit suffix",
+			version: "v1.7.0-6fc029d",
+			want:    "v1.7.0",
+		},
+		{
 			name:    "empty version",
 			version: "",
-			want:    constants.YurthubVersion,
+			wantErr: true,
 		},
 		{
 			name:    "default build version",
 			version: "v0.0.0",
-			want:    constants.YurthubVersion,
+			wantErr: true,
+		},
+		{
+			name:    "default build version with commit suffix",
+			version: "v0.0.0-6fc029d",
+			wantErr: true,
 		},
 		{
 			name:    "commit hash",
 			version: "9926136",
-			want:    constants.YurthubVersion,
-		},
-		{
-			name:    "tag with commit suffix",
-			version: "v1.7.0-9926136",
-			want:    constants.YurthubVersion,
+			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := resolveYurthubReleaseVersion(tt.version); got != tt.want {
+			got, err := resolveYurthubReleaseVersion(tt.version)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("resolveYurthubReleaseVersion(%q) expected error, got nil", tt.version)
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("resolveYurthubReleaseVersion(%q) unexpected error: %v", tt.version, err)
+				return
+			}
+			if got != tt.want {
 				t.Errorf("resolveYurthubReleaseVersion(%q) = %q, want %q", tt.version, got, tt.want)
 			}
 		})

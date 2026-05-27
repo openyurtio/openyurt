@@ -81,7 +81,6 @@ const (
 
 	// YurthubExecURLFormat is the release asset URL format for downloading yurthub binary
 	YurthubExecURLFormat = "https://github.com/openyurtio/openyurt/releases/download/%s/yurthub-%s-linux-%s.tar.gz"
-	YurthubVersion       = "v1.7.0"
 
 	EdgeNode  = "edge"
 	CloudNode = "cloud"

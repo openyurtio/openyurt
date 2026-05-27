@@ -53,17 +53,21 @@ var (
 	untar                   = yurtadmutil.Untar
 	copyFile                = edgenode.CopyFile
 
-	yurthubReleaseVersionRegexp = regexp.MustCompile(`^v[0-9]+\.[0-9]+\.[0-9]+$`)
+	yurthubReleaseVersionRegexp    = regexp.MustCompile(`^v[0-9]+\.[0-9]+\.[0-9]+$`)
+	yurthubVersionWithCommitRegexp = regexp.MustCompile(`^(v[0-9]+\.[0-9]+\.[0-9]+)-[0-9a-f]{7,40}$`)
 )
 
 func CheckAndInstallYurthub(yurthubVersion string) error {
-	yurthubVersion = resolveYurthubReleaseVersion(yurthubVersion)
-	klog.Infof("Check and install yurthub %s", yurthubVersion)
-
 	if _, err := lookPath(yurthubExecStartPath); err == nil {
 		klog.Infof("Yurthub binary already exists, skip install.")
 		return nil
 	}
+
+	yurthubVersion, err := resolveYurthubReleaseVersion(yurthubVersion)
+	if err != nil {
+		return err
+	}
+	klog.Infof("Check and install yurthub %s", yurthubVersion)
 
 	packageName := fmt.Sprintf("yurthub-%s-linux-%s.tar.gz", yurthubVersion, runtime.GOARCH)
 	packageURL := fmt.Sprintf(constants.YurthubExecURLFormat, yurthubVersion, yurthubVersion, runtime.GOARCH)
@@ -93,13 +97,19 @@ func CheckAndInstallYurthub(yurthubVersion string) error {
 	return nil
 }
 
-func resolveYurthubReleaseVersion(yurthubVersion string) string {
+func resolveYurthubReleaseVersion(yurthubVersion string) (string, error) {
+	yurthubVersion = strings.TrimSpace(yurthubVersion)
 	if yurthubVersion != "v0.0.0" && yurthubReleaseVersionRegexp.MatchString(yurthubVersion) {
-		return yurthubVersion
+		return yurthubVersion, nil
 	}
 
-	klog.Infof("Invalid yurthub release version %q, fallback to %s", yurthubVersion, constants.YurthubVersion)
-	return constants.YurthubVersion
+	matches := yurthubVersionWithCommitRegexp.FindStringSubmatch(yurthubVersion)
+	if len(matches) == 2 && matches[1] != "v0.0.0" {
+		return matches[1], nil
+	}
+
+	return "", fmt.Errorf("can not parse yurthub release version from GitVersion %q, %s", yurthubVersion,
+		"please build yurtadm with release tag information, for example GitVersion=v1.7.0 or v1.7.0-<commit>")
 }
 
 func findYurthubBinary(root string) (string, error) {
