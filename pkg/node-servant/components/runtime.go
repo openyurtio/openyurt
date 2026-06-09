@@ -188,7 +188,7 @@ func (runtime *DockerRuntime) ListKubeContainers() ([]KubeContainer, error) {
 }
 
 func (runtime *CRIRuntime) StopContainer(containerID string) error {
-	out, err := runtime.exec.Command("crictl", "-r", runtime.criSocket, "stop", containerID).CombinedOutput()
+	out, err := runtime.exec.Command("crictl", "--timeout", "10s", "-r", runtime.criSocket, "stop", containerID).CombinedOutput()
 	if err != nil {
 		return errors.Wrapf(err, errOutputFormat, out)
 	}
