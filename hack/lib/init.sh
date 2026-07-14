@@ -25,7 +25,7 @@ YURT_LOCAL_BIN_DIR=${YURT_OUTPUT_DIR}/local/bin
 
 PROJECT_PREFIX=${PROJECT_PREFIX:-yurt}
 LABEL_PREFIX=${LABEL_PREFIX:-openyurt.io}
-GIT_VERSION=${GIT_VERSION:-$(git describe --abbrev=0 --tags)}
+GIT_VERSION=${GIT_VERSION:-$(bash "${YURT_ROOT}/hack/lib/git-version.sh" version)}
 GIT_COMMIT=$(git rev-parse HEAD)
 BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
 NODEPOOL_LABEL_KEY=${NODEPOOL_LABEL_KEY:-apps.openyurt.io/nodepool}
