@@ -22,6 +22,7 @@ usage() {
     cat <<'EOF'
 Usage: hack/lib/install-kustomize.sh <version-without-leading-v> <destination-dir>
 EOF
+    return 0
 }
 
 checksum_command() {
@@ -73,6 +74,7 @@ main() {
     tar -xzf "${archive}" -C "${destination_dir}" kustomize
     chmod +x "${destination_dir}/kustomize"
     rm -f "${archive}" "${checksums}"
+    return 0
 }
 
 main "$@"

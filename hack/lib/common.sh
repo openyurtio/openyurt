@@ -86,7 +86,7 @@ get_maintained_versions() {
     MAINTAINED_VERSION_NUM=${MAINTAINED_VERSION_NUM:-3}
     allVersions=$(git for-each-ref refs/tags --sort=authordate | awk '{print $3}' | awk -F '/' '{print $3}')
     latestVersion=$(git for-each-ref refs/tags --sort=authordate | awk 'END{print}' |awk '{print $3}' | awk -F '/' '{print $3}')
-    if [ -z "${latestVersion}" ]; then
+    if [[ -z "${latestVersion}" ]]; then
         return 0
     fi
     major=$(echo $latestVersion | awk -F '.' '{print $1}')

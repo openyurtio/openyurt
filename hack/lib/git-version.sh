@@ -22,14 +22,17 @@ usage() {
     cat <<'EOF'
 Usage: hack/lib/git-version.sh <latest-tag|version|image-tag|short-commit>
 EOF
+    return 0
 }
 
 latest_tag() {
     git describe --abbrev=0 --tags 2>/dev/null || true
+    return 0
 }
 
 short_commit() {
     git rev-parse --short=7 HEAD
+    return 0
 }
 
 version() {
@@ -41,6 +44,7 @@ version() {
     fi
 
     echo "dev-$(short_commit)"
+    return 0
 }
 
 image_tag() {
@@ -57,6 +61,7 @@ image_tag() {
     fi
 
     echo "${tag}-$(short_commit)"
+    return 0
 }
 
 main() {
@@ -65,7 +70,9 @@ main() {
         exit 1
     fi
 
-    case "$1" in
+    local command="$1"
+
+    case "${command}" in
         latest-tag)
             latest_tag
             ;;
@@ -83,6 +90,8 @@ main() {
             exit 1
             ;;
     esac
+
+    return 0
 }
 
 main "$@"
