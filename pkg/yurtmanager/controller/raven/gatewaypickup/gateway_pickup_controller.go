@@ -240,7 +240,10 @@ func (r *ReconcileGateway) electActiveEndpoint(nodeList corev1.NodeList, gw *rav
 	}
 	klog.V(1).Info(Format("Ready node has %d, node %v", len(readyNodes), readyNodes))
 	// init a endpoints slice
-	enableProxy, enableTunnel := util.CheckServer(context.TODO(), r.Client)
+	globalEnableProxy, globalEnableTunnel := util.CheckServer(context.TODO(), r.Client)
+	enableProxy := util.GetBoolAnnotation(gw.Annotations, raven.AnnotationEnableProxy, globalEnableProxy)
+	enableTunnel := util.GetBoolAnnotation(gw.Annotations, raven.AnnotationEnableTunnel, globalEnableTunnel)
+
 	eps := make([]*ravenv1beta1.Endpoint, 0)
 	if enableProxy {
 		eps = append(eps, electEndpoints(gw, ravenv1beta1.Proxy, readyNodes)...)
@@ -357,7 +360,10 @@ func getActiveEndpointsInfo(eps []*ravenv1beta1.Endpoint) (map[string][]string, 
 }
 
 func (r *ReconcileGateway) configEndpoints(ctx context.Context, gw *ravenv1beta1.Gateway) {
-	enableProxy, enableTunnel := util.CheckServer(ctx, r.Client)
+	globalEnableProxy, globalEnableTunnel := util.CheckServer(ctx, r.Client)
+	enableProxy := util.GetBoolAnnotation(gw.Annotations, raven.AnnotationEnableProxy, globalEnableProxy)
+	enableTunnel := util.GetBoolAnnotation(gw.Annotations, raven.AnnotationEnableTunnel, globalEnableTunnel)
+
 	for idx, val := range gw.Status.ActiveEndpoints {
 		if gw.Status.ActiveEndpoints[idx].Config == nil {
 			gw.Status.ActiveEndpoints[idx].Config = make(map[string]string)
