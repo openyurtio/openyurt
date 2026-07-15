@@ -21,8 +21,10 @@ import (
 	"net"
 	"net/url"
 	"path/filepath"
+	"time"
 
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
@@ -108,6 +110,12 @@ func NewYurtHubCertManager(options *options.YurtHubOptions, remoteServers []*url
 }
 
 func (hcm *yurtHubCertManager) Start() {
+	if !hcm.Ready() {
+		// apply jittered backoff before starting to avoid APIServer throttling from sudden spikes in CSR creation
+		delay := wait.Jitter(time.Second, 29.0)
+		klog.Infof("certificates are not ready, apply jittered backoff for %v to avoid APIServer throttling", delay)
+		time.Sleep(delay)
+	}
 	hcm.YurtClientCertificateManager.Start()
 	hcm.YurtServerCertificateManager.Start()
 }
