@@ -120,8 +120,9 @@ func GetNodeName(kubeadmConfPath string) (string, error) {
 		return "", err
 	}
 	for _, ef := range environmentFiles {
-		ef = strings.Split(ef, "-")[1]
-		nodeName, err = GetSingleContentFromFile(ef, constants.KubeletHostname)
+		path := strings.TrimPrefix(ef, "EnvironmentFile=")
+		path = strings.TrimPrefix(path, "-")
+		nodeName, err = GetSingleContentFromFile(path, constants.KubeletHostname)
 		if nodeName != "" {
 			nodeName = strings.Split(nodeName, NodeNameSplit)[1]
 			return nodeName, nil
