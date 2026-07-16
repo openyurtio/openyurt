@@ -87,6 +87,14 @@ const (
 	  }`
 )
 
+type unrecognizedKey struct {
+	path string
+}
+
+func (k unrecognizedKey) Key() string {
+	return k.path
+}
+
 var _ = BeforeSuite(func() {
 	err := os.RemoveAll(diskStorageTestBaseDir)
 	Expect(err).To(BeNil())
@@ -313,7 +321,34 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 		Expect(err).To(BeNil())
 	})
 
-	// TODO: ErrUnrecognizedKey
+	Context("Test ErrUnrecognizedKey", func() {
+		var unrecognized unrecognizedKey
+		BeforeEach(func() {
+			unrecognized = unrecognizedKey{path: "kubelet/pods.v1.core/default/foo"}
+		})
+
+		It("should return ErrUnrecognizedKey on Create", func() {
+			err = store.Create(unrecognized, []byte("data"))
+			Expect(err).To(Equal(storage.ErrUnrecognizedKey))
+		})
+		It("should return ErrUnrecognizedKey on Delete", func() {
+			err = store.Delete(unrecognized)
+			Expect(err).To(Equal(storage.ErrUnrecognizedKey))
+		})
+		It("should return ErrKeyIsEmpty on Get when key type is unrecognized", func() {
+			_, err = store.Get(unrecognized)
+			Expect(err).To(Equal(storage.ErrKeyIsEmpty))
+		})
+		It("should return ErrUnrecognizedKey on List", func() {
+			_, err = store.List(unrecognized)
+			Expect(err).To(Equal(storage.ErrUnrecognizedKey))
+		})
+		It("should return ErrUnrecognizedKey on Update", func() {
+			_, err = store.Update(unrecognized, []byte("data"), 1)
+			Expect(err).To(Equal(storage.ErrUnrecognizedKey))
+		})
+	})
+
 	Context("Test Create", func() {
 		var pod *v1.Pod
 		var podKey storage.Key
