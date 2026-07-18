@@ -17,7 +17,9 @@ Follow these steps sequentially to configure Raven.
 ## Phase 3: Configure Gateways
 For each NodePool that requires cross-region communication:
 1. Ask the user for the expose type (`PublicIP` or `LoadBalancer`).
-2. Create the Gateway CR:
+2. Label the nodes in the NodePool to join the gateway:
+   `kubectl label node -l apps.openyurt.io/nodepool=<NODEPOOL_NAME> raven.openyurt.io/gateway=<NODEPOOL_NAME>-gw`
+3. Create the Gateway CR:
    ```yaml
    apiVersion: raven.openyurt.io/v1beta1
    kind: Gateway
@@ -25,19 +27,15 @@ For each NodePool that requires cross-region communication:
      name: <NODEPOOL_NAME>-gw
    spec:
      nodeSelector:
-       nodeSelectorTerms:
-         - matchExpressions:
-             - key: apps.openyurt.io/nodepool
-               operator: In
-               values:
-                 - <NODEPOOL_NAME>
+       matchLabels:
+         raven.openyurt.io/gateway: <NODEPOOL_NAME>-gw
      exposeType: <EXPOSE_TYPE>
      tunnelConfig:
        Replicas: 1
      proxyConfig:
        Replicas: 1
    ```
-3. Apply via `kubectl apply -f`.
+4. Apply via `kubectl apply -f`.
 
 ## Phase 4: Connectivity Test
 1. Deploy two test pods in different NodePools.
