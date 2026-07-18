@@ -21,5 +21,6 @@ Follow these steps sequentially to deploy OpenYurt.
 3. **Verify Completion:** Poll `kubectl get node <node-name> -o json`. Wait for:
    - `apps.openyurt.io/nodepool` label is present.
    - `openyurt.io/is-edge-worker=true` label is present.
-   - `YurtConversionFailed` condition is absent or `False`.
-4. **Enable Autonomy:** `kubectl label node <node-name> node.openyurt.io/autonomy-duration=5m`
+   - Node is uncordoned.
+   - `YurtNodeConversionFailed` condition is `False` with reason `Converted`.
+4. **Enable Autonomy:** `kubectl annotate node <node-name> node.openyurt.io/autonomy-duration=5m`

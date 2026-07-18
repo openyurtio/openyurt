@@ -31,12 +31,11 @@ For each NodePool that requires cross-region communication:
                operator: In
                values:
                  - <NODEPOOL_NAME>
-     endpoints:
-       - type: <EXPOSE_TYPE>
-     tunnel:
-       enable: true
-     proxy:
-       enable: true
+     exposeType: <EXPOSE_TYPE>
+     tunnelConfig:
+       Replicas: 1
+     proxyConfig:
+       Replicas: 1
    ```
 3. Apply via `kubectl apply -f`.
 
