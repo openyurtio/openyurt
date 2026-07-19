@@ -107,15 +107,8 @@ func (webhook *PlatformAdminHandler) validatePlatformAdminSpec(platformAdmin *v1
 	// TODO: Need to divert traffic based on the type of platform
 
 	// Verify that the platform is supported
-	if platformAdmin.Spec.Platform != v1alpha2.PlatformAdminPlatformEdgeX {
-		return field.ErrorList{
-			field.Invalid(
-				field.NewPath("spec", "platform"),
-				platformAdmin.Spec.Platform,
-				"must be "+v1alpha2.PlatformAdminPlatformEdgeX,
-			),
-		}
-	}
+	// For now, any string can be passed here since we want to support multiple IoT platforms (like edgex, etc).
+	// Further checks can be added based on what components are installed.
 
 	// Verify that it is a supported platformadmin version
 	for _, version := range webhook.Manifests.Versions {
