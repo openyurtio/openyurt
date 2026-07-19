@@ -3,3 +3,9 @@
 # Declare variables to be passed into your templates.
 
 # The yurt-iot-dock is controlled by platformadmin CR. Do not need to specify values at this place!
+
+serviceMonitor:
+  enabled: false
+
+grafanaDashboard:
+  enabled: false
