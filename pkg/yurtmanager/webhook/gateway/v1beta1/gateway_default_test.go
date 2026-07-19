@@ -60,6 +60,28 @@ func TestDefault(t *testing.T) {
 			},
 			expected: nil,
 		},
+		{
+			name: "should merge labels when NodeSelector already exists",
+			obj: &v1beta1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-gateway-merged",
+				},
+				Spec: v1beta1.GatewaySpec{
+					NodeSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"custom-label": "custom-value",
+						},
+					},
+				},
+			},
+			nodeSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"custom-label": "custom-value",
+					raven.LabelCurrentGateway: "test-gateway-merged",
+				},
+			},
+			expected: nil,
+		},
 	}
 
 	handler := &GatewayHandler{}
