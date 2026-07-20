@@ -16,15 +16,12 @@ kubectl -n kube-system get daemonset raven-agent
   kubectl -n kube-system logs -l app=raven-agent --tail=30
   ```
   - **`libreswan` errors:** The L3 tunnel backend requires `libreswan` on
-    each node. SSH in and verify:
-    ```bash
-    ssh <user>@<node-ip> "ipsec --version"
-    ```
-    If missing, install it:
-    ```bash
-    ssh <user>@<node-ip> "sudo apt-get install -y libreswan"  # Debian/Ubuntu
-    ssh <user>@<node-ip> "sudo yum install -y libreswan"      # CentOS/RHEL
-    ```
+    each node. Deploy the same ephemeral check-ipsec Job from the
+    Raven Flow reference to verify if it is missing.
+    If missing, instruct the operator to install it via their remote
+    management system:
+    - Debian/Ubuntu: `sudo apt-get install -y libreswan`
+    - CentOS/RHEL: `sudo yum install -y libreswan`
 
 ---
 

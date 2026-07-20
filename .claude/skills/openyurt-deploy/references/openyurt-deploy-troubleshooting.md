@@ -36,10 +36,12 @@ kubectl -n kube-system get jobs -l openyurt.io/conversion-node=<node-name>
       ```
       - Does the log say `crictl: command not found` or
         `exec: "crictl": executable file not found`?
-        - **Yes:** `crictl` is missing. SSH into the node:
-          ```bash
-          ssh <user>@<node-ip> "sudo apt-get update && sudo apt-get install -y cri-tools"
-          ```
+        - **Yes:** `crictl` is missing. 
+          Instruct the user to install `cri-tools` via their remote
+          management system natively. E.g.:
+          - Debian/Ubuntu: `sudo apt-get update && sudo apt-get install -y cri-tools`
+          - CentOS/RHEL: `sudo yum install -y cri-tools`
+          
           Then delete the stale Job to trigger a retry:
           ```bash
           kubectl -n kube-system delete job node-servant-conversion-<node-name>
@@ -47,18 +49,83 @@ kubectl -n kube-system get jobs -l openyurt.io/conversion-node=<node-name>
           The controller will recreate it automatically.
       - Does the log say `failed to get apiServerAddress`?
         - **Yes:** Verify `/etc/kubernetes/kubelet.conf` exists on the node
-          and contains a valid `server` address:
+          and contains a valid `server` address using an ephemeral Job:
           ```bash
-          ssh <user>@<node-ip> "cat /etc/kubernetes/kubelet.conf | grep server"
+          NODE_NAME="<node-name>"
+          cat <<EOF | kubectl apply -f -
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: read-kubelet-conf-$NODE_NAME
+            namespace: kube-system
+          spec:
+            template:
+              spec:
+                nodeName: $NODE_NAME
+                hostNetwork: true
+                tolerations:
+                - operator: Exists
+                containers:
+                - name: check
+                  image: busybox
+                  command: ["/bin/sh", "-c"]
+                  args: ["cat /host/etc/kubernetes/kubelet.conf | grep server || echo 'Missing server config'"]
+                  volumeMounts:
+                  - name: host-root
+                    mountPath: /host
+                    readOnly: true
+                volumes:
+                - name: host-root
+                  hostPath:
+                    path: /
+                restartPolicy: Never
+          EOF
+          kubectl -n kube-system wait --for=condition=complete job/read-kubelet-conf-$NODE_NAME --timeout=30s || true
+          kubectl -n kube-system logs job/read-kubelet-conf-$NODE_NAME 2>/dev/null
+          kubectl -n kube-system delete job read-kubelet-conf-$NODE_NAME 2>/dev/null
           ```
       - Does the log show CRI socket errors (e.g., `containerd.sock: no such file`)?
         - **Yes:** The CRI socket path differs between kubeadm and k3s:
           - kubeadm: `/run/containerd/containerd.sock`
           - k3s: `/run/k3s/containerd/containerd.sock`
           
-          Check which exists:
+          Check which exists using an ephemeral Job:
           ```bash
-          ssh <user>@<node-ip> "ls -la /run/containerd/containerd.sock 2>/dev/null; ls -la /run/k3s/containerd/containerd.sock 2>/dev/null"
+          NODE_NAME="<node-name>"
+          cat <<EOF | kubectl apply -f -
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: check-cri-socket-$NODE_NAME
+            namespace: kube-system
+          spec:
+            template:
+              spec:
+                nodeName: $NODE_NAME
+                hostNetwork: true
+                tolerations:
+                - operator: Exists
+                containers:
+                - name: check
+                  image: busybox
+                  command: ["/bin/sh", "-c"]
+                  args:
+                  - |
+                    ls -la /host/run/containerd/containerd.sock 2>/dev/null || echo "No kubeadm socket"
+                    ls -la /host/run/k3s/containerd/containerd.sock 2>/dev/null || echo "No k3s socket"
+                  volumeMounts:
+                  - name: host-root
+                    mountPath: /host
+                    readOnly: true
+                volumes:
+                - name: host-root
+                  hostPath:
+                    path: /
+                restartPolicy: Never
+          EOF
+          kubectl -n kube-system wait --for=condition=complete job/check-cri-socket-$NODE_NAME --timeout=30s || true
+          kubectl -n kube-system logs job/check-cri-socket-$NODE_NAME 2>/dev/null
+          kubectl -n kube-system delete job check-cri-socket-$NODE_NAME 2>/dev/null
           ```
       - None of the above? Run the automated diagnostic script:
         ```bash

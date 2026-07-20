@@ -62,10 +62,41 @@ kubectl -n kube-system rollout status daemonset/raven-agent --timeout=120s
 ### 2.3 Verify libreswan is available (for L3 tunnel)
 
 If the user needs L3 tunneling, verify `libreswan` (or compatible IPsec
-backend) is installed on the gateway-elected nodes:
+backend) is installed on the gateway-elected nodes using an ephemeral Job:
 
 ```bash
-ssh <user>@<node-ip> "ipsec --version"
+NODE_NAME="<node-name>"
+cat <<EOF | kubectl apply -f -
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: check-ipsec-$NODE_NAME
+  namespace: kube-system
+spec:
+  template:
+    spec:
+      nodeName: $NODE_NAME
+      hostNetwork: true
+      tolerations:
+      - operator: Exists
+      containers:
+      - name: check
+        image: busybox
+        command: ["/bin/sh", "-c"]
+        args: ["if [ ! -x /host/usr/sbin/ipsec ] && [ ! -x /host/usr/local/sbin/ipsec ]; then echo 'IPsec not found'; else echo 'IPsec verified'; fi"]
+        volumeMounts:
+        - name: host-root
+          mountPath: /host
+          readOnly: true
+      volumes:
+      - name: host-root
+        hostPath:
+          path: /
+      restartPolicy: Never
+EOF
+kubectl -n kube-system wait --for=condition=complete job/check-ipsec-$NODE_NAME --timeout=30s || true
+kubectl -n kube-system logs job/check-ipsec-$NODE_NAME 2>/dev/null
+kubectl -n kube-system delete job check-ipsec-$NODE_NAME 2>/dev/null
 ```
 
 ---

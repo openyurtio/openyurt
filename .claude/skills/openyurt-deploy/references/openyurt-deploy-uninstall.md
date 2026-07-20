@@ -120,16 +120,46 @@ If any remain, delete them:
 kubectl -n kube-system delete jobs -l app=node-servant
 ```
 
-Check for any leftover YurtHub static pod manifests on the nodes:
+Check for any leftover YurtHub static pod manifests on the nodes. Deploy a privileged
+cleanup DaemonSet to remove them natively:
 
 ```bash
-ssh <user>@<node-ip> "ls /etc/kubernetes/manifests/yurthub*"
-```
+cat <<EOF | kubectl apply -f -
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: yurthub-manifest-cleanup
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      app: cleanup
+  template:
+    metadata:
+      labels:
+        app: cleanup
+    spec:
+      hostNetwork: true
+      tolerations:
+      - operator: Exists
+      containers:
+      - name: cleanup
+        image: busybox
+        command: ["/bin/sh", "-c"]
+        args: ["rm -f /host/etc/kubernetes/manifests/yurthub* && echo 'Cleanup complete' && sleep 3600"]
+        volumeMounts:
+        - name: host-root
+          mountPath: /host
+      volumes:
+      - name: host-root
+        hostPath:
+          path: /
+EOF
 
-If present, remove them:
-
-```bash
-ssh <user>@<node-ip> "sudo rm /etc/kubernetes/manifests/yurthub*"
+echo "Waiting for cleanup DaemonSet..."
+sleep 10
+kubectl -n kube-system delete daemonset yurthub-manifest-cleanup
+echo "Static pod manifests cleaned up natively."
 ```
 
 Kubelet will automatically stop the static pod once the manifest is removed.

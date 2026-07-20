@@ -52,5 +52,5 @@ The skills are structured modularly for maintainability:
 
 ## Security Constraints
 These skills utilize YAML Frontmatter to restrict the capabilities of the AI assistant:
-- **`allowed-tools`**: Strictly scoped to `Bash(kubectl *)`, `Bash(helm *)`, `Bash(ssh *)`, and other explicitly required tools. Claude cannot execute arbitrary shell commands.
+- **`allowed-tools`**: Strictly scoped to `Bash(kubectl *)`, `Bash(helm *)`, and other explicitly required tools. Claude cannot execute arbitrary shell commands.
 - **`disable-model-invocation: true`**: The skills cannot be triggered by ambient conversation. They only run when the user explicitly invokes the slash command, because they modify cluster state.
