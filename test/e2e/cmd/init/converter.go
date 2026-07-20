@@ -82,6 +82,12 @@ func (c *ClusterConverter) Run() error {
 		return err
 	}
 
+	klog.Info("Deploying yurt-tunnel")
+	if err := c.installYurtTunnelByHelm(); err != nil {
+		klog.Errorf("failed to deploy yurt-tunnel, %s", err)
+		return err
+	}
+
 	klog.Infof("Start to initialize default node pools: %+v", DefaultPools)
 	if err := c.createDefaultNodePools(); err != nil {
 		return err
@@ -448,6 +454,28 @@ func (c *ClusterConverter) installYurtManagerByHelm() error {
 		return err
 	}
 
+	return nil
+}
+
+func (c *ClusterConverter) installYurtTunnelByHelm() error {
+	helmPath := filepath.Join(c.RootDir, "bin", "helm")
+	yurtTunnelChartPath := filepath.Join(c.RootDir, "charts", "yurt-tunnel")
+
+	cmd := exec.Command(
+		helmPath,
+		"install",
+		"yurt-tunnel",
+		yurtTunnelChartPath,
+		"--namespace",
+		"kube-system",
+	)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		klog.Errorf("couldn't install yurt-tunnel, %v", err)
+		klog.Errorf("Helm install output: %s", string(output))
+		return err
+	}
+	klog.Infof("start to install yurt-tunnel, %s", string(output))
 	return nil
 }
 

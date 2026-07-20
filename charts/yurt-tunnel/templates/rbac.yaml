@@ -1,0 +1,72 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.server.serviceAccount.name }}
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.agent.serviceAccount.name }}
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: yurt-tunnel-server
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "endpoints", "services", "pods", "configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["create", "update", "patch"]
+  - apiGroups: ["certificates.k8s.io"]
+    resources: ["certificatesigningrequests"]
+    verbs: ["get", "list", "watch", "create", "update"]
+  - apiGroups: ["certificates.k8s.io"]
+    resources: ["certificatesigningrequests/approval"]
+    verbs: ["update"]
+  - apiGroups: ["certificates.k8s.io"]
+    resources: ["signers"]
+    resourceNames: ["kubernetes.io/kube-apiserver-client", "kubernetes.io/kubelet-serving"]
+    verbs: ["approve"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: yurt-tunnel-server
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: yurt-tunnel-server
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.server.serviceAccount.name }}
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: yurt-tunnel-agent
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "endpoints", "services"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["certificates.k8s.io"]
+    resources: ["certificatesigningrequests"]
+    verbs: ["create", "get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: yurt-tunnel-agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: yurt-tunnel-agent
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.agent.serviceAccount.name }}
+    namespace: {{ .Release.Namespace }}

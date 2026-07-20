@@ -1,0 +1,30 @@
+# Default values for yurt-tunnel.
+
+server:
+  image:
+    repository: openyurt/yurt-tunnel-server
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  replicas: 1
+  serviceAccount:
+    create: true
+    name: "yurt-tunnel-server"
+  resources: {}
+  nodeSelector:
+    openyurt.io/is-edge-worker: "false"
+
+agent:
+  image:
+    repository: openyurt/yurt-tunnel-agent
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  serviceAccount:
+    create: true
+    name: "yurt-tunnel-agent"
+  resources: {}
+  nodeSelector:
+    openyurt.io/is-edge-worker: "true"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""

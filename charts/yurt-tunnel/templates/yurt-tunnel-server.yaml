@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: yurt-tunnel-server
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: yurt-tunnel-server
+spec:
+  replicas: {{ .Values.server.replicas }}
+  selector:
+    matchLabels:
+      app: yurt-tunnel-server
+  template:
+    metadata:
+      labels:
+        app: yurt-tunnel-server
+    spec:
+      serviceAccountName: {{ .Values.server.serviceAccount.name }}
+      hostNetwork: true
+      nodeSelector:
+{{ toYaml .Values.server.nodeSelector | indent 8 }}
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: yurt-tunnel-server
+          image: "{{ .Values.server.image.repository }}:{{ .Values.server.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.server.image.pullPolicy }}
+          command:
+            - yurt-tunnel-server
+          args:
+            - --bind-address=$(POD_IP)
+            - --insecure-bind-address=$(POD_IP)
+            - --server-count={{ .Values.server.replicas }}
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          ports:
+            - containerPort: 10262
+              name: https
+            - containerPort: 10263
+              name: http
+            - containerPort: 10264
+              name: http-insecure
+          volumeMounts:
+            - name: k8s-dir
+              mountPath: /etc/kubernetes
+      volumes:
+        - name: k8s-dir
+          hostPath:
+            path: /etc/kubernetes
+            type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: x-tunnel-server-svc
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: yurt-tunnel-server
+spec:
+  type: ClusterIP
+  ports:
+    - port: 10262
+      targetPort: 10262
+      name: https
+    - port: 10263
+      targetPort: 10263
+      name: http
+    - port: 10264
+      targetPort: 10264
+      name: http-insecure
+  selector:
+    app: yurt-tunnel-server
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: x-tunnel-server-internal-svc
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: yurt-tunnel-server
+spec:
+  type: ClusterIP
+  ports:
+    - port: 10262
+      targetPort: 10262
+      name: https
+    - port: 10263
+      targetPort: 10263
+      name: http
+  selector:
+    app: yurt-tunnel-server
