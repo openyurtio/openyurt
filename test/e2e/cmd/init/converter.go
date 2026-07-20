@@ -408,8 +408,8 @@ func (c *ClusterConverter) installYurtManagerByHelm() error {
 
 	// waiting yurt-manager pod ready
 	if err = wait.PollUntilContextTimeout(context.Background(), 10*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
-		podList, err := c.ClientSet.CoreV1().Pods("kube-system").List(context.TODO(), metav1.ListOptions{
-			LabelSelector: labels.SelectorFromSet(map[string]string{"app.kubernetes.io/name": "yurt-manager"}).String(),
+		podList, err := c.ClientSet.CoreV1().Pods(KubeSystemNamespace).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: labels.SelectorFromSet(map[string]string{"app.kubernetes.io/name": YurtManagerChartName}).String(),
 		})
 		if err != nil {
 			klog.Errorf("failed to list yurt-manager pod, %v", err)
@@ -484,8 +484,8 @@ func imageTag(image string) (string, error) {
 // print logs of yurt-manager
 func (c *ClusterConverter) dumpYurtManagerLog() {
 	// print logs of yurt-manager
-	podList, logErr := c.ClientSet.CoreV1().Pods("kube-system").List(context.TODO(), metav1.ListOptions{
-		LabelSelector: labels.SelectorFromSet(map[string]string{"app.kubernetes.io/name": "yurt-manager"}).String(),
+	podList, logErr := c.ClientSet.CoreV1().Pods(KubeSystemNamespace).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: labels.SelectorFromSet(map[string]string{"app.kubernetes.io/name": YurtManagerChartName}).String(),
 	})
 	if logErr != nil {
 		klog.Errorf("failed to get yurt-manager pod, %v", logErr)
