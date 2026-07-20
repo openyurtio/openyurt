@@ -46,6 +46,9 @@ import (
 
 const (
 	conversionConditionType corev1.NodeConditionType = "YurtNodeConversionFailed"
+	YurtManagerChartName                             = "yurt-manager"
+	YurtTunnelChartName                              = "yurt-tunnel"
+	KubeSystemNamespace                              = "kube-system"
 )
 
 type ClusterConverter struct {
@@ -394,7 +397,7 @@ func (c *ClusterConverter) installYurtManagerByHelm() error {
 		return err
 	}
 
-	err = c.installHelmChart("yurt-manager",
+	err = c.installHelmChart(YurtManagerChartName,
 		"--set", fmt.Sprintf("image.tag=%s", managerTag),
 		"--set", fmt.Sprintf("nodeServant.image.tag=%s", nodeServantTag),
 		"--set", "log.level=5",
@@ -442,7 +445,7 @@ func (c *ClusterConverter) installYurtManagerByHelm() error {
 }
 
 func (c *ClusterConverter) installYurtTunnelByHelm() error {
-	return c.installHelmChart("yurt-tunnel")
+	return c.installHelmChart(YurtTunnelChartName)
 }
 
 func (c *ClusterConverter) installHelmChart(chartName string, extraArgs ...string) error {
@@ -454,7 +457,7 @@ func (c *ClusterConverter) installHelmChart(chartName string, extraArgs ...strin
 		chartName,
 		chartPath,
 		"--namespace",
-		"kube-system",
+		KubeSystemNamespace,
 	}
 	args = append(args, extraArgs...)
 

@@ -15,7 +15,7 @@ spec:
         app: yurt-tunnel-agent
     spec:
       serviceAccountName: {{ .Values.agent.serviceAccount.name }}
-      hostNetwork: true
+      hostNetwork: true # NOSONAR
       nodeSelector:
 {{ toYaml .Values.agent.nodeSelector | indent 8 }}
       tolerations:
@@ -31,6 +31,8 @@ spec:
           volumeMounts:
             - name: k8s-dir
               mountPath: /etc/kubernetes
+          resources:
+{{ toYaml .Values.agent.resources | indent 12 }}
       volumes:
         - name: k8s-dir
           hostPath:
