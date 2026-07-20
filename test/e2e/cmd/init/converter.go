@@ -385,9 +385,6 @@ func (c *ClusterConverter) dumpNodeJobs(nodeName string) {
 }
 
 func (c *ClusterConverter) installYurtManagerByHelm() error {
-	helmPath := filepath.Join(c.RootDir, "bin", "helm")
-	yurtManagerChartPath := filepath.Join(c.RootDir, "charts", "yurt-manager")
-
 	managerTag, err := imageTag(c.YurtManagerImage)
 	if err != nil {
 		return err
@@ -397,27 +394,14 @@ func (c *ClusterConverter) installYurtManagerByHelm() error {
 		return err
 	}
 
-	cmd := exec.Command(
-		helmPath,
-		"install",
-		"yurt-manager",
-		yurtManagerChartPath,
-		"--namespace",
-		"kube-system",
-		"--set",
-		fmt.Sprintf("image.tag=%s", managerTag),
-		"--set",
-		fmt.Sprintf("nodeServant.image.tag=%s", nodeServantTag),
-		"--set",
-		"log.level=5",
+	err = c.installHelmChart("yurt-manager",
+		"--set", fmt.Sprintf("image.tag=%s", managerTag),
+		"--set", fmt.Sprintf("nodeServant.image.tag=%s", nodeServantTag),
+		"--set", "log.level=5",
 	)
-	output, err := cmd.CombinedOutput()
 	if err != nil {
-		klog.Errorf("couldn't install yurt-manager, %v", err)
-		klog.Errorf("Helm install output: %s", string(output))
 		return err
 	}
-	klog.Infof("start to install yurt-manager, %s", string(output))
 
 	// waiting yurt-manager pod ready
 	if err = wait.PollUntilContextTimeout(context.Background(), 10*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
@@ -458,24 +442,30 @@ func (c *ClusterConverter) installYurtManagerByHelm() error {
 }
 
 func (c *ClusterConverter) installYurtTunnelByHelm() error {
-	helmPath := filepath.Join(c.RootDir, "bin", "helm")
-	yurtTunnelChartPath := filepath.Join(c.RootDir, "charts", "yurt-tunnel")
+	return c.installHelmChart("yurt-tunnel")
+}
 
-	cmd := exec.Command(
-		helmPath,
+func (c *ClusterConverter) installHelmChart(chartName string, extraArgs ...string) error {
+	helmPath := filepath.Join(c.RootDir, "bin", "helm")
+	chartPath := filepath.Join(c.RootDir, "charts", chartName)
+
+	args := []string{
 		"install",
-		"yurt-tunnel",
-		yurtTunnelChartPath,
+		chartName,
+		chartPath,
 		"--namespace",
 		"kube-system",
-	)
+	}
+	args = append(args, extraArgs...)
+
+	cmd := exec.Command(helmPath, args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		klog.Errorf("couldn't install yurt-tunnel, %v", err)
+		klog.Errorf("couldn't install %s, %v", chartName, err)
 		klog.Errorf("Helm install output: %s", string(output))
 		return err
 	}
-	klog.Infof("start to install yurt-tunnel, %s", string(output))
+	klog.Infof("start to install %s, %s", chartName, string(output))
 	return nil
 }
 
