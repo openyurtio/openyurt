@@ -5,7 +5,7 @@ Follow these steps sequentially to deploy OpenYurt.
 ## Phase 1: Preflight Validation
 1. **Kubernetes Version:** Run `kubectl version --short`. Verify the server version is >= 1.24.
 2. **Helm Version:** Run `helm version --short`. Verify it is v3 or higher.
-3. **crictl Check (CRITICAL):** Ask the user which nodes they intend to convert. Instruct them to verify `crictl` is in the PATH on those nodes via SSH. If missing, they must install it, or Phase 3 will fail silently.
+3. **crictl Preflight Check (CRITICAL):** Ask the user which nodes they intend to convert and for SSH access credentials to those nodes. Use the `ssh` command to autonomously execute `command -v crictl` on the target nodes to verify it exists in the PATH *before* proceeding. If missing, halt and instruct the user to install `cri-tools`, as the `node-servant` Job in Phase 3 will silently fail otherwise.
 
 ## Phase 2: Deploy yurt-manager
 1. `helm repo add openyurt https://openyurtio.github.io/openyurt-helm`
@@ -18,9 +18,10 @@ Follow these steps sequentially to deploy OpenYurt.
 2. **Label Nodes:** 
    `kubectl label node <node-name> apps.openyurt.io/nodepool=<NODEPOOL_NAME>`
    `kubectl label node <node-name> apps.openyurt.io/desired-nodepool=<NODEPOOL_NAME>`
-3. **Verify Completion:** Poll `kubectl get node <node-name> -o json`. Wait for:
+3. **Automated Verification Loop:** Write and execute a bash polling script using `kubectl get node <node-name> -o json` to verify `isConvertedStable`. The loop must verify:
    - `apps.openyurt.io/nodepool` label is present.
-   - `openyurt.io/is-edge-worker=true` label is present.
-   - Node is uncordoned.
-   - `YurtNodeConversionFailed` condition is `False` with reason `Converted`.
+   - `openyurt.io/is-edge-worker` label is exactly `"true"`.
+   - Node is uncordoned (`.spec.unschedulable` is false or missing).
+   - The condition `YurtNodeConversionFailed` exists, its `.status` is `"False"`, and its `.reason` is `"Converted"`.
+   Do not proceed to Step 4 until this polling loop succeeds.
 4. **Enable Autonomy:** `kubectl annotate node <node-name> node.openyurt.io/autonomy-duration=5m`
