@@ -47,47 +47,76 @@ Identify which nodes are:
 
 Ask the user which worker nodes they want to convert to edge nodes.
 
-### 1.5 Autonomous `crictl` Preflight Check (CRITICAL)
+### 1.5 Autonomous Kubernetes-Native Preflight Check (CRITICAL)
 
-For **each** worker node the user wants to convert, autonomously SSH in
-and verify `crictl` is available. Do not just ask the user to check manually;
-run this yourself:
+For **each** worker node the user wants to convert, autonomously deploy an
+ephemeral Job to verify `crictl` is available on the host. Edge nodes are
+often behind NAT/firewalls, so SSH cannot be used.
 
-```bash
-ssh <user>@<node-ip> "command -v crictl && crictl --version"
-```
-
-`crictl` (from the `cri-tools` package) is a **hard dependency** of the
-node-servant conversion process. It is used to list and restart containers
-during conversion. If `crictl` is not found:
-
-1. **Explain** to the user that `crictl` is a hard requirement for the
-   `node-servant` Job. The conversion Job will fail silently mid-run if
-   it is missing.
-2. **Ask the user for explicit confirmation** before attempting to install it.
-3. **Install it only after confirmation**, using the appropriate command
-   for their OS:
+Run this script to verify the CRI environment natively:
 
 ```bash
-# Debian/Ubuntu
-ssh <user>@<node-ip> "sudo apt-get update && sudo apt-get install -y cri-tools"
+NODE_NAME="<node-name>"
+cat <<EOF | kubectl apply -f -
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: preflight-check-$NODE_NAME
+  namespace: kube-system
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      nodeName: $NODE_NAME
+      hostNetwork: true
+      tolerations:
+      - operator: Exists
+      containers:
+      - name: check
+        image: busybox
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          if [ ! -x /host/usr/bin/crictl ] && [ ! -x /host/usr/local/bin/crictl ]; then
+            echo "ERROR: crictl not found on host"
+            exit 1
+          fi
+          if [ ! -S /host/run/containerd/containerd.sock ] && [ ! -S /host/run/k3s/containerd/containerd.sock ]; then
+            echo "ERROR: CRI socket not found on host"
+            exit 1
+          fi
+          echo "SUCCESS: crictl and CRI socket verified"
+        volumeMounts:
+        - name: host-root
+          mountPath: /host
+          readOnly: true
+      volumes:
+      - name: host-root
+        hostPath:
+          path: /
+      restartPolicy: Never
+EOF
 
-# CentOS/RHEL
-ssh <user>@<node-ip> "sudo yum install -y cri-tools"
+echo "Waiting for preflight Job to complete..."
+kubectl -n kube-system wait --for=condition=complete job/preflight-check-$NODE_NAME --timeout=60s || true
+
+LOGS=$(kubectl -n kube-system logs job/preflight-check-$NODE_NAME 2>/dev/null)
+kubectl -n kube-system delete job preflight-check-$NODE_NAME 2>/dev/null
+
+if echo "$LOGS" | grep -q "ERROR"; then
+  echo "Preflight failed for $NODE_NAME: $LOGS"
+  echo "You must install cri-tools on the node manually before proceeding."
+  exit 1
+fi
+echo "Preflight passed for $NODE_NAME."
 ```
 
-Also verify the CRI socket is reachable. The socket path differs between
-kubeadm and k3s:
+If the preflight fails:
+1. **Explain** to the user that `crictl` is a hard requirement.
+2. Instruct them to install `cri-tools` on the edge node via their remote
+   management system (since direct SSH is likely blocked by edge NAT).
 
-```bash
-# Check both paths
-ssh <user>@<node-ip> "ls -la /run/containerd/containerd.sock 2>/dev/null || ls -la /run/k3s/containerd/containerd.sock 2>/dev/null || echo 'NO_CRI_SOCKET_FOUND'"
-```
-
-If `NO_CRI_SOCKET_FOUND` is returned, warn the user that the node may not
-have a supported container runtime.
-
-> **Do not proceed with conversion until `crictl` is confirmed on every
+> **Do not proceed with conversion until this preflight passes on every
 > target node.**
 
 ---

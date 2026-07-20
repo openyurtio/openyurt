@@ -13,7 +13,6 @@ when_to_use: >
 allowed-tools: >
   Bash(kubectl *)
   Bash(helm *)
-  Bash(ssh *)
   Bash(systemctl *)
   Bash(journalctl *)
   Read
