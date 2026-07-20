@@ -94,7 +94,17 @@ func NewContainerRuntimeForImage(execer utilsexec.Interface, criSocket string) (
 	}
 
 	if _, err := execer.LookPath(toolName); err != nil {
-		return nil, errors.Wrapf(err, "%s is required for container runtime", toolName)
+		// Fallback for restricted Job $PATH (common on kubeadm/k3s)
+		for _, dir := range []string{"/usr/local/bin", "/opt/bin", "/opt/cni/bin", "/usr/bin"} {
+			if _, statErr := os.Stat(filepath.Join(dir, toolName)); statErr == nil {
+				os.Setenv("PATH", os.Getenv("PATH")+string(os.PathListSeparator)+dir)
+				break
+			}
+		}
+		// Try again after potentially updating PATH
+		if _, err := execer.LookPath(toolName); err != nil {
+			return nil, errors.Wrapf(err, "%s is required for container runtime", toolName)
+		}
 	}
 	return runtime, nil
 }
