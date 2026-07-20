@@ -8,10 +8,25 @@ Use this decision tree when a deployment step fails.
 
 ## Scenario 2: Node Conversion Failed (YurtNodeConversionFailed=True)
 If a node fails conversion, the `node-servant` Job likely failed.
-- **Check:** Find the `node-servant` pod for that node in the `kube-system` namespace.
-- **Check:** `kubectl logs <node-servant-pod> -n kube-system`
-- **Diagnostic A (Missing crictl):** If the logs say `exec: "crictl": executable file not found in $PATH`, the preflight check was skipped. Instruct the user to SSH into the node, install `cri-tools`, and manually delete the failed `node-servant` Job to re-trigger the controller.
-- **Diagnostic B (Taints):** Check if the node has `NoSchedule` taints preventing the `node-servant` DaemonSet/Job from running.
+- **Diagnostic Script:** Execute this to automatically find the failure reason.
+  ```bash
+  NODE_NAME="<failed-node-name>"
+  POD=$(kubectl get pod -n kube-system -l job-name=node-servant-convert-$NODE_NAME -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+  
+  if [ -z "$POD" ]; then
+      echo "Diagnostic B: Node-servant pod not found. Check if the node has NoSchedule taints:"
+      kubectl get node $NODE_NAME -o jsonpath='{.spec.taints}'
+  else
+      LOGS=$(kubectl logs $POD -n kube-system)
+      if echo "$LOGS" | grep -q 'exec: "crictl": executable file not found'; then
+          echo "Diagnostic A: Missing crictl. The preflight check was skipped."
+          echo "Resolution: SSH into the node, install cri-tools, and delete the failed node-servant Job."
+      else
+          echo "Diagnostic C: Unknown error. Logs:"
+          echo "$LOGS" | tail -n 20
+      fi
+  fi
+  ```
 
 ## Scenario 3: Edge Autonomy not taking effect
 - **Check:** Verify `node.openyurt.io/autonomy-duration` annotation is applied correctly.
