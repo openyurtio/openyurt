@@ -24,34 +24,34 @@ import (
 	"github.com/openyurtio/openyurt/pkg/apis/iot/v1beta1"
 )
 
-func (src *PlatformAdmin) ConvertTo(dstRaw conversion.Hub) error {
+func (c *PlatformAdmin) ConvertTo(dstRaw conversion.Hub) error {
 	// Transform metadata
 	dst := dstRaw.(*v1beta1.PlatformAdmin)
-	dst.ObjectMeta = src.ObjectMeta
-	dst.TypeMeta = src.TypeMeta
-	dst.TypeMeta.APIVersion = "iot.openyurt.io/v1beta1"
+	dst.ObjectMeta = c.ObjectMeta
+	dst.TypeMeta = c.TypeMeta
+	dst.APIVersion = "iot.openyurt.io/v1beta1"
 	// Transform spec
-	dst.Spec.Version = src.Spec.Version
+	dst.Spec.Version = c.Spec.Version
 	dst.Spec.Security = false
-	dst.Spec.ImageRegistry = src.Spec.ImageRegistry
-	dst.Spec.NodePools = []string{src.Spec.PoolName}
+	dst.Spec.ImageRegistry = c.Spec.ImageRegistry
+	dst.Spec.NodePools = []string{c.Spec.PoolName}
 	dst.Spec.Platform = v1beta1.PlatformAdminPlatformEdgeX
-	dst.Spec.Components = make([]v1beta1.Component, len(src.Spec.Components))
-	for i, component := range src.Spec.Components {
+	dst.Spec.Components = make([]v1beta1.Component, len(c.Spec.Components))
+	for i, component := range c.Spec.Components {
 		dst.Spec.Components[i] = v1beta1.Component{
 			Name: component.Name,
 		}
 	}
 	// Transform status
-	dst.Status.Ready = src.Status.Ready
-	dst.Status.Initialized = src.Status.Initialized
-	dst.Status.ReadyComponentNum = src.Status.ReadyComponentNum
-	dst.Status.UnreadyComponentNum = src.Status.UnreadyComponentNum
-	dst.Status.Conditions = transToV1Beta1Condition(src.Status.Conditions)
+	dst.Status.Ready = c.Status.Ready
+	dst.Status.Initialized = c.Status.Initialized
+	dst.Status.ReadyComponentNum = c.Status.ReadyComponentNum
+	dst.Status.UnreadyComponentNum = c.Status.UnreadyComponentNum
+	dst.Status.Conditions = transToV1Beta1Condition(c.Status.Conditions)
 	// Transform AdditionalNodepools
-	if _, ok := src.ObjectMeta.Annotations["AdditionalNodepools"]; ok {
+	if _, ok := c.Annotations["AdditionalNodepools"]; ok {
 		var additionalNodePools []string
-		err := json.Unmarshal([]byte(src.ObjectMeta.Annotations["AdditionalNodepools"]), &additionalNodePools)
+		err := json.Unmarshal([]byte(c.Annotations["AdditionalNodepools"]), &additionalNodePools)
 		if err != nil {
 			return err
 		}
@@ -60,38 +60,38 @@ func (src *PlatformAdmin) ConvertTo(dstRaw conversion.Hub) error {
 	return nil
 }
 
-func (dst *PlatformAdmin) ConvertFrom(srcRaw conversion.Hub) error {
+func (c *PlatformAdmin) ConvertFrom(srcRaw conversion.Hub) error {
 	// Transform metadata
-	src := srcRaw.(*v1beta1.PlatformAdmin)
-	dst.ObjectMeta = src.ObjectMeta
-	dst.TypeMeta = src.TypeMeta
-	dst.TypeMeta.APIVersion = "iot.openyurt.io/v1alpha2"
+	srcRawV1beta1 := srcRaw.(*v1beta1.PlatformAdmin)
+	c.ObjectMeta = srcRawV1beta1.ObjectMeta
+	c.TypeMeta = srcRawV1beta1.TypeMeta
+	c.APIVersion = "iot.openyurt.io/v1alpha2"
 	// Transform spec
-	dst.Spec.Version = src.Spec.Version
-	dst.Spec.Security = false
-	dst.Spec.ImageRegistry = src.Spec.ImageRegistry
-	dst.Spec.PoolName = src.Spec.NodePools[0]
-	if len(src.Spec.NodePools) > 1 {
-		additionalNodePools := src.Spec.NodePools[1:]
+	c.Spec.Version = srcRawV1beta1.Spec.Version
+	c.Spec.Security = false
+	c.Spec.ImageRegistry = srcRawV1beta1.Spec.ImageRegistry
+	c.Spec.PoolName = srcRawV1beta1.Spec.NodePools[0]
+	if len(srcRawV1beta1.Spec.NodePools) > 1 {
+		additionalNodePools := srcRawV1beta1.Spec.NodePools[1:]
 		additionalNodePoolsJSON, err := json.Marshal(additionalNodePools)
 		if err != nil {
 			return err
 		}
-		dst.ObjectMeta.Annotations["AdditionalNodepools"] = string(additionalNodePoolsJSON)
+		c.Annotations["AdditionalNodepools"] = string(additionalNodePoolsJSON)
 	}
-	dst.Spec.Platform = PlatformAdminPlatformEdgeX
-	dst.Spec.Components = make([]Component, len(src.Spec.Components))
-	for i, component := range src.Spec.Components {
-		dst.Spec.Components[i] = Component{
+	c.Spec.Platform = PlatformAdminPlatformEdgeX
+	c.Spec.Components = make([]Component, len(srcRawV1beta1.Spec.Components))
+	for i, component := range srcRawV1beta1.Spec.Components {
+		c.Spec.Components[i] = Component{
 			Name: component.Name,
 		}
 	}
 	// Transform status
-	dst.Status.Ready = src.Status.Ready
-	dst.Status.Initialized = src.Status.Initialized
-	dst.Status.ReadyComponentNum = src.Status.ReadyComponentNum
-	dst.Status.UnreadyComponentNum = src.Status.UnreadyComponentNum
-	dst.Status.Conditions = transToV1Alpha2Condition(src.Status.Conditions)
+	c.Status.Ready = srcRawV1beta1.Status.Ready
+	c.Status.Initialized = srcRawV1beta1.Status.Initialized
+	c.Status.ReadyComponentNum = srcRawV1beta1.Status.ReadyComponentNum
+	c.Status.UnreadyComponentNum = srcRawV1beta1.Status.UnreadyComponentNum
+	c.Status.Conditions = transToV1Alpha2Condition(srcRawV1beta1.Status.Conditions)
 	return nil
 }
 

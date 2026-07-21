@@ -58,7 +58,7 @@ func (d *DeploymentManager) Delete(yas *v1beta1.YurtAppSet, workload metav1.Obje
 // ApplyTemplate updates the object to the latest revision, depending on the YurtAppSet.
 func (d *DeploymentManager) ApplyTemplate(yas *v1beta1.YurtAppSet, nodepoolName, revision string, workload *appsv1.Deployment) error {
 
-	deployTemplate := yas.Spec.Workload.WorkloadTemplate.DeploymentTemplate
+	deployTemplate := yas.Spec.DeploymentTemplate
 	if deployTemplate == nil {
 		return errors.New("no deployment template in workloadTemplate")
 	}
@@ -119,7 +119,7 @@ func (d *DeploymentManager) Update(yas *v1beta1.YurtAppSet, workload metav1.Obje
 	deploy := &appsv1.Deployment{}
 	var updateError error
 	for i := 0; i < updateRetries; i++ {
-		getError := d.Client.Get(context.TODO(), types.NamespacedName{Namespace: workload.GetNamespace(), Name: workload.GetName()}, deploy)
+		getError := d.Get(context.TODO(), types.NamespacedName{Namespace: workload.GetNamespace(), Name: workload.GetName()}, deploy)
 		if getError != nil {
 			return getError
 		}

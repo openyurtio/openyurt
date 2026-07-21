@@ -35,12 +35,12 @@ func NewCsrApproverControllerOptions() *CsrApproverControllerOptions {
 }
 
 // AddFlags adds flags related to nodePool for yurt-manager to the specified FlagSet.
-func (n *CsrApproverControllerOptions) AddFlags(fs *pflag.FlagSet) {
-	if n == nil {
+func (o *CsrApproverControllerOptions) AddFlags(fs *pflag.FlagSet) {
+	if o == nil {
 		return
 	}
 
-	fs.Int32Var(&n.ConcurrentCsrApproverWorkers, "concurrent-csr-approver-workers", n.ConcurrentCsrApproverWorkers, "The number of csr objects that are allowed to reconcile concurrently. Larger number = more responsive csrs, but more CPU (and network) load")
+	fs.Int32Var(&o.ConcurrentCsrApproverWorkers, "concurrent-csr-approver-workers", o.ConcurrentCsrApproverWorkers, "The number of csr objects that are allowed to reconcile concurrently. Larger number = more responsive csrs, but more CPU (and network) load")
 }
 
 // ApplyTo fills up nodePool config with options.

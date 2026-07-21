@@ -119,7 +119,7 @@ func TestYurtAppSetValidator(t *testing.T) {
 	}
 
 	updateAppSet := deployAppSet.DeepCopy()
-	updateAppSet.Spec.WorkloadTemplate.DeploymentTemplate.Spec.Selector = &metav1.LabelSelector{MatchLabels: map[string]string{"app": "demo2"}}
+	updateAppSet.Spec.DeploymentTemplate.Spec.Selector = &metav1.LabelSelector{MatchLabels: map[string]string{"app": "demo2"}}
 	if _, err := webhook.ValidateUpdate(context.TODO(), deployAppSet, updateAppSet); err == nil {
 		t.Fatal("workload selector should match template selector")
 	}
@@ -142,7 +142,7 @@ func TestYurtAppSetStatefulSetValidator(t *testing.T) {
 	}
 
 	updateAppSet := stsAppSet.DeepCopy()
-	updateAppSet.Spec.WorkloadTemplate.StatefulSetTemplate.Spec.Selector = &metav1.LabelSelector{MatchLabels: map[string]string{"app": "demo2"}}
+	updateAppSet.Spec.StatefulSetTemplate.Spec.Selector = &metav1.LabelSelector{MatchLabels: map[string]string{"app": "demo2"}}
 	if _, err := webhook.ValidateUpdate(context.TODO(), stsAppSet, updateAppSet); err == nil {
 		t.Fatal("workload selector should match template selector")
 	}

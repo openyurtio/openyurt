@@ -111,7 +111,7 @@ func newReconciler(_ *appconfig.CompletedConfig, mgr manager.Manager) (reconcile
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New(names.DaemonPodUpdaterController, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: int(cfg.Config.ComponentConfig.DaemonPodUpdaterController.ConcurrentDaemonPodUpdaterWorkers)})
+	c, err := controller.New(names.DaemonPodUpdaterController, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: int(cfg.ComponentConfig.DaemonPodUpdaterController.ConcurrentDaemonPodUpdaterWorkers)})
 	if err != nil {
 		return err
 	}
@@ -188,7 +188,7 @@ func (r *ReconcileDaemonpodupdater) Reconcile(_ context.Context, request reconci
 	if err := r.Get(context.TODO(), request.NamespacedName, instance); err != nil {
 		klog.Errorf("could not get DaemonSet %v, %v", request.NamespacedName, err)
 		if apierrors.IsNotFound(err) {
-			r.expectations.DeleteExpectations(request.NamespacedName.String())
+			r.expectations.DeleteExpectations(request.String())
 		}
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -199,7 +199,7 @@ func (r *ReconcileDaemonpodupdater) Reconcile(_ context.Context, request reconci
 
 	// Only process DaemonSet that meets expectations
 	// Otherwise, wait native DaemonSet controller reconciling
-	if !r.expectations.SatisfiedExpectations(request.NamespacedName.String()) {
+	if !r.expectations.SatisfiedExpectations(request.String()) {
 		return reconcile.Result{}, nil
 	}
 

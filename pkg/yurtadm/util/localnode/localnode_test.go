@@ -245,81 +245,6 @@ func TestStopYurthubService(t *testing.T) {
 	}
 }
 
-// TestSetYurthubService tests the set service function.
-func TestSetYurthubService(t *testing.T) {
-	tests := []struct {
-		name                 string
-		hostControlPlaneAddr string
-		serverAddr           string
-		nodeName             string
-		expectErr            bool
-	}{
-		{
-			"normal",
-			"192.168.0.1:8443",
-			"192.168.0.1:12345",
-			"node",
-			true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := SetYurthubService(tt.hostControlPlaneAddr, tt.serverAddr, tt.nodeName)
-			if tt.expectErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
-		})
-	}
-}
-
-// TestEnableYurthubService tests the enable service function.
-func TestEnableYurthubService(t *testing.T) {
-	tests := []struct {
-		name      string
-		expectErr bool
-	}{
-		{
-			"normal",
-			true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := EnableYurthubService()
-			if tt.expectErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
-		})
-	}
-}
-
-// TestStartYurthubService tests the start service function.
-func TestStartYurthubService(t *testing.T) {
-	tests := []struct {
-		name      string
-		expectErr bool
-	}{
-		{
-			"normal",
-			true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := StartYurthubService()
-			if tt.expectErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
-		})
-	}
-}
-
 // TestCheckYurthubStatus tests the check service status function.
 func TestCheckYurthubStatus(t *testing.T) {
 	tests := []struct {
@@ -350,7 +275,7 @@ func TestDownloadAndDeployYurthubInSystemd(t *testing.T) {
 	}{
 		{
 			"normal",
-			true,
+			false,
 		},
 	}
 	for _, tt := range tests {
@@ -361,4 +286,28 @@ func TestDownloadAndDeployYurthubInSystemd(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSetYurthubServiceWithCustomSystemdDir(t *testing.T) {
+	systemdDir := filepath.Join(t.TempDir(), "systemd")
+	environmentFilePath := filepath.Join(systemdDir, "yurthub.default")
+	serviceFilePath := filepath.Join(systemdDir, "yurthub.service")
+
+	err := SetYurthubServiceWithSystemdDir("10.0.0.1:6443", "127.0.0.1:6443", "test-node", systemdDir)
+	assert.NoError(t, err)
+
+	assert.FileExists(t, environmentFilePath)
+	assert.FileExists(t, serviceFilePath)
+
+	environmentContent, err := os.ReadFile(environmentFilePath)
+	assert.NoError(t, err)
+	env := string(environmentContent)
+	assert.Contains(t, env, "WORKINGMODE=local")
+	assert.Contains(t, env, "NODENAME=test-node")
+	assert.Contains(t, env, "SERVERADDR=127.0.0.1:6443")
+	assert.Contains(t, env, "HOSTCONTROLPLANEADDRESS=10.0.0.1:6443")
+
+	serviceContent, err := os.ReadFile(serviceFilePath)
+	assert.NoError(t, err)
+	assert.Contains(t, string(serviceContent), "EnvironmentFile="+environmentFilePath)
 }

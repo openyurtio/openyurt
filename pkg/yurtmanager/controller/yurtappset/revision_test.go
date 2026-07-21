@@ -31,7 +31,6 @@ import (
 
 	"github.com/openyurtio/openyurt/pkg/apis"
 	yurtapps "github.com/openyurtio/openyurt/pkg/apis/apps"
-	"github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 	beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 )
 
@@ -433,7 +432,7 @@ func TestCleanRevisions(t *testing.T) {
 					Name:      "test-yurtappset",
 					Namespace: "default",
 				},
-				Spec: v1beta1.YurtAppSetSpec{
+				Spec: beta1.YurtAppSetSpec{
 					RevisionHistoryLimit: &itemRevisionHistoryLimit,
 				},
 			},
@@ -476,8 +475,8 @@ func TestCleanRevisions(t *testing.T) {
 }
 
 func TestControlledHistories(t *testing.T) {
-	// cr_should_adopt is a cr has owner label but does not has owner reference
-	cr_should_adopt := apps.ControllerRevision{
+	// crShouldAdopt is a cr has owner label but does not has owner reference
+	crShouldAdopt := apps.ControllerRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-yurtappset-1",
 			Namespace: "default",
@@ -487,8 +486,8 @@ func TestControlledHistories(t *testing.T) {
 			Raw: []byte(`{"a":"a"}`),
 		},
 	}
-	// cr_should_release is a cr not has owner label but has owner reference
-	cr_should_release := apps.ControllerRevision{
+	// crShouldRelease is a cr not has owner label but has owner reference
+	crShouldRelease := apps.ControllerRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-yurtappset-2",
 			Namespace: "default",
@@ -498,17 +497,17 @@ func TestControlledHistories(t *testing.T) {
 		},
 		Revision: 0,
 	}
-	controllerutil.SetControllerReference(&yas, &cr_should_release, fakeScheme)
+	controllerutil.SetControllerReference(&yas, &crShouldRelease, fakeScheme)
 
 	crs, err := controlledHistories(fake.NewClientBuilder().WithScheme(fakeScheme).WithObjects(
-		&cr_should_adopt,
-		&cr_should_release,
+		&crShouldAdopt,
+		&crShouldRelease,
 		&yas,
 	).Build(), fakeScheme, &yas)
 	assert.NoError(t, err)
 
 	assert.Len(t, crs, 1)
-	assert.Equal(t, cr_should_adopt.Name, crs[0].Name)
+	assert.Equal(t, crShouldAdopt.Name, crs[0].Name)
 }
 
 func TestConstructYurtAppSetRevisions(t *testing.T) {

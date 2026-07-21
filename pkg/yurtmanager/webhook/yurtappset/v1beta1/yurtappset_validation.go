@@ -44,7 +44,7 @@ func (webhook *YurtAppSetHandler) ValidateCreate(ctx context.Context, obj runtim
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppSet but got a %T", obj))
 	}
 
-	template := set.Spec.Workload.WorkloadTemplate
+	template := set.Spec.WorkloadTemplate
 	if template.DeploymentTemplate == nil && template.StatefulSetTemplate == nil {
 		return nil, apierrors.NewInvalid(v1beta1.GroupVersion.WithKind(YurtAppSetKind).GroupKind(), set.Name,
 			field.ErrorList{field.Invalid(field.NewPath("spec").Child("workload").Child("WorkloadTemplate"), template, "no workload template is configured")})
@@ -78,7 +78,7 @@ func (webhook *YurtAppSetHandler) ValidateUpdate(ctx context.Context, oldObj, ne
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a YurtAppSet but got a %T", oldObj))
 	}
 
-	newTemplate := newSet.Spec.Workload.WorkloadTemplate
+	newTemplate := newSet.Spec.WorkloadTemplate
 	if newTemplate.DeploymentTemplate == nil && newTemplate.StatefulSetTemplate == nil {
 		return nil, apierrors.NewInvalid(v1beta1.GroupVersion.WithKind(YurtAppSetKind).GroupKind(), newSet.Name,
 			field.ErrorList{field.Invalid(field.NewPath("spec").Child("workload").Child("WorkloadTemplate"), newTemplate, "no workload template is configured")})
@@ -97,7 +97,7 @@ func (webhook *YurtAppSetHandler) ValidateUpdate(ctx context.Context, oldObj, ne
 		}
 	}
 
-	oldTemplate := oldSet.Spec.Workload.WorkloadTemplate
+	oldTemplate := oldSet.Spec.WorkloadTemplate
 	if (oldTemplate.DeploymentTemplate == nil && newTemplate.DeploymentTemplate != nil) ||
 		(oldTemplate.StatefulSetTemplate == nil && newTemplate.StatefulSetTemplate != nil) {
 		return nil, apierrors.NewInvalid(v1beta1.GroupVersion.WithKind(YurtAppSetKind).GroupKind(), newSet.Name,
@@ -109,9 +109,9 @@ func (webhook *YurtAppSetHandler) ValidateUpdate(ctx context.Context, oldObj, ne
 
 // TODO: move functions under k8s.io/kubernetes to pkg/util/kubernetes
 func (webhook *YurtAppSetHandler) validateDeployment(yas *v1beta1.YurtAppSet) error {
-	if len(yas.Spec.Workload.WorkloadTweaks) == 0 {
+	if len(yas.Spec.WorkloadTweaks) == 0 {
 		deploy := &appsv1.Deployment{}
-		deploy.Spec = *yas.Spec.Workload.WorkloadTemplate.DeploymentTemplate.Spec.DeepCopy()
+		deploy.Spec = *yas.Spec.DeploymentTemplate.Spec.DeepCopy()
 		webhook.Scheme.Default(deploy)
 		out := &apps.Deployment{}
 		if err := v1.Convert_v1_Deployment_To_apps_Deployment(deploy, out, nil); err != nil {
@@ -125,9 +125,9 @@ func (webhook *YurtAppSetHandler) validateDeployment(yas *v1beta1.YurtAppSet) er
 	}
 	// Checking tweaks one by one, because if we test them all together,
 	// we might miss one invalid tweak. And that tweak could only apply to a specific workload.
-	for _, yasTweak := range yas.Spec.Workload.WorkloadTweaks {
+	for _, yasTweak := range yas.Spec.WorkloadTweaks {
 		deploy := &appsv1.Deployment{}
-		deploy.Spec = *yas.Spec.Workload.WorkloadTemplate.DeploymentTemplate.Spec.DeepCopy()
+		deploy.Spec = *yas.Spec.DeploymentTemplate.Spec.DeepCopy()
 		if err := workloadmanager.ApplyTweaksToDeployment(deploy, []*v1beta1.Tweaks{&yasTweak.Tweaks}); err != nil {
 			return err
 		}
@@ -145,9 +145,9 @@ func (webhook *YurtAppSetHandler) validateDeployment(yas *v1beta1.YurtAppSet) er
 }
 
 func (webhook *YurtAppSetHandler) validateStatefulSet(yas *v1beta1.YurtAppSet) error {
-	if len(yas.Spec.Workload.WorkloadTweaks) == 0 {
+	if len(yas.Spec.WorkloadTweaks) == 0 {
 		state := &appsv1.StatefulSet{}
-		state.Spec = *yas.Spec.Workload.WorkloadTemplate.StatefulSetTemplate.Spec.DeepCopy()
+		state.Spec = *yas.Spec.StatefulSetTemplate.Spec.DeepCopy()
 		webhook.Scheme.Default(state)
 		out := &apps.StatefulSet{}
 		if err := v1.Convert_v1_StatefulSet_To_apps_StatefulSet(state, out, nil); err != nil {
@@ -160,9 +160,9 @@ func (webhook *YurtAppSetHandler) validateStatefulSet(yas *v1beta1.YurtAppSet) e
 		return nil
 	}
 	// Same as validateDeployment
-	for _, yasTweak := range yas.Spec.Workload.WorkloadTweaks {
+	for _, yasTweak := range yas.Spec.WorkloadTweaks {
 		state := &appsv1.StatefulSet{}
-		state.Spec = *yas.Spec.Workload.WorkloadTemplate.StatefulSetTemplate.Spec.DeepCopy()
+		state.Spec = *yas.Spec.StatefulSetTemplate.Spec.DeepCopy()
 		if err := workloadmanager.ApplyTweaksToStatefulSet(state, []*v1beta1.Tweaks{&yasTweak.Tweaks}); err != nil {
 			return err
 		}

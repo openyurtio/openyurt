@@ -147,7 +147,7 @@ func (r *ReconcileHubLeaderConfig) Reconcile(
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
-	if nodepool.ObjectMeta.DeletionTimestamp != nil {
+	if nodepool.DeletionTimestamp != nil {
 		return reconcile.Result{}, nil
 	}
 

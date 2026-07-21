@@ -250,7 +250,6 @@ func serveUpgradeRequest(tunnelConn net.Conn, w http.ResponseWriter, r *http.Req
 	case <-readerComplete:
 	}
 	klog.V(4).Infof("interceptor: stop serving streaming request %s with Headers: %v", r.URL.String(), r.Header)
-	return
 }
 
 // isChunked verify the specified response is chunked stream or not.

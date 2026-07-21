@@ -23,6 +23,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/coreos/go-iptables/iptables"
@@ -65,9 +66,9 @@ var (
 )
 
 // DownloadAndDeployYurthubInSystemd downloads yurthub binary and deploys yurthub in systemd
-func DownloadAndDeployYurthubInSystemd(hostControlPlaneAddr string, serverAddr string, yurthubBinaryUrl string, nodeName string) error {
-	// download yurthub (tar.gz) from yurthubBinaryUrl and install it to /usr/bin/yurthub
-	if err := DownloadAndInstallYurthub(yurthubBinaryUrl); err != nil {
+func DownloadAndDeployYurthubInSystemd(hostControlPlaneAddr string, serverAddr string, yurthubBinaryURL string, nodeName string) error {
+	// download yurthub (tar.gz) from yurthubBinaryURL and install it to /usr/bin/yurthub
+	if err := DownloadAndInstallYurthub(yurthubBinaryURL); err != nil {
 		return err
 	}
 	// stop yurthub service at first
@@ -88,16 +89,16 @@ func DownloadAndDeployYurthubInSystemd(hostControlPlaneAddr string, serverAddr s
 }
 
 // DownloadAndInstallYurthub gets yurthub binary from URL and saves to /usr/bin/yurthub
-func DownloadAndInstallYurthub(yurthubBinaryUrl string) error {
-	//download yurthub (format: tar.gz) from yurthubBinaryUrl
-	originalFileName := path.Base(yurthubBinaryUrl)
+func DownloadAndInstallYurthub(yurthubBinaryURL string) error {
+	//download yurthub (format: tar.gz) from yurthubBinaryURL
+	originalFileName := path.Base(yurthubBinaryURL)
 	if err := osMkdirAll(yurthubTmpDir, 0755); err != nil {
 		return err
 	}
 	defer osRemoveAll(yurthubTmpDir)
 	savePath := fmt.Sprintf("%s/%s", yurthubTmpDir, originalFileName)
-	klog.V(1).Infof("Download yurthub from: %s", yurthubBinaryUrl)
-	if err := utilDownloadFile(yurthubBinaryUrl, savePath, 3); err != nil {
+	klog.V(1).Infof("Download yurthub from: %s", yurthubBinaryURL)
+	if err := utilDownloadFile(yurthubBinaryURL, savePath, 3); err != nil {
 		return fmt.Errorf("download yurthub fail: %w", err)
 	}
 	// untar the tar.gz file to YurthubTmpDir
@@ -155,18 +156,21 @@ func StopYurthubService() error {
 	return nil
 }
 
-// SetYurthubService configure yurthub service.
 func SetYurthubService(hostControlPlaneAddr string, serverAddr string, nodeName string) error {
+	return SetYurthubServiceWithSystemdDir(hostControlPlaneAddr, serverAddr, nodeName, "/etc/systemd/system")
+}
+
+// SetYurthubService configure yurthub service.
+func SetYurthubServiceWithSystemdDir(hostControlPlaneAddr string, serverAddr string, nodeName string, systemdDir string) error {
 	klog.Info("Setting Yurthub service.")
-	yurthubServiceDir := filepath.Dir(constants.YurthubServiceFilepath)
-	if _, err := os.Stat(yurthubServiceDir); err != nil {
+	if _, err := os.Stat(systemdDir); err != nil {
 		if os.IsNotExist(err) {
-			if err := os.MkdirAll(yurthubServiceDir, os.ModePerm); err != nil {
-				klog.Errorf("Create dir %s fail: %v", yurthubServiceDir, err)
+			if err := os.MkdirAll(systemdDir, os.ModePerm); err != nil {
+				klog.Errorf("Create dir %s fail: %v", systemdDir, err)
 				return err
 			}
 		} else {
-			klog.Errorf("Describe dir %s fail: %v", yurthubServiceDir, err)
+			klog.Errorf("Describe dir %s fail: %v", serverAddr, err)
 			return err
 		}
 	}
@@ -179,14 +183,21 @@ SERVERADDR=%s
 HOSTCONTROLPLANEADDRESS=%s
 `, nodeName, serverAddr, hostControlPlaneAddr)
 
-	if err := os.WriteFile(constants.YurthubEnvironmentFilePath, []byte(yurthubSyetmdServiceEnvironmentFileContent), 0644); err != nil {
-		klog.Errorf("Write file %s fail: %v", constants.YurthubEnvironmentFilePath, err)
+	yurthubEnvironmentFilePath := filepath.Join(systemdDir, "yurthub.default")
+	if err := os.WriteFile(yurthubEnvironmentFilePath, []byte(yurthubSyetmdServiceEnvironmentFileContent), 0644); err != nil {
+		klog.Errorf("Write file %s fail: %v", yurthubEnvironmentFilePath, err)
 		return err
 	}
 
-	// yurthub.service contains the configuration of yurthub service
-	if err := os.WriteFile(constants.YurthubServiceFilepath, []byte(constants.YurthubSyetmdServiceContent), 0644); err != nil {
-		klog.Errorf("Write file %s fail: %v", constants.YurthubServiceFilepath, err)
+	yurthubServiceFilePath := filepath.Join(systemdDir, "yurthub.service")
+	serviceContent := strings.Replace(
+		constants.YurthubSyetmdServiceContent,
+		"/etc/systemd/system/yurthub.default",
+		yurthubEnvironmentFilePath,
+		1,
+	)
+	if err := os.WriteFile(yurthubServiceFilePath, []byte(serviceContent), 0644); err != nil {
+		klog.Errorf("Write file %s fail: %v", yurthubServiceFilePath, err)
 		return err
 	}
 	return nil

@@ -46,7 +46,7 @@ const (
 var serviceClient = NewEdgexDeviceServiceClient("edgex-core-metadata:59881")
 
 func Test_GetService(t *testing.T) {
-	httpmock.ActivateNonDefault(serviceClient.Client.GetClient())
+	httpmock.ActivateNonDefault(serviceClient.GetClient())
 	defer httpmock.DeactivateAndReset()
 
 	httpmock.RegisterResponder("GET", "http://edgex-core-metadata:59881/api/v3/deviceservice/name/device-virtual",
@@ -57,7 +57,7 @@ func Test_GetService(t *testing.T) {
 }
 
 func Test_ListService(t *testing.T) {
-	httpmock.ActivateNonDefault(serviceClient.Client.GetClient())
+	httpmock.ActivateNonDefault(serviceClient.GetClient())
 	defer httpmock.DeactivateAndReset()
 
 	httpmock.RegisterResponder("GET", "http://edgex-core-metadata:59881/api/v3/deviceservice/all?limit=-1",
@@ -69,7 +69,7 @@ func Test_ListService(t *testing.T) {
 }
 
 func Test_CreateService(t *testing.T) {
-	httpmock.ActivateNonDefault(serviceClient.Client.GetClient())
+	httpmock.ActivateNonDefault(serviceClient.GetClient())
 	defer httpmock.DeactivateAndReset()
 
 	httpmock.RegisterResponder("POST", "http://edgex-core-metadata:59881/api/v3/deviceservice",
@@ -91,7 +91,7 @@ func Test_CreateService(t *testing.T) {
 }
 
 func Test_DeleteService(t *testing.T) {
-	httpmock.ActivateNonDefault(serviceClient.Client.GetClient())
+	httpmock.ActivateNonDefault(serviceClient.GetClient())
 	defer httpmock.DeactivateAndReset()
 
 	httpmock.RegisterResponder("DELETE", "http://edgex-core-metadata:59881/api/v3/deviceservice/name/test-device-virtual",
@@ -108,7 +108,7 @@ func Test_DeleteService(t *testing.T) {
 }
 
 func Test_UpdateService(t *testing.T) {
-	httpmock.ActivateNonDefault(serviceClient.Client.GetClient())
+	httpmock.ActivateNonDefault(serviceClient.GetClient())
 	defer httpmock.DeactivateAndReset()
 	httpmock.RegisterResponder("PATCH", "http://edgex-core-metadata:59881/api/v3/deviceservice",
 		httpmock.NewStringResponder(200, ServiceUpdateSuccess))

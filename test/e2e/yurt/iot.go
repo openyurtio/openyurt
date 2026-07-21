@@ -146,14 +146,14 @@ var _ = Describe("OpenYurt IoT Test", Ordered, func() {
 					// cannot be achieved. Verifying initialization and configmap provisioning
 					// confirms the controller correctly processed the PlatformAdmin.
 					if !testPlatformAdmin.Status.Initialized {
-						return fmt.Errorf("The %s version of PlatformAdmin is not yet initialized", version)
+						return fmt.Errorf("%s version of PlatformAdmin is not yet initialized", version)
 					}
 					for _, cond := range testPlatformAdmin.Status.Conditions {
 						if cond.Type == iotv1beta1.ConfigmapAvailableCondition && cond.Status == corev1.ConditionTrue {
 							return nil
 						}
 					}
-					return fmt.Errorf("The %s version of PlatformAdmin is not ready", version)
+					return fmt.Errorf("the %s version of PlatformAdmin is not ready", version)
 				}, platformadminTimeout, 5*time.Second).Should(Succeed())
 			})
 		})

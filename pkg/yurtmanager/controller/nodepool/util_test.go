@@ -782,7 +782,7 @@ func TestDecodePoolAttrs(t *testing.T) {
 			"foo": "bar",
 		},
 	}
-	npraJson, err := json.Marshal(wantNpra)
+	npraJSON, err := json.Marshal(wantNpra)
 	if err != nil {
 		t.Errorf("failed to marshal npra")
 	}
@@ -790,7 +790,7 @@ func TestDecodePoolAttrs(t *testing.T) {
 	mockNode := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
-				apps.AnnotationPrevAttrs: string(npraJson),
+				apps.AnnotationPrevAttrs: string(npraJSON),
 			},
 		},
 	}

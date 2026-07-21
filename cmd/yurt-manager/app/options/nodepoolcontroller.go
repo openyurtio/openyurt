@@ -36,13 +36,13 @@ func NewNodePoolControllerOptions() *NodePoolControllerOptions {
 }
 
 // AddFlags adds flags related to nodePool for yurt-manager to the specified FlagSet.
-func (n *NodePoolControllerOptions) AddFlags(fs *pflag.FlagSet) {
-	if n == nil {
+func (o *NodePoolControllerOptions) AddFlags(fs *pflag.FlagSet) {
+	if o == nil {
 		return
 	}
 
-	fs.BoolVar(&n.EnableSyncNodePoolConfigurations, "enable-sync-nodepool-configurations", n.EnableSyncNodePoolConfigurations, "enable to sync nodepool configurations(including labels, annotations, taints in spec) to nodes in the nodepool.")
-	fs.Int32Var(&n.ConcurrentNodePoolWorkers, "concurrent-nodepool-workers", n.ConcurrentNodePoolWorkers, "The number of nodepool objects that are allowed to reconcile concurrently.")
+	fs.BoolVar(&o.EnableSyncNodePoolConfigurations, "enable-sync-nodepool-configurations", o.EnableSyncNodePoolConfigurations, "enable to sync nodepool configurations(including labels, annotations, taints in spec) to nodes in the nodepool.")
+	fs.Int32Var(&o.ConcurrentNodePoolWorkers, "concurrent-nodepool-workers", o.ConcurrentNodePoolWorkers, "The number of nodepool objects that are allowed to reconcile concurrently.")
 }
 
 // ApplyTo fills up nodePool config with options.

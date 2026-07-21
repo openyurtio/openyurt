@@ -44,13 +44,13 @@ func GetNodePool(cfg *rest.Config) (string, error) {
 
 	bn, err := os.ReadFile(PODHOSTNAME)
 	if err != nil {
-		return nodePool, fmt.Errorf("Read file %s fail: %v", PODHOSTNAME, err)
+		return nodePool, fmt.Errorf("read file %s failed: %v", PODHOSTNAME, err)
 	}
 	bns, err := os.ReadFile(PODNAMESPACE)
 	if err != nil {
-		return nodePool, fmt.Errorf("Read file %s fail: %v", PODNAMESPACE, err)
+		return nodePool, fmt.Errorf("read file %s failed: %v", PODNAMESPACE, err)
 	}
-	name := strings.Replace(string(bn), "\n", "", -1)
+	name := strings.ReplaceAll(string(bn), "\n", "")
 	namespace := string(bns)
 
 	pod, err := client.CoreV1().Pods(namespace).Get(context.Background(), name, metav1.GetOptions{})
@@ -70,8 +70,8 @@ func GetNodePool(cfg *rest.Config) (string, error) {
 
 func GetEdgeDeviceServiceName(ds *iotv1alpha1.DeviceService, label string) string {
 	var actualDSName string
-	if _, ok := ds.ObjectMeta.Labels[label]; ok {
-		actualDSName = ds.ObjectMeta.Labels[label]
+	if _, ok := ds.Labels[label]; ok {
+		actualDSName = ds.Labels[label]
 	} else {
 		actualDSName = ds.GetName()
 	}
@@ -80,8 +80,8 @@ func GetEdgeDeviceServiceName(ds *iotv1alpha1.DeviceService, label string) strin
 
 func GetEdgeDeviceName(d *iotv1alpha1.Device, label string) string {
 	var actualDeviceName string
-	if _, ok := d.ObjectMeta.Labels[label]; ok {
-		actualDeviceName = d.ObjectMeta.Labels[label]
+	if _, ok := d.Labels[label]; ok {
+		actualDeviceName = d.Labels[label]
 	} else {
 		actualDeviceName = d.GetName()
 	}
@@ -90,8 +90,8 @@ func GetEdgeDeviceName(d *iotv1alpha1.Device, label string) string {
 
 func GetEdgeDeviceProfileName(dp *iotv1alpha1.DeviceProfile, label string) string {
 	var actualDPName string
-	if _, ok := dp.ObjectMeta.Labels[label]; ok {
-		actualDPName = dp.ObjectMeta.Labels[label]
+	if _, ok := dp.Labels[label]; ok {
+		actualDPName = dp.Labels[label]
 	} else {
 		actualDPName = dp.GetName()
 	}

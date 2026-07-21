@@ -79,7 +79,7 @@ func localCacheHandler(handler NonResourceHandler, healthChecker healthchecker.I
 		klog.Infof("get %s non resource data from local cache when cloud-edge line off", path)
 		key := &storage.ClusterInfoKey{
 			ClusterInfoType: nonResourceReqPaths[path],
-			UrlPath:         path,
+			URLPath:         path,
 		}
 		if nonResourceData, err := sw.GetClusterInfo(key); err == nil {
 			w.WriteHeader(http.StatusOK)
@@ -98,7 +98,7 @@ func nonResourceHandler(kubeClient *kubernetes.Clientset, sw cachemanager.Storag
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key := &storage.ClusterInfoKey{
 			ClusterInfoType: nonResourceReqPaths[path],
-			UrlPath:         path,
+			URLPath:         path,
 		}
 
 		result := kubeClient.RESTClient().Get().AbsPath(path).Do(context.TODO())
@@ -129,6 +129,6 @@ func writeErrResponse(path string, err error, w http.ResponseWriter) {
 }
 
 func writeRawJSON(output []byte, w http.ResponseWriter) {
-	w.Header().Set(yurtutil.HttpHeaderContentType, yurtutil.HttpContentTypeJson)
+	w.Header().Set(yurtutil.HTTPHeaderContentType, yurtutil.HTTPContentTypeJSON)
 	w.Write(output)
 }

@@ -38,6 +38,7 @@ import (
 	endpointsliceconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/servicetopology/endpointslice/config"
 	yurtappsetconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtappset/config"
 	podbindingconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtcoordinator/podbinding/config"
+	yurtnodeconversionconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtnodeconversion/config"
 	yurtstaticsetconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/yurtstaticset/config"
 )
 
@@ -63,6 +64,9 @@ type YurtManagerConfiguration struct {
 
 	// YurtStaticSetControllerConfiguration holds configuration for YurtStaticSetController related features.
 	YurtStaticSetController yurtstaticsetconfig.YurtStaticSetControllerConfiguration
+
+	// YurtNodeConversionControllerConfiguration holds configuration for YurtNodeConversionController related features.
+	YurtNodeConversionController yurtnodeconversionconfig.YurtNodeConversionControllerConfiguration
 
 	// PlatformAdminControllerConfiguration holds configuration for PlatformAdminController related features.
 	PlatformAdminController platformadminconfig.PlatformAdminControllerConfiguration

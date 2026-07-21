@@ -23,7 +23,6 @@ import (
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -42,7 +41,7 @@ func OwnerReferenceExistKind(ownerReferences []metav1.OwnerReference, expectKind
 	return false
 }
 
-func GetPodAndOwnedDaemonSet(client client.Client, req reconcile.Request) (*v1.Pod, *appsv1.DaemonSet, error) {
+func GetPodAndOwnedDaemonSet(client client.Client, req reconcile.Request) (*corev1.Pod, *appsv1.DaemonSet, error) {
 	pod, err := GetPod(client, req.NamespacedName)
 	if err != nil {
 		return nil, nil, err
@@ -57,7 +56,7 @@ func GetPodAndOwnedDaemonSet(client client.Client, req reconcile.Request) (*v1.P
 }
 
 func GetPod(c client.Client, namespacedName types.NamespacedName) (*corev1.Pod, error) {
-	pod := &v1.Pod{}
+	pod := &corev1.Pod{}
 	if err := c.Get(context.TODO(), namespacedName, pod); err != nil {
 		return nil, err
 	}

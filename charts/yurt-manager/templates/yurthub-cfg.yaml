@@ -71,26 +71,23 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: yurt-hub-yurt-static-set-role
+  name: yurt-hub-bootstrap
 rules:
   - apiGroups:
-      - ""
+      - apps.openyurt.io
     resources:
-      - configmaps
-    resourceNames:
-      - yurt-static-set-yurt-hub
-      - yurt-static-set-yurt-hub-cloud
+      - nodepools
     verbs:
       - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: bootstrap-static-pod
+  name: yurt-hub-bootstrap
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: yurt-hub-yurt-static-set-role
+  name: yurt-hub-bootstrap
 subjects:
   - apiGroup: rbac.authorization.k8s.io
     kind: Group
@@ -103,9 +100,9 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     openyurt.io/configmap-name: yurt-hub-cfg
-    {{- include "yurthub.labels" . | nindent 4 }}
+    {{- include "yurt-manager.labels" . | nindent 4 }}
 data:
-  cache_agents: {{ .Values.cacheAgents | quote }}
+  cache_agents: {{ .Values.yurthub.cacheAgents | quote }}
   servicetopology: ""
   discardcloudservice: ""
   masterservice: ""

@@ -83,6 +83,11 @@ func (e *EnqueueNodePoolForNode) Update(ctx context.Context, evt event.UpdateEve
 		klog.V(4).Info(Format("node(%s) is added into pool(%s)", newNode.Name, newNp))
 		addNodePoolToWorkQueue(newNp, q)
 		return
+	} else if len(newNp) == 0 {
+		// removing the nodepool label is allowed
+		klog.V(4).Info(Format("node(%s) is removed from pool(%s)", newNode.Name, oldNp))
+		addNodePoolToWorkQueue(oldNp, q)
+		return
 	} else if oldNp != newNp {
 		klog.Warningf("It is not allowed to change the NodePoolLabel of node, but pool of node(%s) is changed from %s to %s", newNode.Name, oldNp, newNp)
 		// emit a warning event

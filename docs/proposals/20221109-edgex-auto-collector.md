@@ -194,7 +194,7 @@ type Version struct {
 type Component struct {
 	Name         string            `yaml:"name"`
 	Image        string            `yaml:"image"`
-	Volumes      []string          `yaml:"volumns,omitempty"`
+	Volumes      []string          `yaml:"volumes,omitempty"`
 	ComponentEnv map[string]string `yaml:"componentEnv,omitempty"`
 	IsSecurity bool `yaml:"isSecurity"`
   // A pointer to the Env of the previous level

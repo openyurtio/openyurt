@@ -289,7 +289,7 @@ func TestReconcile(t *testing.T) {
 				gotNodes := make([]corev1.Node, 0)
 				for i := range currentNodeList.Items {
 					node := currentNodeList.Items[i]
-					node.ObjectMeta.ResourceVersion = ""
+					node.ResourceVersion = ""
 					gotNodes = append(gotNodes, node)
 				}
 

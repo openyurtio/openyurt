@@ -36,7 +36,7 @@ type YurtJoinData interface {
 	JoinToken() string
 	PauseImage() string
 	YurtHubImage() string
-	YurtHubBinaryUrl() string
+	YurtHubBinaryURL() string
 	HostControlPlaneAddr() string
 	YurtHubServer() string
 	YurtHubTemplate() string

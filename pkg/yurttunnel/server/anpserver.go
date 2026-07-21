@@ -47,7 +47,7 @@ type anpTunnelServer struct {
 	serverAgentAddr          string
 	serverCount              int
 	tlsCfg                   *tls.Config
-	proxyClientTlsCfg        *tls.Config
+	proxyClientTLSCfg        *tls.Config
 	wrappers                 hw.HandlerWrappers
 	proxyStrategy            string
 }
@@ -71,7 +71,7 @@ func (ats *anpTunnelServer) Run() error {
 	}
 
 	wrappedHandler, err := wh.WrapHandler(
-		NewRequestInterceptor(ats.interceptorServerUDSFile, ats.proxyClientTlsCfg),
+		NewRequestInterceptor(ats.interceptorServerUDSFile, ats.proxyClientTLSCfg),
 		ats.wrappers,
 	)
 	if err != nil {

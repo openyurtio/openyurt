@@ -271,7 +271,7 @@ func (r *ReconcilePlatformAdmin) reconcileDelete(ctx context.Context, platformAd
 		yas.Spec.Pools = newPools
 
 		newTweaks := make([]appsv1beta1.WorkloadTweak, 0)
-		for _, tweak := range yas.Spec.Workload.WorkloadTweaks {
+		for _, tweak := range yas.Spec.WorkloadTweaks {
 			newTweakPools := make([]string, 0)
 			for _, poolName := range tweak.Pools {
 				if !util.Contains(platformAdmin.Spec.NodePools, poolName) {
@@ -285,16 +285,16 @@ func (r *ReconcilePlatformAdmin) reconcileDelete(ctx context.Context, platformAd
 				})
 			}
 		}
-		yas.Spec.Workload.WorkloadTweaks = newTweaks
+		yas.Spec.WorkloadTweaks = newTweaks
 
-		if err := r.Client.Patch(ctx, yas, client.MergeFrom(oldYas)); err != nil {
+		if err := r.Patch(ctx, yas, client.MergeFrom(oldYas)); err != nil {
 			klog.V(4).ErrorS(err, Format("Patch YurtAppSet %s/%s error", platformAdmin.Namespace, dc.Name))
 			return reconcile.Result{}, err
 		}
 	}
 
 	controllerutil.RemoveFinalizer(platformAdmin, iotv1beta1.PlatformAdminFinalizer)
-	if err := r.Client.Update(ctx, platformAdmin); err != nil {
+	if err := r.Update(ctx, platformAdmin); err != nil {
 		klog.Error(Format("Update PlatformAdmin %s error %v", klog.KObj(platformAdmin), err))
 		return reconcile.Result{}, err
 	}
@@ -343,7 +343,7 @@ func (r *ReconcilePlatformAdmin) reconcileNormal(ctx context.Context, platformAd
 	util.SetPlatformAdminCondition(platformAdminStatus, util.NewPlatformAdminCondition(iotv1beta1.ComponentAvailableCondition, corev1.ConditionTrue, "", ""))
 
 	// Update the metadata of PlatformAdmin
-	if err := r.Client.Update(ctx, platformAdmin); err != nil {
+	if err := r.Update(ctx, platformAdmin); err != nil {
 		klog.Error(Format("Update PlatformAdmin %s error %v", klog.KObj(platformAdmin), err))
 		return reconcile.Result{}, err
 	}
@@ -444,7 +444,7 @@ func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platfor
 			oldYas := yas.DeepCopy()
 
 			// Refresh the YurtAppSet according to the user-defined configuration
-			yas.Spec.WorkloadTemplate.DeploymentTemplate.Spec = *desiredComponent.Deployment
+			yas.Spec.DeploymentTemplate.Spec = *desiredComponent.Deployment
 
 			for _, poolName := range platformAdmin.Spec.NodePools {
 				if slices.Contains(yas.Spec.Pools, poolName) {
@@ -474,13 +474,13 @@ func (r *ReconcilePlatformAdmin) reconcileComponent(ctx context.Context, platfor
 				}
 				if !flag {
 					yas.Spec.Pools = append(yas.Spec.Pools, pools...)
-					yas.Spec.Workload.WorkloadTweaks = append(yas.Spec.Workload.WorkloadTweaks, tweaks...)
+					yas.Spec.WorkloadTweaks = append(yas.Spec.WorkloadTweaks, tweaks...)
 				}
 			}
 			if err := controllerutil.SetOwnerReference(platformAdmin, yas, r.Scheme()); err != nil {
 				return false, err
 			}
-			if err := r.Client.Patch(ctx, yas, client.MergeFrom(oldYas)); err != nil {
+			if err := r.Patch(ctx, yas, client.MergeFrom(oldYas)); err != nil {
 				klog.Error(Format("Patch yurtappset %s/%s failed: %v", yas.Namespace, yas.Name, err))
 				return false, err
 			}
@@ -587,7 +587,7 @@ func (r *ReconcilePlatformAdmin) handleYurtAppSet(ctx context.Context, platformA
 			yas.Spec.Pools = append(yas.Spec.Pools, nodePool)
 		}
 	}
-	yas.Spec.Workload.WorkloadTweaks = []appsv1beta1.WorkloadTweak{
+	yas.Spec.WorkloadTweaks = []appsv1beta1.WorkloadTweak{
 		{
 			Pools: yas.Spec.Pools,
 			Tweaks: appsv1beta1.Tweaks{
@@ -671,7 +671,7 @@ func (r *ReconcilePlatformAdmin) readFramework(ctx context.Context, platformAdmi
 		}
 	} else {
 		hasOwnerReference := false
-		for _, ref := range cm.ObjectMeta.OwnerReferences {
+		for _, ref := range cm.OwnerReferences {
 			if ref.Kind == platformAdmin.Kind && ref.Name == platformAdmin.Name {
 				hasOwnerReference = true
 			}

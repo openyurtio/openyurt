@@ -36,7 +36,7 @@ func newPod(now metav1.Time, ready bool, beforeSec int) *v1.Pod {
 			Conditions: []v1.PodCondition{
 				{
 					Type:               v1.PodReady,
-					LastTransitionTime: metav1.NewTime(now.Time.Add(-1 * time.Duration(beforeSec) * time.Second)),
+					LastTransitionTime: metav1.NewTime(now.Add(-1 * time.Duration(beforeSec) * time.Second)),
 					Status:             conditionStatus,
 				},
 			},
@@ -95,7 +95,7 @@ func newStaticPod(podName string, nodeName string, namespace string, isStaticPod
 
 	if isStaticPod {
 		pod.Name = podName + "-" + nodeName
-		pod.ObjectMeta.OwnerReferences = []metav1.OwnerReference{{Kind: "Node"}}
+		pod.OwnerReferences = []metav1.OwnerReference{{Kind: "Node"}}
 	} else {
 		pod.Annotations = nil
 	}

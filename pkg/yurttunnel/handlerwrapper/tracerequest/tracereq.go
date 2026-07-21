@@ -137,7 +137,7 @@ func (trm *traceReqMiddleware) WrapHandler(handler http.Handler) http.Handler {
 		start := time.Now()
 		handler.ServeHTTP(w, req)
 		klog.V(2).Infof("stop handling request %s %s, request handling lasts %v",
-			req.Method, req.URL.String(), time.Now().Sub(start))
+			req.Method, req.URL.String(), time.Since(start))
 	})
 }
 

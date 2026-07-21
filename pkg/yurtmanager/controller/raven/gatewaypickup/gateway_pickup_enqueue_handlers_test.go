@@ -110,7 +110,7 @@ func TestEnqueueGatewayForNode(t *testing.T) {
 			eventHandler: func() {
 				oldNode := mockNode()
 				newNode := oldNode.DeepCopy()
-				newNode.ObjectMeta.Labels[raven.LabelCurrentGateway] = "gw-mock-new"
+				newNode.Labels[raven.LabelCurrentGateway] = "gw-mock-new"
 				h.Update(ctx, event.UpdateEvent{ObjectOld: oldNode, ObjectNew: newNode}, queue)
 			},
 		},

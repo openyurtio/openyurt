@@ -150,7 +150,7 @@ func (webhook *PlatformAdminHandler) validatePlatformAdminWithNodePools(
 	}
 	ok := false
 	for _, nodePool := range nodePools.Items {
-		if nodePool.ObjectMeta.Name == platformAdmin.Spec.PoolName {
+		if nodePool.Name == platformAdmin.Spec.PoolName {
 			ok = true
 			break
 		}

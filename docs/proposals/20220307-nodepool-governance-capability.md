@@ -263,7 +263,7 @@ The policy of the cloud controller is as follows:
 
 |        | get node lease                               | get node lease with delegate annotation        | don't get node lease                       |
 | ------ | -------------------------------------------- | ---------------------------------------------- | ------------------------------------------ |
-| Policy | Node: Ready;<br>Pod: Maintain;<br> Endpoints: Maintain | Node: NotReady;<br>Pod: Maintain;<br>Endpoints: Maintain | Node: NotReady;<br>Pod: Evited;<br>Endponits: Update |
+| Policy | Node: Ready;<br>Pod: Maintain;<br> Endpoints: Maintain | Node: NotReady;<br>Pod: Maintain;<br>Endpoints: Maintain | Node: NotReady;<br>Pod: Evicted;<br>Endpoints: Update |
 
 ### User Stories
 

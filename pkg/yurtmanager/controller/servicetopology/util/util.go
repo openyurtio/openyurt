@@ -25,8 +25,5 @@ import (
 func ServiceTopologyTypeChanged(oldSvc, newSvc *corev1.Service) bool {
 	oldType := oldSvc.Annotations[servicetopology.AnnotationServiceTopologyKey]
 	newType := newSvc.Annotations[servicetopology.AnnotationServiceTopologyKey]
-	if oldType == newType {
-		return false
-	}
-	return true
+	return oldType != newType
 }

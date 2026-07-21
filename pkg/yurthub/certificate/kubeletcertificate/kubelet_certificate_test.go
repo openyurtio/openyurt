@@ -27,18 +27,18 @@ func TestNewKubeletCertManager(t *testing.T) {
 	}{
 		"kubelet.conf doesn't exist": {
 			kubeConfFile: "invalid file",
-			err:          KubeConfNotExistErr,
+			err:          ErrKubeConfNotExist,
 		},
 		"ca.crt file doesn't exist": {
 			kubeConfFile:  "../testdata/kubelet.conf",
 			kubeletCAFile: "invalid file",
-			err:           KubeletCANotExistErr,
+			err:           ErrKubeletCANotExist,
 		},
 		"kubelet.pem doesn't exist": {
 			kubeConfFile:   "../testdata/kubelet.conf",
 			kubeletCAFile:  "../testdata/ca.crt",
 			kubeletPemFile: "invalid file",
-			err:            KubeletPemNotExistErr,
+			err:            ErrKubeletPemNotExist,
 		},
 		"normal kubelet cert manager": {
 			kubeConfFile:   "../testdata/kubelet.conf",

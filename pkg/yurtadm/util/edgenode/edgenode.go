@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	NODE_NAME     = "NODE_NAME"
+	NodeName      = "NODE_NAME"
 	NodeNameSplit = "="
 )
 
@@ -100,7 +100,7 @@ func CopyFile(sourceFile string, destinationFile string, perm os.FileMode) error
 // in the configuration file or hostname
 func GetNodeName(kubeadmConfPath string) (string, error) {
 	//1. from env NODE_NAME
-	nodename := os.Getenv(NODE_NAME)
+	nodename := os.Getenv(NodeName)
 	if nodename != "" {
 		return nodename, nil
 	}
@@ -188,7 +188,6 @@ func DeployStaticYaml(manifestList, templateList []string, podManifestPath strin
 				return err
 			}
 		} else {
-			klog.Errorf("Describe dir %s fail: %v", podManifestPath, err)
 			return err
 		}
 	}
@@ -197,6 +196,7 @@ func DeployStaticYaml(manifestList, templateList []string, podManifestPath strin
 		manifestFile := filepath.Join(podManifestPath, util.WithYamlSuffix(manifestList[i]))
 		klog.Infof("static pod template: %s\n%s", manifestFile, template)
 		if err := os.WriteFile(manifestFile, []byte(template), 0600); err != nil {
+			klog.Errorf("Write file %s fail: %v", manifestFile, err)
 			return err
 		}
 	}

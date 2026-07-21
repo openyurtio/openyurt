@@ -121,8 +121,8 @@ func TestWithRequestForPoolScopeMetadata(t *testing.T) {
 				{Group: "discovery.k8s.io", Version: "v1", Resource: "endpointslices"},
 			}
 
-			healthChecher := fakeHealthChecker.NewFakeChecker(map[*url.URL]bool{})
-			loadBalancer := remote.NewLoadBalancer("round-robin", []*url.URL{}, nil, nil, healthChecher, nil, context.Background().Done())
+			healthChecker := fakeHealthChecker.NewFakeChecker(map[*url.URL]bool{})
+			loadBalancer := remote.NewLoadBalancer("round-robin", []*url.URL{}, nil, nil, healthChecker, nil, context.Background().Done())
 			cfg := &config.YurtHubConfiguration{
 				PoolScopeResources:       poolScopeResources,
 				RESTMapperManager:        restMapperManager,
@@ -130,7 +130,7 @@ func TestWithRequestForPoolScopeMetadata(t *testing.T) {
 				LoadBalancerForLeaderHub: loadBalancer,
 				NodeName:                 nodeName,
 			}
-			rmm := multiplexer.NewRequestMultiplexerManager(cfg, dsm, healthChecher)
+			rmm := multiplexer.NewRequestMultiplexerManager(cfg, dsm, healthChecker)
 
 			var isRequestForPoolScopeMetadata, shouldBeForwarded bool
 			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {

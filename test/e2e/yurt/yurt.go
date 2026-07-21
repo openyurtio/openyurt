@@ -51,7 +51,7 @@ var _ = ginkgo.Describe(constants.YurtE2ENamespaceName, ginkgo.Ordered, ginkgo.L
 			cs := yurtconfig.YurtE2eCfg.KubeClient
 			result, err := ns.GetNameSpace(cs, "kube-system")
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to get system namespaces")
-			klog.Infof("get_created_namespace Successful Name: %v  Status: %v CreateTime: %v ", result.ObjectMeta.Name, result.Status.Phase, result.CreationTimestamp)
+			klog.Infof("get_created_namespace Successful Name: %v  Status: %v CreateTime: %v ", result.Name, result.Status.Phase, result.CreationTimestamp)
 		})
 
 	})

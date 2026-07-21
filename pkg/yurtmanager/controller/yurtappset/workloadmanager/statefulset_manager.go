@@ -51,7 +51,7 @@ func (s *StatefulSetManager) Delete(yas *v1beta1.YurtAppSet, workload metav1.Obj
 }
 
 func (s *StatefulSetManager) ApplyTemplate(yas *v1beta1.YurtAppSet, nodepoolName, revision string, workload *appsv1.StatefulSet) error {
-	statefulsetTemplate := yas.Spec.Workload.WorkloadTemplate.StatefulSetTemplate
+	statefulsetTemplate := yas.Spec.StatefulSetTemplate
 	if statefulsetTemplate == nil {
 		return errors.New("no statefulset template in workloadTemplate")
 	}
@@ -117,7 +117,7 @@ func (s *StatefulSetManager) Update(yas *v1beta1.YurtAppSet, workload metav1.Obj
 	stateful := &appsv1.StatefulSet{}
 	var updateError error
 	for i := 0; i < updateRetries; i++ {
-		getError := s.Client.Get(context.TODO(), types.NamespacedName{Namespace: workload.GetNamespace(), Name: workload.GetName()}, stateful)
+		getError := s.Get(context.TODO(), types.NamespacedName{Namespace: workload.GetNamespace(), Name: workload.GetName()}, stateful)
 		if getError != nil {
 			return getError
 		}

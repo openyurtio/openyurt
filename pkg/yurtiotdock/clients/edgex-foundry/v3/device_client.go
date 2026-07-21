@@ -33,10 +33,8 @@ import (
 	"golang.org/x/net/publicsuffix"
 	"k8s.io/klog/v2"
 
-	"github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
 	iotv1alpha1 "github.com/openyurtio/openyurt/pkg/apis/iot/v1alpha1"
 	"github.com/openyurtio/openyurt/pkg/yurtiotdock/clients"
-	devcli "github.com/openyurtio/openyurt/pkg/yurtiotdock/clients"
 )
 
 type EdgexDeviceClient struct {
@@ -83,7 +81,7 @@ func (efc *EdgexDeviceClient) Create(ctx context.Context, device *iotv1alpha1.De
 	createdDevice := device.DeepCopy()
 	if len(edgexResps) == 1 {
 		if edgexResps[0].StatusCode == http.StatusCreated {
-			createdDevice.Status.EdgeId = edgexResps[0].Id
+			createdDevice.Status.EdgeID = edgexResps[0].Id
 			createdDevice.Status.Synced = true
 		} else {
 			return nil, fmt.Errorf("create device on edgex foundry failed, the response is : %s", resp.Body())
@@ -144,7 +142,7 @@ func (efc *EdgexDeviceClient) Get(ctx context.Context, deviceName string, option
 		return nil, err
 	}
 	if resp.StatusCode() == http.StatusNotFound {
-		return nil, fmt.Errorf("Device %s not found", deviceName)
+		return nil, fmt.Errorf("device %s not found", deviceName)
 	}
 	err = json.Unmarshal(resp.Body(), &dResp)
 	if err != nil {
@@ -155,7 +153,7 @@ func (efc *EdgexDeviceClient) Get(ctx context.Context, deviceName string, option
 }
 
 // Convert is used to convert the device information in the systemEvent of messageBus to the device object in the kubernetes cluster
-func (cdc *EdgexDeviceClient) Convert(ctx context.Context, systemEvent dtos.SystemEvent, opts devcli.GetOptions) (*v1alpha1.Device, error) {
+func (efc *EdgexDeviceClient) Convert(ctx context.Context, systemEvent dtos.SystemEvent, opts clients.GetOptions) (*iotv1alpha1.Device, error) {
 	dto := dtos.Device{}
 	err := systemEvent.DecodeDetails(&dto)
 	if err != nil {
@@ -349,13 +347,13 @@ func getPropertyValueFromEvent(resName string, event dtos.Event) string {
 	actualValue := ""
 	for _, r := range event.Readings {
 		if resName == r.ResourceName {
-			if r.SimpleReading.Value != "" {
-				actualValue = r.SimpleReading.Value
-			} else if len(r.BinaryReading.BinaryValue) != 0 {
+			if r.Value != "" {
+				actualValue = r.Value
+			} else if len(r.BinaryValue) != 0 {
 				// TODO: how to demonstrate binary data
-				actualValue = fmt.Sprintf("%s:%s", r.BinaryReading.MediaType, "blob value")
-			} else if r.ObjectReading.ObjectValue != nil {
-				serializedBytes, _ := json.Marshal(r.ObjectReading.ObjectValue)
+				actualValue = fmt.Sprintf("%s:%s", r.MediaType, "blob value")
+			} else if r.ObjectValue != nil {
+				serializedBytes, _ := json.Marshal(r.ObjectValue)
 				actualValue = string(serializedBytes)
 			}
 			break
@@ -376,7 +374,7 @@ func (efc *EdgexDeviceClient) GetCommandResponseByName(deviceName string) ([]dto
 		return nil, err
 	}
 	if resp.StatusCode() == http.StatusNotFound {
-		return nil, errors.New("Item not found")
+		return nil, errors.New("item not found")
 	}
 	err = json.Unmarshal(resp.Body(), &dcr)
 	if err != nil {

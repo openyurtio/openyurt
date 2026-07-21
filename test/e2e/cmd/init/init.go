@@ -76,6 +76,7 @@ var (
 		"v1.30",
 		"v1.31",
 		"v1.32",
+		"v1.34",
 	}
 	validKindVersions = []string{
 		"v0.11.1",
@@ -83,6 +84,7 @@ var (
 		"v0.22.0",
 		"v0.25.0",
 		"v0.26.0",
+		"v0.31.0",
 	}
 	AllValidOpenYurtVersions = append(projectinfo.Get().AllVersions, "latest")
 
@@ -124,9 +126,12 @@ var (
 			"v1.32": "kindest/node:v1.32.0@sha256:c48c62eac5da28cdadcf560d1d8616cfa6783b58f0d94cf63ad1bf49600cb027",
 			"v1.30": "kindest/node:v1.30.8@sha256:17cd608b3971338d9180b00776cb766c50d0a0b6b904ab4ff52fd3fc5c6369bf",
 		},
+		"v0.31.0": {
+			"v1.34": "kindest/node:v1.34.3@sha256:08497ee19eace7b4b5348db5c6a1591d7752b164530a36f855cb0f2bdcbadd48",
+			"v1.32": "kindest/node:v1.32.0@sha256:c48c62eac5da28cdadcf560d1d8616cfa6783b58f0d94cf63ad1bf49600cb027",
+		},
 	}
 
-	yurtHubImageFormat     = "openyurt/yurthub:%s"
 	yurtManagerImageFormat = "openyurt/yurt-manager:%s"
 	nodeServantImageFormat = "openyurt/node-servant:%s"
 	yurtIotDockImageFormat = "openyurt/yurt-iot-dock:%s"
@@ -274,7 +279,6 @@ func (o *kindOptions) Config() *initializerConfig {
 		ClusterName:       o.ClusterName,
 		KubernetesVersion: o.KubernetesVersion,
 		UseLocalImage:     o.UseLocalImages,
-		YurtHubImage:      fmt.Sprintf(yurtHubImageFormat, o.OpenYurtVersion),
 		YurtManagerImage:  fmt.Sprintf(yurtManagerImageFormat, o.OpenYurtVersion),
 		NodeServantImage:  fmt.Sprintf(nodeServantImageFormat, o.OpenYurtVersion),
 		yurtIotDockImage:  fmt.Sprintf(yurtIotDockImageFormat, o.OpenYurtVersion),
@@ -317,7 +321,6 @@ type initializerConfig struct {
 	KubernetesVersion string
 	NodeImage         string
 	UseLocalImage     bool
-	YurtHubImage      string
 	YurtManagerImage  string
 	NodeServantImage  string
 	yurtIotDockImage  string
@@ -563,7 +566,6 @@ func (ki *Initializer) prepareImages() error {
 	}
 	// load images of cloud components to cloud nodes
 	if err := ki.loadImagesToKindNodes([]string{
-		ki.YurtHubImage,
 		ki.YurtManagerImage,
 		ki.NodeServantImage,
 		ki.yurtIotDockImage,
@@ -573,7 +575,6 @@ func (ki *Initializer) prepareImages() error {
 
 	// load images of edge components to edge nodes
 	if err := ki.loadImagesToKindNodes([]string{
-		ki.YurtHubImage,
 		ki.NodeServantImage,
 		ki.yurtIotDockImage,
 	}, ki.EdgeNodes); err != nil {
@@ -629,7 +630,7 @@ func (ki *Initializer) prepareKindConfigFile(kindConfigPath string) error {
 }
 
 func (ki *Initializer) configureAddons() error {
-	if err := ki.configureCoreDnsAddon(); err != nil {
+	if err := ki.configureCoreDNSAddon(); err != nil {
 		return err
 	}
 
@@ -654,30 +655,30 @@ func (ki *Initializer) configureAddons() error {
 	}
 
 	// wait for coredns pods available
-	for {
-		select {
-		case <-time.After(10 * time.Second):
-			dnsDp, err := ki.kubeClient.AppsV1().Deployments("kube-system").Get(context.TODO(), "coredns", metav1.GetOptions{})
-			if err != nil {
-				return fmt.Errorf("failed to get coredns deployment when waiting for available, %v", err)
-			}
-
-			if dnsDp.Status.ObservedGeneration < dnsDp.Generation {
-				klog.Infof("waiting for coredns generation(%d) to be observed. now observed generation is %d", dnsDp.Generation, dnsDp.Status.ObservedGeneration)
-				continue
-			}
-
-			if *dnsDp.Spec.Replicas != dnsDp.Status.AvailableReplicas {
-				klog.Infof("waiting for coredns replicas(%d) to be ready, now %d pods available", *dnsDp.Spec.Replicas, dnsDp.Status.AvailableReplicas)
-				continue
-			}
-			klog.Info("coredns deployment configuration is completed")
-			return nil
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		dnsDp, err := ki.kubeClient.AppsV1().Deployments("kube-system").Get(context.TODO(), "coredns", metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to get coredns deployment when waiting for available, %v", err)
 		}
+
+		if dnsDp.Status.ObservedGeneration < dnsDp.Generation {
+			klog.Infof("waiting for coredns generation(%d) to be observed. now observed generation is %d", dnsDp.Generation, dnsDp.Status.ObservedGeneration)
+			continue
+		}
+
+		if *dnsDp.Spec.Replicas != dnsDp.Status.AvailableReplicas {
+			klog.Infof("waiting for coredns replicas(%d) to be ready, now %d pods available", *dnsDp.Spec.Replicas, dnsDp.Status.AvailableReplicas)
+			continue
+		}
+		klog.Info("coredns deployment configuration is completed")
+		return nil
 	}
+	return nil
 }
 
-func (ki *Initializer) configureCoreDnsAddon() error {
+func (ki *Initializer) configureCoreDNSAddon() error {
 	dp, err := ki.kubeClient.AppsV1().Deployments("kube-system").Get(context.TODO(), "coredns", metav1.GetOptions{})
 	if err != nil {
 		return err
@@ -745,12 +746,10 @@ func (ki *Initializer) deployOpenYurt() error {
 		RuntimeClient:             ki.runtimeClient,
 		CloudNodes:                ki.CloudNodes,
 		EdgeNodes:                 ki.EdgeNodes,
-		WaitServantJobTimeout:     kubeutil.DefaultWaitServantJobTimeout,
-		YurthubHealthCheckTimeout: defaultYurthubHealthCheckTimeout,
+		WaitNodeConversionTimeout: kubeutil.DefaultWaitNodeConversionTimeout,
 		KubeConfigPath:            ki.KubeConfig,
 		YurtManagerImage:          ki.YurtManagerImage,
 		NodeServantImage:          ki.NodeServantImage,
-		YurthubImage:              ki.YurtHubImage,
 	}
 	if err := converter.Run(); err != nil {
 		klog.Errorf("errors occurred when deploying openyurt components")

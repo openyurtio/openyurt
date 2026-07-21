@@ -125,7 +125,7 @@ func (cdc *EdgexDeviceProfile) Create(ctx context.Context, deviceProfile *v1alph
 	createdDeviceProfile := deviceProfile.DeepCopy()
 	if len(edgexResps) == 1 {
 		if edgexResps[0].StatusCode == http.StatusCreated {
-			createdDeviceProfile.Status.EdgeId = edgexResps[0].Id
+			createdDeviceProfile.Status.EdgeID = edgexResps[0].Id
 			createdDeviceProfile.Status.Synced = true
 		} else {
 			return nil, fmt.Errorf("create deviceprofile on edgex foundry failed, the response is : %s", resp.Body())

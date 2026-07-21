@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	mockAnnotationLbId = aggregateKeyPrefix + "lb-id"
+	mockAnnotationLbID = aggregateKeyPrefix + "lb-id"
 )
 
 func TestServicePredicate(t *testing.T) {
@@ -126,9 +126,9 @@ func TestServicePredicate(t *testing.T) {
 
 	t.Run("modify aggregate annotations", func(t *testing.T) {
 		svc1 := newService(v1.NamespaceDefault, mockServiceName)
-		svc1.Annotations[mockAnnotationLbId] = "lb123"
+		svc1.Annotations[mockAnnotationLbID] = "lb123"
 		svc2 := newService(v1.NamespaceDefault, mockServiceName)
-		svc2.Annotations[mockAnnotationLbId] = "lb123,lb234"
+		svc2.Annotations[mockAnnotationLbID] = "lb123,lb234"
 
 		got := f.Update(event.UpdateEvent{ObjectOld: svc1, ObjectNew: svc2})
 		assertBool(t, true, got)

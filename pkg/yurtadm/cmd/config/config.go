@@ -105,6 +105,7 @@ func getDefaultNodeConfigBytes() (string, error) {
 		"name":                   name,
 		"networkPlugin":          "cni",
 		"apiVersion":             "kubeadm.k8s.io/v1beta3",
+		"rotateCertificates":     true,
 	}
 
 	kubeadmJoinTemplate, err := templates.SubstituteTemplate(constants.KubeadmJoinConf, ctx)

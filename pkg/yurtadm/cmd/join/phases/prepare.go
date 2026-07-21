@@ -22,6 +22,7 @@ import (
 
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 	yurtadmutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/kubernetes"
@@ -70,18 +71,11 @@ func RunPrepare(data joindata.YurtJoinData) error {
 	}
 
 	if data.NodeRegistration().WorkingMode != constants.LocalNode {
-		if err := yurtadmutil.SetKubeletConfigForNode(); err != nil {
+		// All non-local nodes: install yurthub binary
+		if err := yurthub.CheckAndInstallYurthub(projectinfo.Get().GitVersion); err != nil {
 			return err
 		}
-		if err := yurthub.SetHubBootstrapConfig(data.ServerAddr(), data.JoinToken(), data.CaCertHashes()); err != nil {
-			return err
-		}
-		if err := yurthub.CheckAndInstallYurthub(constants.YurthubVersion); err != nil {
-			return err
-		}
-		if err := yurthub.CreateYurthubSystemdService(data); err != nil {
-			return err
-		}
+
 		if err := yurtadmutil.SetDiscoveryConfig(data); err != nil {
 			return err
 		}

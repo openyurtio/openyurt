@@ -33,19 +33,19 @@ func (src *YurtAppSet) ConvertTo(dstRaw conversion.Hub) error {
 
 	// convert spec
 	if src.Spec.WorkloadTemplate.DeploymentTemplate != nil {
-		if dst.Spec.Workload.WorkloadTemplate.DeploymentTemplate == nil {
-			dst.Spec.Workload.WorkloadTemplate.DeploymentTemplate = &v1beta1.DeploymentTemplateSpec{}
+		if dst.Spec.DeploymentTemplate == nil {
+			dst.Spec.DeploymentTemplate = &v1beta1.DeploymentTemplateSpec{}
 		}
-		src.Spec.WorkloadTemplate.DeploymentTemplate.ObjectMeta.DeepCopyInto(&dst.Spec.Workload.WorkloadTemplate.DeploymentTemplate.ObjectMeta)
-		src.Spec.WorkloadTemplate.DeploymentTemplate.Spec.DeepCopyInto(&dst.Spec.Workload.WorkloadTemplate.DeploymentTemplate.Spec)
+		src.Spec.WorkloadTemplate.DeploymentTemplate.ObjectMeta.DeepCopyInto(&dst.Spec.DeploymentTemplate.ObjectMeta)
+		src.Spec.WorkloadTemplate.DeploymentTemplate.Spec.DeepCopyInto(&dst.Spec.DeploymentTemplate.Spec)
 	}
 
 	if src.Spec.WorkloadTemplate.StatefulSetTemplate != nil {
-		if dst.Spec.Workload.WorkloadTemplate.StatefulSetTemplate == nil {
-			dst.Spec.Workload.WorkloadTemplate.StatefulSetTemplate = &v1beta1.StatefulSetTemplateSpec{}
+		if dst.Spec.StatefulSetTemplate == nil {
+			dst.Spec.StatefulSetTemplate = &v1beta1.StatefulSetTemplateSpec{}
 		}
-		src.Spec.WorkloadTemplate.StatefulSetTemplate.ObjectMeta.DeepCopyInto(&dst.Spec.Workload.WorkloadTemplate.StatefulSetTemplate.ObjectMeta)
-		src.Spec.WorkloadTemplate.StatefulSetTemplate.Spec.DeepCopyInto(&dst.Spec.Workload.WorkloadTemplate.StatefulSetTemplate.Spec)
+		src.Spec.WorkloadTemplate.StatefulSetTemplate.ObjectMeta.DeepCopyInto(&dst.Spec.StatefulSetTemplate.ObjectMeta)
+		src.Spec.WorkloadTemplate.StatefulSetTemplate.Spec.DeepCopyInto(&dst.Spec.StatefulSetTemplate.Spec)
 	}
 
 	pools := make([]string, 0)
@@ -65,7 +65,7 @@ func (src *YurtAppSet) ConvertTo(dstRaw conversion.Hub) error {
 		}
 	}
 	dst.Spec.Pools = pools
-	dst.Spec.Workload.WorkloadTweaks = tweaks
+	dst.Spec.WorkloadTweaks = tweaks
 	dst.Spec.RevisionHistoryLimit = src.Spec.RevisionHistoryLimit
 
 	// convert status
@@ -96,52 +96,52 @@ func (src *YurtAppSet) ConvertTo(dstRaw conversion.Hub) error {
 	return nil
 }
 
-func (dst *YurtAppSet) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*v1beta1.YurtAppSet)
+func (src *YurtAppSet) ConvertFrom(srcRaw conversion.Hub) error {
+	srcRawV1beta1 := srcRaw.(*v1beta1.YurtAppSet)
 	var defaultReplicas int32
 
-	dst.ObjectMeta = src.ObjectMeta
+	src.ObjectMeta = srcRawV1beta1.ObjectMeta
 
 	// convert spec
-	dst.Spec.Selector = &metav1.LabelSelector{}
-	if src.Spec.Workload.WorkloadTemplate.DeploymentTemplate != nil {
-		if dst.Spec.WorkloadTemplate.DeploymentTemplate == nil {
-			dst.Spec.WorkloadTemplate.DeploymentTemplate = &DeploymentTemplateSpec{}
+	src.Spec.Selector = &metav1.LabelSelector{}
+	if srcRawV1beta1.Spec.DeploymentTemplate != nil {
+		if src.Spec.WorkloadTemplate.DeploymentTemplate == nil {
+			src.Spec.WorkloadTemplate.DeploymentTemplate = &DeploymentTemplateSpec{}
 		}
-		src.Spec.Workload.WorkloadTemplate.DeploymentTemplate.ObjectMeta.DeepCopyInto(&dst.Spec.WorkloadTemplate.DeploymentTemplate.ObjectMeta)
-		src.Spec.Workload.WorkloadTemplate.DeploymentTemplate.Spec.DeepCopyInto(&dst.Spec.WorkloadTemplate.DeploymentTemplate.Spec)
-		if src.Spec.Workload.WorkloadTemplate.DeploymentTemplate.Spec.Replicas != nil {
-			defaultReplicas = *src.Spec.Workload.WorkloadTemplate.DeploymentTemplate.Spec.Replicas
+		srcRawV1beta1.Spec.DeploymentTemplate.ObjectMeta.DeepCopyInto(&src.Spec.WorkloadTemplate.DeploymentTemplate.ObjectMeta)
+		srcRawV1beta1.Spec.DeploymentTemplate.Spec.DeepCopyInto(&src.Spec.WorkloadTemplate.DeploymentTemplate.Spec)
+		if srcRawV1beta1.Spec.DeploymentTemplate.Spec.Replicas != nil {
+			defaultReplicas = *srcRawV1beta1.Spec.DeploymentTemplate.Spec.Replicas
 		} else {
 			defaultReplicas = 0
 		}
 
-		if src.Spec.Workload.WorkloadTemplate.DeploymentTemplate.Spec.Selector != nil {
-			dst.Spec.WorkloadTemplate.DeploymentTemplate.Spec.Selector.DeepCopyInto(dst.Spec.Selector)
+		if srcRawV1beta1.Spec.DeploymentTemplate.Spec.Selector != nil {
+			src.Spec.WorkloadTemplate.DeploymentTemplate.Spec.Selector.DeepCopyInto(src.Spec.Selector)
 		}
-		dst.Status.TemplateType = DeploymentTemplateType
+		src.Status.TemplateType = DeploymentTemplateType
 	}
 
-	if src.Spec.Workload.WorkloadTemplate.StatefulSetTemplate != nil {
-		if dst.Spec.WorkloadTemplate.StatefulSetTemplate == nil {
-			dst.Spec.WorkloadTemplate.StatefulSetTemplate = &StatefulSetTemplateSpec{}
+	if srcRawV1beta1.Spec.StatefulSetTemplate != nil {
+		if src.Spec.WorkloadTemplate.StatefulSetTemplate == nil {
+			src.Spec.WorkloadTemplate.StatefulSetTemplate = &StatefulSetTemplateSpec{}
 		}
-		src.Spec.Workload.WorkloadTemplate.StatefulSetTemplate.ObjectMeta.DeepCopyInto(&dst.Spec.WorkloadTemplate.StatefulSetTemplate.ObjectMeta)
-		src.Spec.Workload.WorkloadTemplate.StatefulSetTemplate.Spec.DeepCopyInto(&dst.Spec.WorkloadTemplate.StatefulSetTemplate.Spec)
-		if src.Spec.Workload.WorkloadTemplate.StatefulSetTemplate.Spec.Replicas != nil {
-			defaultReplicas = *src.Spec.Workload.WorkloadTemplate.StatefulSetTemplate.Spec.Replicas
+		srcRawV1beta1.Spec.StatefulSetTemplate.ObjectMeta.DeepCopyInto(&src.Spec.WorkloadTemplate.StatefulSetTemplate.ObjectMeta)
+		srcRawV1beta1.Spec.StatefulSetTemplate.Spec.DeepCopyInto(&src.Spec.WorkloadTemplate.StatefulSetTemplate.Spec)
+		if srcRawV1beta1.Spec.StatefulSetTemplate.Spec.Replicas != nil {
+			defaultReplicas = *srcRawV1beta1.Spec.StatefulSetTemplate.Spec.Replicas
 		} else {
 			defaultReplicas = 0
 		}
 
-		if src.Spec.Workload.WorkloadTemplate.StatefulSetTemplate.Spec.Selector != nil {
-			dst.Spec.WorkloadTemplate.StatefulSetTemplate.Spec.Selector.DeepCopyInto(dst.Spec.Selector)
+		if srcRawV1beta1.Spec.StatefulSetTemplate.Spec.Selector != nil {
+			src.Spec.WorkloadTemplate.StatefulSetTemplate.Spec.Selector.DeepCopyInto(src.Spec.Selector)
 		}
-		dst.Status.TemplateType = StatefulSetTemplateType
+		src.Status.TemplateType = StatefulSetTemplateType
 	}
 
 	poolTweaks := make(map[string]*Pool, 0)
-	for _, poolName := range src.Spec.Pools {
+	for _, poolName := range srcRawV1beta1.Spec.Pools {
 		poolTweaks[poolName] = &Pool{
 			Name: poolName,
 			NodeSelectorTerm: corev1.NodeSelectorTerm{
@@ -157,34 +157,34 @@ func (dst *YurtAppSet) ConvertFrom(srcRaw conversion.Hub) error {
 		}
 	}
 
-	for _, tweak := range src.Spec.Workload.WorkloadTweaks {
+	for _, tweak := range srcRawV1beta1.Spec.WorkloadTweaks {
 		for _, poolName := range tweak.Pools {
-			if _, ok := poolTweaks[poolName]; ok && tweak.Tweaks.Replicas != nil {
-				poolTweaks[poolName].Replicas = tweak.Tweaks.Replicas
+			if _, ok := poolTweaks[poolName]; ok && tweak.Replicas != nil {
+				poolTweaks[poolName].Replicas = tweak.Replicas
 			}
 		}
 	}
 
 	for _, tweak := range poolTweaks {
-		dst.Spec.Topology.Pools = append(dst.Spec.Topology.Pools, *tweak)
+		src.Spec.Topology.Pools = append(src.Spec.Topology.Pools, *tweak)
 	}
 
 	// convert status
-	dst.Status.ObservedGeneration = src.Status.ObservedGeneration
-	dst.Status.CollisionCount = src.Status.CollisionCount
-	dst.Status.CurrentRevision = src.Status.CurrentRevision
-	dst.Status.Conditions = make([]YurtAppSetCondition, 0)
+	src.Status.ObservedGeneration = srcRawV1beta1.Status.ObservedGeneration
+	src.Status.CollisionCount = srcRawV1beta1.Status.CollisionCount
+	src.Status.CurrentRevision = srcRawV1beta1.Status.CurrentRevision
+	src.Status.Conditions = make([]YurtAppSetCondition, 0)
 	// this is just an estimate, because the real value can not be obtained from v1beta1 status
-	dst.Status.ReadyReplicas = src.Status.ReadyWorkloads * defaultReplicas
-	dst.Status.Replicas = src.Status.TotalWorkloads * defaultReplicas
+	src.Status.ReadyReplicas = srcRawV1beta1.Status.ReadyWorkloads * defaultReplicas
+	src.Status.Replicas = srcRawV1beta1.Status.TotalWorkloads * defaultReplicas
 
-	dst.Status.PoolReplicas = make(map[string]int32)
-	for _, pool := range src.Spec.Pools {
-		dst.Status.PoolReplicas[pool] = defaultReplicas
+	src.Status.PoolReplicas = make(map[string]int32)
+	for _, pool := range srcRawV1beta1.Spec.Pools {
+		src.Status.PoolReplicas[pool] = defaultReplicas
 	}
 
-	for _, condition := range src.Status.Conditions {
-		dst.Status.Conditions = append(dst.Status.Conditions, YurtAppSetCondition{
+	for _, condition := range srcRawV1beta1.Status.Conditions {
+		src.Status.Conditions = append(src.Status.Conditions, YurtAppSetCondition{
 			Type:               YurtAppSetConditionType(condition.Type),
 			Status:             condition.Status,
 			LastTransitionTime: condition.LastTransitionTime,

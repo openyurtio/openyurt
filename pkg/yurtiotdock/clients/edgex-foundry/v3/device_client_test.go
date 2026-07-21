@@ -52,7 +52,7 @@ const (
 var deviceClient = NewEdgexDeviceClient("edgex-core-metadata:59881", "edgex-core-command:59882")
 
 func Test_Get(t *testing.T) {
-	httpmock.ActivateNonDefault(deviceClient.Client.GetClient())
+	httpmock.ActivateNonDefault(deviceClient.GetClient())
 	defer httpmock.DeactivateAndReset()
 	httpmock.RegisterResponder("GET", "http://edgex-core-metadata:59881/api/v3/device/name/Random-Float-Device",
 		httpmock.NewStringResponder(200, DeviceMetadata))
@@ -65,7 +65,7 @@ func Test_Get(t *testing.T) {
 
 func Test_List(t *testing.T) {
 
-	httpmock.ActivateNonDefault(deviceClient.Client.GetClient())
+	httpmock.ActivateNonDefault(deviceClient.GetClient())
 	defer httpmock.DeactivateAndReset()
 
 	httpmock.RegisterResponder("GET", "http://edgex-core-metadata:59881/api/v3/device/all?limit=-1",
@@ -78,7 +78,7 @@ func Test_List(t *testing.T) {
 }
 
 func Test_Create(t *testing.T) {
-	httpmock.ActivateNonDefault(deviceClient.Client.GetClient())
+	httpmock.ActivateNonDefault(deviceClient.GetClient())
 	defer httpmock.DeactivateAndReset()
 
 	httpmock.RegisterResponder("POST", "http://edgex-core-metadata:59881/api/v3/device",
@@ -106,7 +106,7 @@ func Test_Create(t *testing.T) {
 }
 
 func Test_Delete(t *testing.T) {
-	httpmock.ActivateNonDefault(deviceClient.Client.GetClient())
+	httpmock.ActivateNonDefault(deviceClient.GetClient())
 	defer httpmock.DeactivateAndReset()
 	httpmock.RegisterResponder("DELETE", "http://edgex-core-metadata:59881/api/v3/device/name/test-Random-Float-Device",
 		httpmock.NewStringResponder(200, DeviceDeleteSuccess))
@@ -123,7 +123,7 @@ func Test_Delete(t *testing.T) {
 
 func Test_GetPropertyState(t *testing.T) {
 
-	httpmock.ActivateNonDefault(deviceClient.Client.GetClient())
+	httpmock.ActivateNonDefault(deviceClient.GetClient())
 	defer httpmock.DeactivateAndReset()
 
 	httpmock.RegisterResponder("GET", "http://edgex-core-command:59882/api/v3/device/name/Random-Float-Device",
@@ -143,7 +143,7 @@ func Test_GetPropertyState(t *testing.T) {
 }
 
 func Test_ListPropertiesState(t *testing.T) {
-	httpmock.ActivateNonDefault(deviceClient.Client.GetClient())
+	httpmock.ActivateNonDefault(deviceClient.GetClient())
 	defer httpmock.DeactivateAndReset()
 
 	httpmock.RegisterResponder("GET", "http://edgex-core-command:59882/api/v3/device/name/Random-Float-Device",
@@ -161,7 +161,7 @@ func Test_ListPropertiesState(t *testing.T) {
 }
 
 func Test_UpdateDevice(t *testing.T) {
-	httpmock.ActivateNonDefault(deviceClient.Client.GetClient())
+	httpmock.ActivateNonDefault(deviceClient.GetClient())
 	defer httpmock.DeactivateAndReset()
 
 	httpmock.RegisterResponder("PATCH", "http://edgex-core-metadata:59881/api/v3/device",
@@ -180,7 +180,7 @@ func Test_UpdateDevice(t *testing.T) {
 }
 
 func Test_UpdatePropertyState(t *testing.T) {
-	httpmock.ActivateNonDefault(deviceClient.Client.GetClient())
+	httpmock.ActivateNonDefault(deviceClient.GetClient())
 	defer httpmock.DeactivateAndReset()
 
 	httpmock.RegisterResponder("GET", "http://edgex-core-command:59882/api/v3/device/name/Random-Float-Device",

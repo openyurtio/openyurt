@@ -136,7 +136,7 @@ func TestLocalCacheHandler(t *testing.T) {
 		t.Run(k, func(t *testing.T) {
 			key := &storage.ClusterInfoKey{
 				ClusterInfoType: nonResourceReqPaths[tt.path],
-				UrlPath:         tt.path,
+				URLPath:         tt.path,
 			}
 			if tt.initData != nil {
 				sw.SaveClusterInfo(key, tt.initData)

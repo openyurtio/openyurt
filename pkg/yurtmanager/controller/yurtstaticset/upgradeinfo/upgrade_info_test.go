@@ -72,7 +72,7 @@ func newPod(podName string, nodeName string, namespace string, isStaticPod bool)
 
 	if isStaticPod {
 		pod.Name = podName + "-" + nodeName
-		pod.ObjectMeta.OwnerReferences = []metav1.OwnerReference{{Kind: "Node"}}
+		pod.OwnerReferences = []metav1.OwnerReference{{Kind: "Node"}}
 	}
 
 	return pod
