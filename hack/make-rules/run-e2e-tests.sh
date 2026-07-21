@@ -49,7 +49,7 @@ function cleanup {
 
 # install gingko
 function get_ginkgo() {
-    go install github.com/onsi/ginkgo/v2/ginkgo@v2.22.2
+    go install github.com/onsi/ginkgo/v2/ginkgo@v2.28.1
 }
 
 function build_e2e_binary() {
