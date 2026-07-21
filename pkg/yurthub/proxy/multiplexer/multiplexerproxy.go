@@ -81,11 +81,13 @@ func (sp *multiplexerProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	restStore, err := sp.requestsMultiplexerManager.ResourceStore(gvr)
 	if err != nil {
 		util.Err(errors.Wrapf(err, "failed to get rest storage"), w, r)
+		return
 	}
 
 	reqScope, err := sp.getReqScope(gvr)
 	if err != nil {
 		util.Err(errors.Wrapf(err, "failed tp get req scope"), w, r)
+		return
 	}
 
 	lister := restStore.(rest.Lister)

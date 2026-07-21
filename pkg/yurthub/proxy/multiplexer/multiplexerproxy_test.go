@@ -112,6 +112,69 @@ func (wr *wrapResponse) Write(buf []byte) (int, error) {
 	return l, err
 }
 
+func TestGetReqScopeReturnsErrorForUnknownGVR(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "multiplexer-req-scope")
+	if err != nil {
+		t.Fatalf("failed to make temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	restMapperManager, err := meta.NewRESTMapperManager(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create REST mapper manager: %v", err)
+	}
+
+	sp := &multiplexerProxy{restMapperManager: restMapperManager}
+	unknownGVR := schema.GroupVersionResource{Group: "unknown.example.com", Version: "v1", Resource: "widgets"}
+	_, err = sp.getReqScope(&unknownGVR)
+	assert.Error(t, err)
+}
+
+func TestMultiplexerProxyServeHTTPReturnsOnGetReqScopeError(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "multiplexer-serve-http")
+	if err != nil {
+		t.Fatalf("failed to make temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	cfgRESTMapper, err := meta.NewRESTMapperManager(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create REST mapper manager: %v", err)
+	}
+	proxyRESTMapper, err := meta.NewRESTMapperManager(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create proxy REST mapper manager: %v", err)
+	}
+
+	clientset := fake.NewSimpleClientset()
+	factory := informers.NewSharedInformerFactory(clientset, 0)
+	poolScopeResources := []schema.GroupVersionResource{endpointSliceGVR}
+
+	healthChecker := fakeHealthChecker.NewFakeChecker(map[*url.URL]bool{})
+	loadBalancer := remote.NewLoadBalancer("round-robin", []*url.URL{}, nil, nil, healthChecker, nil, context.Background().Done())
+	dsm := multiplexerstorage.NewDummyStorageManager(mockCacheMap())
+	cfg := &config.YurtHubConfiguration{
+		PoolScopeResources:       poolScopeResources,
+		RESTMapperManager:        cfgRESTMapper,
+		SharedFactory:            factory,
+		LoadBalancerForLeaderHub: loadBalancer,
+	}
+	rmm := multiplexer.NewRequestMultiplexerManager(cfg, dsm, healthChecker)
+
+	stopCh := make(chan struct{})
+	if ok := cache.WaitForCacheSync(stopCh, func() bool { return rmm.Ready(&endpointSliceGVR) }); !ok {
+		t.Fatal("multiplexer manager is not ready")
+	}
+
+	sp := NewMultiplexerProxy(rmm, proxyRESTMapper, make(<-chan struct{}))
+	w := httptest.NewRecorder()
+	req := newEndpointSliceListRequest("/apis/discovery.k8s.io/v1/endpointslices", nil)
+
+	assert.NotPanics(t, func() {
+		sp.ServeHTTP(w, req)
+	})
+}
+
 func TestShareProxy_ServeHTTP_LIST(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "test")
 	if err != nil {
