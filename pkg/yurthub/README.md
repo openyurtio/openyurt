@@ -47,7 +47,7 @@ The cached data are saved in the following node disk location
 Only response for built-in agent names such as kubelet/flanneld/coredns/kube-proxy can be cached on local disk.
 In order to leverage the cache capability of Yurthub for customize node components that need to access cloud site APIserver,
 please do the following:
-1. Add component `User-Agent` in `cache_agents` field of `kube-system/yurthb-cfg` configmap. take `foo` and `bar` component as example:
+1. Add component `User-Agent` in `cache_agents` field of `kube-system/yurt-hub-cfg` configmap. take `foo` and `bar` component as example:
 ```
 apiVersion: v1
 kind: ConfigMap
@@ -58,4 +58,4 @@ data:
   cache_agents: "foo, bar"
 ```
 
-2. If you want to enable cache capability for all components, please configure `*` for `cache_agents` field of `kube-system/yurthb-cfg` configmap.
+2. If you want to enable cache capability for all components, please configure `*` for `cache_agents` field of `kube-system/yurt-hub-cfg` configmap.

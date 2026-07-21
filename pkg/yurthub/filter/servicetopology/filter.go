@@ -253,6 +253,15 @@ func reassembleEndpointSlice(endpointSlice *discoveryv1.EndpointSlice, nodeName 
 
 	var newEps []discoveryv1.Endpoint
 	for i := range endpointSlice.Endpoints {
+		// Endpoint.NodeName is an optional field, so it may be nil for endpoints
+		// whose hosting node is unknown (e.g. externalName or headless backends).
+		// Such endpoints can not be located to a node/nodePool, so they are
+		// discarded here, consistent with the v1beta1 topology handling where a
+		// missing hostname never matches the local node/nodePool.
+		if endpointSlice.Endpoints[i].NodeName == nil {
+			continue
+		}
+
 		if len(nodeName) != 0 {
 			if *endpointSlice.Endpoints[i].NodeName == nodeName {
 				newEps = append(newEps, endpointSlice.Endpoints[i])
