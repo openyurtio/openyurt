@@ -432,9 +432,6 @@ func (r *ReconcileYurtNodeConversion) ensureConvertZoneLabel(ctx context.Context
 	}
 	updated.Labels[zoneLabel] = nodePoolName
 
-	if reflect.DeepEqual(node.Labels, updated.Labels) {
-		return nil
-	}
 	klog.V(4).Info(Format("patch node(%s) %s for native trafficDistribution compatibility", node.Name, zoneLabel))
 	return r.Patch(ctx, updated, client.MergeFrom(node))
 }

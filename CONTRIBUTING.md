@@ -145,6 +145,8 @@ After committing to your forked OpenYurt repository, you can submit a pull reque
 
 In most cases, one pull request should only focus on one work, such as fixing a bug. Thus, only one commit should be contained in one pull request. You should amend your pull request if you find that there are more than one commits in it, using `git reset` and `git commit` at your local host. After your amending, you can push it to your forked openyurt repository through `git push`(usually need to do it forcefully, take caution). The submitted pull request will sync with the branch you select to merge(at step 3), and no need to create a new pull request.
 
+Before opening the PR, run the same checks that CI expects locally: `make verify`, `make test`, and `make lint`. The verification flow bootstraps pinned helper binaries such as `kustomize` into the repository-local `./bin` directory when needed.
+
 You should check the CI workflow after submitting your pull request and make all the check passed. Then, you just need to wait for the review and approval from community members. If the community accepts your pull request, it will be labeled as `lgtm`(looks good to me) and `approve`.
 
 ## Review

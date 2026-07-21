@@ -17,10 +17,12 @@ GOLANGCILINT_VERSION ?= v2.11.4
 GLOBAL_GOLANGCILINT := $(shell which golangci-lint)
 GOBIN := $(shell go env GOPATH)/bin
 GOBIN_GOLANGCILINT := $(shell which $(GOBIN)/golangci-lint)
+GLOBAL_GOLANGCILINT_VERSION := $(shell test -x "$(GLOBAL_GOLANGCILINT)" && "$(GLOBAL_GOLANGCILINT)" version --short 2>/dev/null)
+GOBIN_GOLANGCILINT_VERSION := $(shell test -x "$(GOBIN_GOLANGCILINT)" && "$(GOBIN_GOLANGCILINT)" version --short 2>/dev/null)
 TARGET_PLATFORMS ?= linux/amd64
-BRANCH_TAG = $(shell git describe --abbrev=0 --tags)
+BRANCH_TAG = $(shell bash hack/lib/git-version.sh latest-tag)
 IMAGE_REPO ?= openyurt
-IMAGE_TAG ?= $(BRANCH_TAG)
+IMAGE_TAG ?= $(shell bash hack/lib/git-version.sh image-tag)
 GIT_COMMIT = $(shell git rev-parse HEAD)
 ENABLE_AUTONOMY_TESTS ?=true
 BUILD_KUSTOMIZE ?= _output/manifest
@@ -31,12 +33,6 @@ OS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 ARCH := $(shell uname -m)
 ifeq ($(ARCH),x86_64)
 	ARCH := amd64
-endif
-
-ifeq ($(IMAGE_TAG),$(BRANCH_TAG))
-	ifeq ($(shell git tag --points-at ${GIT_COMMIT}),)
-		IMAGE_TAG :=$(IMAGE_TAG)-$(shell echo ${GIT_COMMIT} | cut -c 1-7)
-	endif
 endif
 
 GIT_VERSION := $(IMAGE_TAG)
@@ -141,9 +137,9 @@ install-helm: $(LOCALBIN)
 	fi
 
 install-golint: ## check golint if not exist install golint tools
-ifeq ($(shell $(GLOBAL_GOLANGCILINT) version --short), $(GOLANGCILINT_VERSION))
+ifeq ($(GLOBAL_GOLANGCILINT_VERSION), $(GOLANGCILINT_VERSION))
 GOLINT_BIN=$(GLOBAL_GOLANGCILINT)
-else ifeq ($(shell $(GOBIN_GOLANGCILINT) version --short), $(GOLANGCILINT_VERSION))
+else ifeq ($(GOBIN_GOLANGCILINT_VERSION), $(GOLANGCILINT_VERSION))
 GOLINT_BIN=$(GOBIN_GOLANGCILINT)
 else
 	@{ \
@@ -242,7 +238,6 @@ $(KUBECTL): $(LOCALBIN)
 	test -s $(LOCALBIN)/kubectl || curl https://dl.k8s.io/release/$(KUBECTL_VERSION)/bin/$(shell go env GOOS)/$(shell go env GOARCH)/kubectl -o $(KUBECTL)
 	chmod +x $(KUBECTL)
 
-KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary. If wrong version is installed, it will be removed before downloading.
 $(KUSTOMIZE): $(LOCALBIN)
@@ -250,7 +245,7 @@ $(KUSTOMIZE): $(LOCALBIN)
 		echo "$(LOCALBIN)/kustomize version is not expected $(KUSTOMIZE_VERSION). Removing it before installing."; \
 		rm -f $(LOCALBIN)/kustomize; \
 	fi
-	test -s $(LOCALBIN)/kustomize || { curl -Ss $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN); }
+	test -s $(LOCALBIN)/kustomize || bash hack/lib/install-kustomize.sh $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN)
 
 .PHONY: yq
 yq:

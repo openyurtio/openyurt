@@ -40,7 +40,7 @@ func (ie *IgnoreEndpointslicesWithNodeName) Filter(obj runtime.Object, stopCh <-
 	var newEps []discovery.Endpoint
 
 	for _, ep := range endpointslice.Endpoints {
-		if *ep.NodeName != ie.IgnoreNodeName {
+		if ep.NodeName == nil || *ep.NodeName != ie.IgnoreNodeName {
 			newEps = append(newEps, ep)
 		}
 	}
