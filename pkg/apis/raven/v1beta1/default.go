@@ -25,11 +25,16 @@ import (
 // SetDefaultsGateway set default values for Gateway.
 func SetDefaultsGateway(obj *Gateway) {
 	// Set default value for Gateway
-	obj.Spec.NodeSelector = &metav1.LabelSelector{
-		MatchLabels: map[string]string{
-			raven.LabelCurrentGateway: obj.Name,
-		},
+	if obj.Spec.NodeSelector == nil {
+		obj.Spec.NodeSelector = &metav1.LabelSelector{
+			MatchLabels: map[string]string{},
+		}
 	}
+	if obj.Spec.NodeSelector.MatchLabels == nil {
+		obj.Spec.NodeSelector.MatchLabels = map[string]string{}
+	}
+	// Safely merge the gateway label without overwriting existing labels
+	obj.Spec.NodeSelector.MatchLabels[raven.LabelCurrentGateway] = obj.Name
 	for idx, val := range obj.Spec.Endpoints {
 		if val.Port == 0 {
 			switch val.Type {

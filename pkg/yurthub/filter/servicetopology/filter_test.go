@@ -1448,6 +1448,213 @@ func TestFilter(t *testing.T) {
 				},
 			},
 		},
+		"v1.EndpointSlice: endpoint with nil NodeName does not panic(node topology)": {
+			responseObject: &discovery.EndpointSlice{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "svc1-np7sf",
+					Namespace: "default",
+					Labels: map[string]string{
+						discovery.LabelServiceName: "svc1",
+					},
+				},
+				Endpoints: []discovery.Endpoint{
+					{
+						Addresses: []string{
+							"10.244.1.2",
+						},
+						NodeName: &currentNodeName,
+					},
+					{
+						// Endpoint.NodeName is an optional field and can be nil,
+						// e.g. for endpoints whose hosting node is unknown. The
+						// filter must discard it instead of panicking.
+						Addresses: []string{
+							"10.244.1.9",
+						},
+						NodeName: nil,
+					},
+					{
+						Addresses: []string{
+							"10.244.1.3",
+						},
+						NodeName: &nodeName2,
+					},
+				},
+			},
+			kubeClient: k8sfake.NewSimpleClientset(
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: currentNodeName,
+						Labels: map[string]string{
+							projectinfo.GetNodePoolLabel(): "hangzhou",
+						},
+					},
+				},
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node2",
+						Labels: map[string]string{
+							projectinfo.GetNodePoolLabel(): "shanghai",
+						},
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "svc1",
+						Namespace: "default",
+						Annotations: map[string]string{
+							AnnotationServiceTopologyKey: AnnotationServiceTopologyValueNode,
+						},
+					},
+				},
+			),
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind),
+			expectObject: &discovery.EndpointSlice{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "svc1-np7sf",
+					Namespace: "default",
+					Labels: map[string]string{
+						discovery.LabelServiceName: "svc1",
+					},
+				},
+				Endpoints: []discovery.Endpoint{
+					{
+						Addresses: []string{
+							"10.244.1.2",
+						},
+						NodeName: &currentNodeName,
+					},
+				},
+			},
+		},
+		"v1.EndpointSlice: endpoint with nil NodeName does not panic(nodePool topology)": {
+			enableNodePool: true,
+			responseObject: &discovery.EndpointSlice{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "svc1-np7sf",
+					Namespace: "default",
+					Labels: map[string]string{
+						discovery.LabelServiceName: "svc1",
+					},
+				},
+				Endpoints: []discovery.Endpoint{
+					{
+						Addresses: []string{
+							"10.244.1.2",
+						},
+						NodeName: &currentNodeName,
+					},
+					{
+						// Endpoint.NodeName is an optional field and can be nil,
+						// e.g. for endpoints whose hosting node is unknown. The
+						// filter must discard it instead of panicking.
+						Addresses: []string{
+							"10.244.1.9",
+						},
+						NodeName: nil,
+					},
+					{
+						Addresses: []string{
+							"10.244.1.5",
+						},
+						NodeName: &nodeName3,
+					},
+					{
+						Addresses: []string{
+							"10.244.1.3",
+						},
+						NodeName: &nodeName2,
+					},
+				},
+			},
+			kubeClient: k8sfake.NewSimpleClientset(
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: currentNodeName,
+						Labels: map[string]string{
+							projectinfo.GetNodePoolLabel(): "hangzhou",
+						},
+					},
+				},
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node2",
+						Labels: map[string]string{
+							projectinfo.GetNodePoolLabel(): "shanghai",
+						},
+					},
+				},
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node3",
+						Labels: map[string]string{
+							projectinfo.GetNodePoolLabel(): "hangzhou",
+						},
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "svc1",
+						Namespace: "default",
+						Annotations: map[string]string{
+							AnnotationServiceTopologyKey: AnnotationServiceTopologyValueNodePool,
+						},
+					},
+				},
+			),
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind,
+				&v1beta2.NodePool{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "hangzhou",
+					},
+					Spec: v1beta2.NodePoolSpec{
+						Type: v1beta2.Edge,
+					},
+					Status: v1beta2.NodePoolStatus{
+						Nodes: []string{
+							currentNodeName,
+							"node3",
+						},
+					},
+				},
+				&v1beta2.NodePool{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "shanghai",
+					},
+					Spec: v1beta2.NodePoolSpec{
+						Type: v1beta2.Edge,
+					},
+					Status: v1beta2.NodePoolStatus{
+						Nodes: []string{
+							"node2",
+						},
+					},
+				},
+			),
+			expectObject: &discovery.EndpointSlice{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "svc1-np7sf",
+					Namespace: "default",
+					Labels: map[string]string{
+						discovery.LabelServiceName: "svc1",
+					},
+				},
+				Endpoints: []discovery.Endpoint{
+					{
+						Addresses: []string{
+							"10.244.1.2",
+						},
+						NodeName: &currentNodeName,
+					},
+					{
+						Addresses: []string{
+							"10.244.1.5",
+						},
+						NodeName: &nodeName3,
+					},
+				},
+			},
+		},
 		"v1.EndpointSlice: topologyKeys is kubernetes.io/zone": {
 			enableNodePool: true,
 			responseObject: &discovery.EndpointSlice{
@@ -2466,6 +2673,73 @@ func TestFilter(t *testing.T) {
 			}
 			if !reflect.DeepEqual(newObj, tt.expectObject) {
 				t.Errorf("serviceTopologyHandler expect: \n%#+v\nbut got: \n%#+v\n", tt.expectObject, newObj)
+			}
+		})
+	}
+}
+
+func TestReassembleEndpointSlice(t *testing.T) {
+	node1 := "node1"
+	node2 := "node2"
+
+	testcases := map[string]struct {
+		nodeName     string
+		nodes        []string
+		endpoints    []discovery.Endpoint
+		expectNodes  []string // NodeName of endpoints expected to be kept, "" for a nil NodeName endpoint
+		expectLength int
+	}{
+		"node topology keeps only the local node and skips nil NodeName": {
+			nodeName: node1,
+			endpoints: []discovery.Endpoint{
+				{NodeName: &node1, Addresses: []string{"10.244.1.2"}},
+				{NodeName: nil, Addresses: []string{"10.244.1.3"}},
+				{NodeName: &node2, Addresses: []string{"10.244.1.4"}},
+			},
+			expectNodes:  []string{node1},
+			expectLength: 1,
+		},
+		"nodePool topology keeps in-pool nodes and skips nil NodeName": {
+			nodes: []string{node1, node2},
+			endpoints: []discovery.Endpoint{
+				{NodeName: &node1, Addresses: []string{"10.244.1.2"}},
+				{NodeName: nil, Addresses: []string{"10.244.1.3"}},
+				{NodeName: &node2, Addresses: []string{"10.244.1.4"}},
+			},
+			expectNodes:  []string{node1, node2},
+			expectLength: 2,
+		},
+		"all endpoints have nil NodeName results in empty endpoints": {
+			nodeName: node1,
+			endpoints: []discovery.Endpoint{
+				{NodeName: nil, Addresses: []string{"10.244.1.2"}},
+				{NodeName: nil, Addresses: []string{"10.244.1.3"}},
+			},
+			expectNodes:  nil,
+			expectLength: 0,
+		},
+	}
+
+	for k, tt := range testcases {
+		t.Run(k, func(t *testing.T) {
+			eps := &discovery.EndpointSlice{
+				ObjectMeta: metav1.ObjectMeta{Name: "svc-xxxx", Namespace: "default"},
+				Endpoints:  tt.endpoints,
+			}
+
+			// Must not panic even when some endpoints have a nil NodeName.
+			got := reassembleEndpointSlice(eps, tt.nodeName, tt.nodes)
+
+			if len(got.Endpoints) != tt.expectLength {
+				t.Fatalf("expect %d endpoints, but got %d", tt.expectLength, len(got.Endpoints))
+			}
+			for i, ep := range got.Endpoints {
+				if ep.NodeName == nil {
+					t.Fatalf("endpoint with nil NodeName should have been discarded, but got one at index %d", i)
+				}
+				if *ep.NodeName != tt.expectNodes[i] {
+					t.Errorf("expect endpoint[%d] on node %q, but got %q", i, tt.expectNodes[i], *ep.NodeName)
+				}
 			}
 		})
 	}
