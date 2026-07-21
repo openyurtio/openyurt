@@ -169,7 +169,7 @@ func (o *YurtHubOptions) Validate() error {
 			return fmt.Errorf("dummy name %s length should not be more than 15", o.HubAgentDummyIfName)
 		}
 
-		if len(o.CACertHashes) == 0 && !o.UnsafeSkipCAVerification {
+		if o.BootstrapMode == certificate.TokenBootstrapMode && len(o.CACertHashes) == 0 && !o.UnsafeSkipCAVerification {
 			return fmt.Errorf("set --discovery-token-unsafe-skip-ca-verification flag as true or pass CACertHashes to continue")
 		}
 

@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
+	"github.com/openyurtio/openyurt/pkg/yurthub/certificate"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
@@ -109,6 +110,19 @@ func TestValidate(t *testing.T) {
 				return o
 			}(),
 			isErr: true,
+		},
+		"kubelet certificate bootstrap does not require ca cert hashes": {
+			options: func() *YurtHubOptions {
+				o := NewYurtHubOptions()
+				o.NodeName = "foo"
+				o.ServerAddr = "1.2.3.4:56"
+				o.BootstrapMode = certificate.KubeletCertificateBootstrapMode
+				o.LBMode = "rr"
+				o.WorkingMode = "cloud"
+				o.NodePoolName = "foo"
+				return o
+			}(),
+			isErr: false,
 		},
 		"invalid lb mode": {
 			options: &YurtHubOptions{
