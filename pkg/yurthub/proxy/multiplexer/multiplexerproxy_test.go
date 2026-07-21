@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -517,4 +518,46 @@ func endpointSliceKey(slice discovery.EndpointSlice) string {
 	}
 	sort.Strings(keys)
 	return fmt.Sprint(keys)
+}
+
+func TestMultiplexerProxyGetReqScope_Subresource(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "test")
+	if err != nil {
+		t.Fatalf("failed to make temp dir, %v", err)
+	}
+	restMapperManager, err := meta.NewRESTMapperManager(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to make rest mapper manager, %v", err)
+	}
+
+	sp := &multiplexerProxy{
+		restMapperManager: restMapperManager,
+	}
+
+	t.Run("scale subresource uses scale kind", func(t *testing.T) {
+		gvr := &schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
+
+		reqScope, err := sp.getReqScope(gvr, "scale")
+		if err != nil {
+			t.Fatalf("failed to get request scope, %v", err)
+		}
+
+		assert.Equal(t, "scale", reqScope.Subresource)
+		assert.Equal(t, autoscalingv1.SchemeGroupVersion.WithKind("Scale"), reqScope.Kind)
+		assert.Equal(t, schema.GroupVersion{Group: "autoscaling", Version: runtime.APIVersionInternal}, reqScope.HubGroupVersion)
+		assert.Equal(t, autoscalingv1.SchemeGroupVersion.WithKind("Scale"), reqScope.EquivalentResourceMapper.KindFor(*gvr, "scale"))
+	})
+
+	t.Run("main resource keeps parent kind", func(t *testing.T) {
+		gvr := &schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
+
+		reqScope, err := sp.getReqScope(gvr, "")
+		if err != nil {
+			t.Fatalf("failed to get request scope, %v", err)
+		}
+
+		assert.Empty(t, reqScope.Subresource)
+		assert.Equal(t, schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}, reqScope.Kind)
+		assert.Equal(t, schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}, reqScope.EquivalentResourceMapper.KindFor(*gvr, ""))
+	})
 }

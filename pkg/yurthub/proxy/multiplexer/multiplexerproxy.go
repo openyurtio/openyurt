@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,6 +54,7 @@ type multiplexerProxy struct {
 func init() {
 	// When parsing the FieldSelector in list/watch requests, the corresponding resource's conversion functions need to be used.
 	// Here, the primary action is to introduce the conversion functions registered in the core/v1 resources into the scheme.
+	autoscalingv1.AddToScheme(scheme.Scheme)
 	v1.AddToScheme(scheme.Scheme)
 }
 
@@ -83,7 +85,7 @@ func (sp *multiplexerProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		util.Err(errors.Wrapf(err, "failed to get rest storage"), w, r)
 	}
 
-	reqScope, err := sp.getReqScope(gvr)
+	reqScope, err := sp.getReqScope(gvr, reqInfo.Subresource)
 	if err != nil {
 		util.Err(errors.Wrapf(err, "failed tp get req scope"), w, r)
 	}
@@ -94,10 +96,19 @@ func (sp *multiplexerProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	handlers.ListResource(lister, watcher, reqScope, forceWatch, minRequestTimeout).ServeHTTP(w, r)
 }
 
-func (sp *multiplexerProxy) getReqScope(gvr *schema.GroupVersionResource) (*handlers.RequestScope, error) {
+func (sp *multiplexerProxy) getReqScope(gvr *schema.GroupVersionResource, subresource string) (*handlers.RequestScope, error) {
 	_, fqKindToRegister := sp.restMapperManager.KindFor(*gvr)
 	if fqKindToRegister.Empty() {
 		return nil, fmt.Errorf("gvk is not found for gvr: %v", *gvr)
+	}
+
+	equivalentResourceRegistry := runtime.NewEquivalentResourceRegistry()
+	equivalentResourceRegistry.RegisterKindFor(*gvr, "", fqKindToRegister)
+
+	reqKind := fqKindToRegister
+	if len(subresource) > 0 {
+		reqKind = reqScopeKindForSubresource(fqKindToRegister, subresource)
+		equivalentResourceRegistry.RegisterKindFor(*gvr, subresource, reqKind)
 	}
 
 	return &handlers.RequestScope{
@@ -109,16 +120,16 @@ func (sp *multiplexerProxy) getReqScope(gvr *schema.GroupVersionResource) (*hand
 		UnsafeConvertor: runtime.UnsafeObjectConvertor(scheme.Scheme),
 		Authorizer:      authorizerfactory.NewAlwaysAllowAuthorizer(),
 
-		EquivalentResourceMapper: runtime.NewEquivalentResourceRegistry(),
+		EquivalentResourceMapper: equivalentResourceRegistry,
 
 		// TODO: Check for the interface on storage
 		TableConvertor: rest.NewDefaultTableConvertor(gvr.GroupResource()),
 
-		// TODO: This seems wrong for cross-group subresources. It makes an assumption that a subresource and its parent are in the same group version. Revisit this.
-		Resource: *gvr,
-		Kind:     fqKindToRegister,
+		Resource:    *gvr,
+		Kind:        reqKind,
+		Subresource: subresource,
 
-		HubGroupVersion: schema.GroupVersion{Group: fqKindToRegister.Group, Version: runtime.APIVersionInternal},
+		HubGroupVersion: schema.GroupVersion{Group: reqKind.Group, Version: runtime.APIVersionInternal},
 
 		MetaGroupVersion: metav1.SchemeGroupVersion,
 
@@ -127,4 +138,13 @@ func (sp *multiplexerProxy) getReqScope(gvr *schema.GroupVersionResource) (*hand
 			Namer: runtime.Namer(meta.NewAccessor()),
 		},
 	}, nil
+}
+
+func reqScopeKindForSubresource(parentKind schema.GroupVersionKind, subresource string) schema.GroupVersionKind {
+	switch subresource {
+	case "scale":
+		return autoscalingv1.SchemeGroupVersion.WithKind("Scale")
+	default:
+		return parentKind
+	}
 }
