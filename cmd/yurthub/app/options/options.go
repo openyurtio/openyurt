@@ -121,7 +121,7 @@ func NewYurtHubOptions() *YurtHubOptions {
 		EnableNodePool:            true,
 		MinRequestTimeout:         time.Second * 1800,
 		CACertHashes:              make([]string, 0),
-		UnsafeSkipCAVerification:  true,
+		UnsafeSkipCAVerification:  false,
 		EnablePoolServiceTopology: false,
 		PoolScopeResources: []schema.GroupVersionResource{
 			{Group: "", Version: "v1", Resource: "services"},
@@ -233,7 +233,7 @@ func (o *YurtHubOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.MarkDeprecated("enable-node-pool", "It is planned to be removed from OpenYurt in the future version, please use --enable-pool-service-topology instead")
 	fs.DurationVar(&o.MinRequestTimeout, "min-request-timeout", o.MinRequestTimeout, "An optional field indicating at least how long a proxy handler must keep a request open before timing it out. Currently only honored by the local watch request handler(use request parameter timeoutSeconds firstly), which picks a randomized value above this number as the connection timeout, to spread out load.")
 	fs.StringSliceVar(&o.CACertHashes, "discovery-token-ca-cert-hash", o.CACertHashes, "For token-based discovery, validate that the root CA public key matches this hash (format: \"<type>:<value>\").")
-	fs.BoolVar(&o.UnsafeSkipCAVerification, "discovery-token-unsafe-skip-ca-verification", o.UnsafeSkipCAVerification, "For token-based discovery, allow joining without --discovery-token-ca-cert-hash pinning.")
+	fs.BoolVar(&o.UnsafeSkipCAVerification, "discovery-token-unsafe-skip-ca-verification", o.UnsafeSkipCAVerification, "For token-based discovery, skip verification of the root CA public key. This is insecure and should only be used when --discovery-token-ca-cert-hash cannot be provided.")
 	fs.BoolVar(&o.EnablePoolServiceTopology, "enable-pool-service-topology", o.EnablePoolServiceTopology, "enable service topology feature in the node pool.")
 	fs.StringVar(&o.HostControlPlaneAddr, "host-control-plane-address", o.HostControlPlaneAddr, "the address (ip:port) of host kubernetes cluster that used for yurthub local mode.")
 	fs.Var(&o.PoolScopeResources, "pool-scope-resources", "The list/watch requests for these resources will be multiplexered in yurthub in order to reduce overhead of kube-apiserver. comma-separated list of GroupVersionResource in the format Group/Version/Resource")

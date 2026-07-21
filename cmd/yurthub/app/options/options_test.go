@@ -61,7 +61,7 @@ func TestNewYurtHubOptions(t *testing.T) {
 		EnableNodePool:            true,
 		MinRequestTimeout:         time.Second * 1800,
 		CACertHashes:              make([]string, 0),
-		UnsafeSkipCAVerification:  true,
+		UnsafeSkipCAVerification:  false,
 		PoolScopeResources: []schema.GroupVersionResource{
 			{Group: "", Version: "v1", Resource: "services"},
 			{Group: "discovery.k8s.io", Version: "v1", Resource: "endpointslices"},
@@ -95,6 +95,19 @@ func TestValidate(t *testing.T) {
 				NodeName:   "foo",
 				ServerAddr: "1.2.3.4:56",
 			},
+			isErr: true,
+		},
+		"secure default requires ca cert hashes": {
+			options: func() *YurtHubOptions {
+				o := NewYurtHubOptions()
+				o.NodeName = "foo"
+				o.ServerAddr = "1.2.3.4:56"
+				o.JoinToken = "xxxx"
+				o.LBMode = "rr"
+				o.WorkingMode = "cloud"
+				o.NodePoolName = "foo"
+				return o
+			}(),
 			isErr: true,
 		},
 		"invalid lb mode": {
@@ -179,6 +192,19 @@ func TestValidate(t *testing.T) {
 				LBMode:                   "rr",
 				WorkingMode:              "cloud",
 				UnsafeSkipCAVerification: true,
+				NodePoolName:             "foo",
+			},
+			isErr: false,
+		},
+		"normal options with ca cert hashes": {
+			options: &YurtHubOptions{
+				NodeName:                 "foo",
+				ServerAddr:               "1.2.3.4:56",
+				JoinToken:                "xxxx",
+				LBMode:                   "rr",
+				WorkingMode:              "cloud",
+				CACertHashes:             []string{"sha256:abcdef"},
+				UnsafeSkipCAVerification: false,
 				NodePoolName:             "foo",
 			},
 			isErr: false,
