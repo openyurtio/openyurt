@@ -86,6 +86,9 @@ get_maintained_versions() {
     MAINTAINED_VERSION_NUM=${MAINTAINED_VERSION_NUM:-3}
     allVersions=$(git for-each-ref refs/tags --sort=authordate | awk '{print $3}' | awk -F '/' '{print $3}')
     latestVersion=$(git for-each-ref refs/tags --sort=authordate | awk 'END{print}' |awk '{print $3}' | awk -F '/' '{print $3}')
+    if [[ -z "${latestVersion}" ]]; then
+        return 0
+    fi
     major=$(echo $latestVersion | awk -F '.' '{print $1}')
     major=${major#v}
     minor=$(echo $latestVersion | awk -F '.' '{print $2}')
@@ -104,12 +107,5 @@ get_maintained_versions() {
 }
 
 get_image_tag() {
-    tag=$(git describe --abbrev=0 --tags)
-    commit=$(git rev-parse HEAD) 
-    
-    if $(git tag --points-at ${commit}); then
-        echo ${tag}-$(echo ${commit} | cut -c 1-7)
-    else
-        echo ${tag}
-    fi
+    bash "${YURT_ROOT}/hack/lib/git-version.sh" image-tag
 }

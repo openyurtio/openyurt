@@ -18,12 +18,12 @@ jobs:
       matrix:
         target: [ yurthub,  node-servant, yurt-manager, yurt-iot-dock ]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build image
         run: |

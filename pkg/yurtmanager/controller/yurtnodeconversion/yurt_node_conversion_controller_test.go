@@ -484,6 +484,43 @@ func TestReconcileSkipCloudNodePool(t *testing.T) {
 	assert.Error(t, err, "expected no conversion job for Cloud NodePool")
 }
 
+func TestEnsureConvertZoneLabel(t *testing.T) {
+	t.Run("adds zone label when absent", func(t *testing.T) {
+		r, cli := newReconcilerForTest(t, newNode("node-a", map[string]string{
+			projectinfo.GetNodePoolLabel(): "pool-a",
+		}, false, nil))
+
+		require.NoError(t, r.ensureTopologyZoneLabel(context.Background(), "node-a", true, "pool-a"))
+
+		node := &corev1.Node{}
+		require.NoError(t, cli.Get(context.Background(), types.NamespacedName{Name: "node-a"}, node))
+		assert.Equal(t, "pool-a", node.Labels[zoneLabel])
+	})
+
+	t.Run("keeps existing zone label", func(t *testing.T) {
+		r, cli := newReconcilerForTest(t, newNode("node-b", map[string]string{
+			zoneLabel: "custom-zone",
+		}, false, nil))
+
+		require.NoError(t, r.ensureTopologyZoneLabel(context.Background(), "node-b", true, "pool-a"))
+
+		node := &corev1.Node{}
+		require.NoError(t, cli.Get(context.Background(), types.NamespacedName{Name: "node-b"}, node))
+		assert.Equal(t, "custom-zone", node.Labels[zoneLabel])
+	})
+
+	t.Run("skips when nodepool name is empty", func(t *testing.T) {
+		r, cli := newReconcilerForTest(t, newNode("node-c", map[string]string{}, false, nil))
+
+		require.NoError(t, r.ensureTopologyZoneLabel(context.Background(), "node-c", true, ""))
+
+		node := &corev1.Node{}
+		require.NoError(t, cli.Get(context.Background(), types.NamespacedName{Name: "node-c"}, node))
+		_, ok := node.Labels[zoneLabel]
+		assert.False(t, ok)
+	})
+}
+
 func newReconcilerForTest(t *testing.T, objs ...client.Object) (*ReconcileYurtNodeConversion, client.Client) {
 	t.Helper()
 
