@@ -308,16 +308,17 @@ func (ds *diskStorage) ListResourceKeysOfComponent(component string, gvr schema.
 		return nil, fmt.Errorf("could not list files at %s, %v", filepath.Join(ds.baseDir, storageKey.Key()), err)
 	}
 
-	keys := make([]storage.Key, len(files))
-	for i, filePath := range files {
+	keys := make([]storage.Key, 0, len(files))
+	for _, filePath := range files {
+		if isTmpFile(filePath) {
+			continue
+		}
 		_, _, ns, n, err := extractInfoFromPath(ds.baseDir, filePath, false)
 		if err != nil {
 			klog.Errorf("failed when list keys of resource %s of component %s, %v", component, gvr, err)
 			continue
 		}
-		// We can ensure that component and resource can't be empty
-		// so ignore the err.
-		key, _ := ds.KeyFunc(storage.KeyBuildInfo{
+		key, err := ds.KeyFunc(storage.KeyBuildInfo{
 			Component: component,
 			Resources: gvr.Resource,
 			Version:   gvr.Version,
@@ -325,7 +326,11 @@ func (ds *diskStorage) ListResourceKeysOfComponent(component string, gvr schema.
 			Namespace: ns,
 			Name:      n,
 		})
-		keys[i] = key
+		if err != nil {
+			klog.Errorf("failed to build key for resource %s of component %s, %v", component, gvr, err)
+			continue
+		}
+		keys = append(keys, key)
 	}
 	return keys, nil
 }

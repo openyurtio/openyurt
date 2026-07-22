@@ -152,6 +152,10 @@ func (m *GCManager) gcPodsWhenRestart() {
 
 	deletedPods := make([]storage.Key, 0)
 	for i := range localPodKeys {
+		if localPodKeys[i] == nil {
+			klog.Warningf("skip nil pod key at index %d when gc pods on restart", i)
+			continue
+		}
 		if _, ok := currentPodKeys[localPodKeys[i]]; !ok {
 			deletedPods = append(deletedPods, localPodKeys[i])
 		}
@@ -193,6 +197,10 @@ func (m *GCManager) gcEvents(kubeClient clientset.Interface, component string) {
 
 	deletedEvents := make([]storage.Key, 0)
 	for _, key := range localEventKeys {
+		if key == nil {
+			klog.Warningf("skip nil event key when gc %s events", component)
+			continue
+		}
 		_, _, ns, name := util.SplitKey(key.Key())
 		if len(ns) == 0 || len(name) == 0 {
 			klog.Infof("could not get namespace or name for event %s", key.Key())
