@@ -162,11 +162,12 @@ func TestMultiplexerProxyServeHTTPReturnsOnGetReqScopeError(t *testing.T) {
 	rmm := multiplexer.NewRequestMultiplexerManager(cfg, dsm, healthChecker)
 
 	stopCh := make(chan struct{})
+	defer close(stopCh)
 	if ok := cache.WaitForCacheSync(stopCh, func() bool { return rmm.Ready(&endpointSliceGVR) }); !ok {
 		t.Fatal("multiplexer manager is not ready")
 	}
 
-	sp := NewMultiplexerProxy(rmm, proxyRESTMapper, make(<-chan struct{}))
+	sp := NewMultiplexerProxy(rmm, proxyRESTMapper, stopCh)
 	w := httptest.NewRecorder()
 	req := newEndpointSliceListRequest("/apis/discovery.k8s.io/v1/endpointslices", nil)
 

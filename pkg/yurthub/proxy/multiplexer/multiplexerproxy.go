@@ -86,7 +86,7 @@ func (sp *multiplexerProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	reqScope, err := sp.getReqScope(gvr)
 	if err != nil {
-		util.Err(errors.Wrapf(err, "failed tp get req scope"), w, r)
+		util.Err(errors.Wrapf(err, "failed to get req scope"), w, r)
 		return
 	}
 
