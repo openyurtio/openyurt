@@ -17,8 +17,10 @@ limitations under the License.
 package yurthub
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -1357,5 +1359,60 @@ func Test_CheckYurthubHealthz_WithTimeout(t *testing.T) {
 	}
 
 	err := CheckYurthubServiceHealth("127.0.0.1")
+	assert.Error(t, err)
+}
+
+func TestCheckYurthubHealthz(t *testing.T) {
+	// Start a test server that returns "OK"
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	}))
+	defer ts.Close()
+
+	// Override default transport to route all traffic to our test server
+	oldTransport := http.DefaultTransport
+	defer func() { http.DefaultTransport = oldTransport }()
+
+	http.DefaultTransport = &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			// Extract the port of the test server
+			tsURL, _ := url.Parse(ts.URL)
+			return net.Dial(network, tsURL.Host)
+		},
+	}
+
+	err := CheckYurthubHealthz("127.0.0.1")
+	assert.NoError(t, err)
+
+	// Test invalid URL parsing to cover the NewRequestWithContext error branch
+	err = CheckYurthubHealthz("invalid \x7f host")
+	assert.Error(t, err)
+}
+
+func TestCheckYurthubReadyz(t *testing.T) {
+	// Start a test server that returns "OK"
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	}))
+	defer ts.Close()
+
+	// Override default transport to route all traffic to our test server
+	oldTransport := http.DefaultTransport
+	defer func() { http.DefaultTransport = oldTransport }()
+
+	http.DefaultTransport = &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			tsURL, _ := url.Parse(ts.URL)
+			return net.Dial(network, tsURL.Host)
+		},
+	}
+
+	err := CheckYurthubReadyz("127.0.0.1")
+	assert.NoError(t, err)
+
+	// Test invalid URL parsing to cover the NewRequestWithContext error branch
+	err = CheckYurthubReadyz("invalid \x7f host")
 	assert.Error(t, err)
 }
