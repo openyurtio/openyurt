@@ -69,9 +69,7 @@ func (webhook *PlatformAdminHandler) ValidateUpdate(
 	}
 
 	// validate
-	newErrorList := webhook.validate(ctx, newPlatformAdmin)
-	oldErrorList := webhook.validate(ctx, oldPlatformAdmin)
-	if allErrs := append(newErrorList, oldErrorList...); len(allErrs) > 0 {
+	if allErrs := webhook.validate(ctx, newPlatformAdmin); len(allErrs) > 0 {
 		return nil, apierrors.NewInvalid(
 			v1beta1.GroupVersion.WithKind("PlatformAdmin").GroupKind(),
 			newPlatformAdmin.Name,
