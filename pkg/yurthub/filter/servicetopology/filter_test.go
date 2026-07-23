@@ -83,6 +83,63 @@ func TestFilter(t *testing.T) {
 		yurtClient                *fake.FakeDynamicClient
 		expectObject              runtime.Object
 	}{
+		"v1.Endpoints: topologyKeys is kubernetes.io/hostname": {
+			poolName: "hangzhou",
+			responseObject: &corev1.Endpoints{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "svc1",
+					Namespace: "default",
+				},
+				Subsets: []corev1.EndpointSubset{
+					{
+						Addresses: []corev1.EndpointAddress{
+							{IP: "10.244.1.2", NodeName: &currentNodeName},
+							{IP: "10.244.1.3", NodeName: &nodeName2},
+						},
+						NotReadyAddresses: []corev1.EndpointAddress{
+							{IP: "10.244.1.4", NodeName: &currentNodeName},
+							{IP: "10.244.1.5", NodeName: &nodeName3},
+						},
+					},
+				},
+			},
+			kubeClient: k8sfake.NewSimpleClientset(
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: currentNodeName,
+						Labels: map[string]string{
+							projectinfo.GetNodePoolLabel(): "hangzhou",
+						},
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "svc1",
+						Namespace: "default",
+						Annotations: map[string]string{
+							AnnotationServiceTopologyKey: AnnotationServiceTopologyValueNode,
+						},
+					},
+				},
+			),
+			yurtClient: fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind),
+			expectObject: &corev1.Endpoints{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "svc1",
+					Namespace: "default",
+				},
+				Subsets: []corev1.EndpointSubset{
+					{
+						Addresses: []corev1.EndpointAddress{
+							{IP: "10.244.1.2", NodeName: &currentNodeName},
+						},
+						NotReadyAddresses: []corev1.EndpointAddress{
+							{IP: "10.244.1.4", NodeName: &currentNodeName},
+						},
+					},
+				},
+			},
+		},
 		"v1beta1.EndpointSlice: topologyKeys is kubernetes.io/hostname": {
 			poolName: "hangzhou",
 			responseObject: &discoveryV1beta1.EndpointSlice{
@@ -2687,6 +2744,148 @@ func TestReassembleEndpointSlice(t *testing.T) {
 		nodes        []string
 		endpoints    []discovery.Endpoint
 		expectNodes  []string // NodeName of endpoints expected to be kept, "" for a nil NodeName endpoint
+		expectLength int
+	}{
+		"node topology keeps only the local node and skips nil NodeName": {
+			nodeName: node1,
+			endpoints: []discovery.Endpoint{
+				{NodeName: &node1, Addresses: []string{"10.244.1.2"}},
+				{NodeName: nil, Addresses: []string{"10.244.1.3"}},
+				{NodeName: &node2, Addresses: []string{"10.244.1.4"}},
+			},
+			expectNodes:  []string{node1},
+			expectLength: 1,
+		},
+		"nodePool topology keeps in-pool nodes and skips nil NodeName": {
+			nodes: []string{node1, node2},
+			endpoints: []discovery.Endpoint{
+				{NodeName: &node1, Addresses: []string{"10.244.1.2"}},
+				{NodeName: nil, Addresses: []string{"10.244.1.3"}},
+				{NodeName: &node2, Addresses: []string{"10.244.1.4"}},
+			},
+			expectNodes:  []string{node1, node2},
+			expectLength: 2,
+		},
+		"all endpoints have nil NodeName results in empty endpoints": {
+			nodeName: node1,
+			endpoints: []discovery.Endpoint{
+				{NodeName: nil, Addresses: []string{"10.244.1.2"}},
+				{NodeName: nil, Addresses: []string{"10.244.1.3"}},
+			},
+			expectNodes:  nil,
+			expectLength: 0,
+		},
+	}
+
+	for k, tt := range testcases {
+		t.Run(k, func(t *testing.T) {
+			eps := &discovery.EndpointSlice{
+				ObjectMeta: metav1.ObjectMeta{Name: "svc-xxxx", Namespace: "default"},
+				Endpoints:  tt.endpoints,
+			}
+
+			// Must not panic even when some endpoints have a nil NodeName.
+			got := reassembleEndpointSlice(eps, tt.nodeName, tt.nodes)
+
+			if len(got.Endpoints) != tt.expectLength {
+				t.Fatalf("expect %d endpoints, but got %d", tt.expectLength, len(got.Endpoints))
+			}
+			for i, ep := range got.Endpoints {
+				if ep.NodeName == nil {
+					t.Fatalf("endpoint with nil NodeName should have been discarded, but got one at index %d", i)
+				}
+				if *ep.NodeName != tt.expectNodes[i] {
+					t.Errorf("expect endpoint[%d] on node %q, but got %q", i, tt.expectNodes[i], *ep.NodeName)
+				}
+			}
+		})
+	}
+}
+
+func TestReassembleEndpoints(t *testing.T) {
+	node1 := "node1"
+	node2 := "node2"
+	node3 := "node3"
+
+	testcases := map[string]struct {
+		endpoints    *corev1.Endpoints
+		nodeName     string
+		nodes        []string
+		expectResult *corev1.Endpoints
+	}{
+		"filter by node name": {
+			endpoints: &corev1.Endpoints{
+				Subsets: []corev1.EndpointSubset{
+					{
+						Addresses: []corev1.EndpointAddress{
+							{IP: "10.0.0.1", NodeName: &node1},
+							{IP: "10.0.0.2", NodeName: &node2},
+						},
+					},
+				},
+			},
+			nodeName: node1,
+			expectResult: &corev1.Endpoints{
+				Subsets: []corev1.EndpointSubset{
+					{
+						Addresses: []corev1.EndpointAddress{
+							{IP: "10.0.0.1", NodeName: &node1},
+						},
+					},
+				},
+			},
+		},
+		"filter by node pool": {
+			endpoints: &corev1.Endpoints{
+				Subsets: []corev1.EndpointSubset{
+					{
+						Addresses: []corev1.EndpointAddress{
+							{IP: "10.0.0.1", NodeName: &node1},
+							{IP: "10.0.0.2", NodeName: &node2},
+							{IP: "10.0.0.3", NodeName: &node3},
+						},
+						NotReadyAddresses: []corev1.EndpointAddress{
+							{IP: "10.0.0.4", NodeName: &node2},
+						},
+					},
+				},
+			},
+			nodes: []string{node1, node2},
+			expectResult: &corev1.Endpoints{
+				Subsets: []corev1.EndpointSubset{
+					{
+						Addresses: []corev1.EndpointAddress{
+							{IP: "10.0.0.1", NodeName: &node1},
+							{IP: "10.0.0.2", NodeName: &node2},
+						},
+						NotReadyAddresses: []corev1.EndpointAddress{
+							{IP: "10.0.0.4", NodeName: &node2},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for k, tt := range testcases {
+		t.Run(k, func(t *testing.T) {
+			result := reassembleEndpoints(tt.endpoints, tt.nodeName, tt.nodes)
+			if !reflect.DeepEqual(result, tt.expectResult) {
+				t.Errorf("Got \n%v\n but expect \n%v", result, tt.expectResult)
+			}
+		})
+	}
+}
+
+func TestReassembleEndpointSliceLogic(t *testing.T) {
+	node1 := "node1"
+	node2 := "node2"
+	
+	testcases := map[string]struct {
+		nodeName     string
+		nodes        []string
+		endpoints    []discovery.Endpoint
+		expectNodes  []string 
 		expectLength int
 	}{
 		"node topology keeps only the local node and skips nil NodeName": {
