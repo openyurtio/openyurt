@@ -424,10 +424,10 @@ func CheckYurthubServiceHealth(yurthubServer string) error {
 	return nil
 }
 
-// CheckYurthubHealthz check if YurtHub is healthy.
-func CheckYurthubHealthz(yurthubServer string) error {
+// pollYurthubEndpoint polls the specified endpoint on YurtHub until it returns "OK".
+func pollYurthubEndpoint(yurthubServer, endpointPath string) error {
 	client := &http.Client{}
-	url := fmt.Sprintf("http://%s%s", fmt.Sprintf("%s:10267", yurthubServer), constants.ServerHealthzURLPath)
+	url := fmt.Sprintf("http://%s%s", fmt.Sprintf("%s:10267", yurthubServer), endpointPath)
 	return wait.PollUntilContextTimeout(context.Background(), time.Second*5, 300*time.Second, true, func(ctx context.Context) (bool, error) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 		if err != nil {
@@ -446,26 +446,14 @@ func CheckYurthubHealthz(yurthubServer string) error {
 	})
 }
 
+// CheckYurthubHealthz check if YurtHub is healthy.
+func CheckYurthubHealthz(yurthubServer string) error {
+	return pollYurthubEndpoint(yurthubServer, constants.ServerHealthzURLPath)
+}
+
 // CheckYurthubReadyz check if YurtHub's certificates are ready or not
 func CheckYurthubReadyz(yurthubServer string) error {
-	client := &http.Client{}
-	url := fmt.Sprintf("http://%s%s", fmt.Sprintf("%s:10267", yurthubServer), constants.ServerReadyzURLPath)
-	return wait.PollUntilContextTimeout(context.Background(), time.Second*5, 300*time.Second, true, func(ctx context.Context) (bool, error) {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-		if err != nil {
-			return false, nil
-		}
-		resp, err := client.Do(req)
-		if err != nil {
-			return false, nil
-		}
-		defer resp.Body.Close()
-		ok, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return false, nil
-		}
-		return string(ok) == "OK", nil
-	})
+	return pollYurthubEndpoint(yurthubServer, constants.ServerReadyzURLPath)
 }
 
 func CheckYurthubReadyzOnce(yurthubServer string) bool {
