@@ -1494,3 +1494,50 @@ func TestIfEnhancement(t *testing.T) {
 		})
 	}
 }
+
+func TestListResourceKeysOfComponent_SkipTmpAndInvalid(t *testing.T) {
+	dir, err := os.MkdirTemp("", "nil-keys-test")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(dir)
+
+	store, err := NewDiskStorage(dir)
+	if err != nil {
+		t.Fatalf("failed to create disk storage: %v", err)
+	}
+
+	// Create valid, invalid (too deep), and tmp backup files
+	paths := []string{
+		filepath.Join(dir, "kubelet", "pods.v1.core", "default", "pod-a"),
+		filepath.Join(dir, "kubelet", "pods.v1.core", "default", "extra", "pod-b"),
+		filepath.Join(dir, "kubelet", "pods.v1.core", "default", "tmp_pod-c"),
+	}
+
+	for _, p := range paths {
+		if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
+			t.Fatalf("failed to mkdir: %v", err)
+		}
+		if err := os.WriteFile(p, []byte("{}"), 0644); err != nil {
+			t.Fatalf("failed to write file: %v", err)
+		}
+	}
+
+	keys, err := store.ListResourceKeysOfComponent("kubelet", schema.GroupVersionResource{Version: "v1", Resource: "pods"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(keys) != 1 {
+		t.Fatalf("expected 1 key, got %d keys: %v", len(keys), keys)
+	}
+
+	if keys[0] == nil {
+		t.Fatalf("expected non-nil key, got nil at index 0")
+	}
+
+	if keys[0].Key() != "kubelet/pods.v1.core/default/pod-a" {
+		t.Errorf("expected 'kubelet/pods.v1.core/default/pod-a', got '%s'", keys[0].Key())
+	}
+}
+
