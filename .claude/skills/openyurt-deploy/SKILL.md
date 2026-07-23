@@ -66,7 +66,7 @@ For rollback or cleanup, see the uninstall document.
    uses `crictl` to list and restart containers. It is NOT installed by
    default on standard kubeadm setups. Always verify its presence on each
    target edge node before labeling. The preflight check in the deploy flow
-   handles this autonomously via SSH.
+   handles this autonomously via a lightweight Kubernetes Job.
 
 2. **Do not modify the `apps.openyurt.io/nodepool` label in-place**: The
    admission webhook forbids in-place value changes. To reassign a node to
