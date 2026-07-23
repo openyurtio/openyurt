@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/google/uuid"
@@ -728,6 +729,72 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 			buf, err := store.Update(podKey, comingPodBytes, comingPodRvUint64)
 			Expect(err).To(Equal(storage.ErrUpdateConflict))
 			Expect(buf).To(Equal(existingPodBytes))
+		})
+	})
+
+	Context("Test Concurrent Key Locking", func() {
+		It("should block and allow concurrent operations without ErrStorageAccessConflict", func() {
+			podKeyInfo := storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "pods",
+				Namespace: "default",
+				Group:     "",
+				Version:   "v1",
+				Name:      "concurrent-pod",
+			}
+			podKey, err := store.KeyFunc(podKeyInfo)
+			Expect(err).To(BeNil())
+			pod, _, err := generatePod(store.KeyFunc, &podObj, podKeyInfo)
+			Expect(err).To(BeNil())
+			podBytes, err := marshalObj(pod)
+			Expect(err).To(BeNil())
+
+			// We will launch multiple concurrent reads and writes on the same key.
+			// With blocking locks, they should block and eventually execute,
+			// without returning ErrStorageAccessConflict.
+			errCh := make(chan error, 5)
+			var wg sync.WaitGroup
+			wg.Add(3)
+
+			// 1. First Create
+			go func() {
+				defer wg.Done()
+				err := store.Create(podKey, podBytes)
+				if err != nil && err != storage.ErrKeyExists {
+					errCh <- err
+				} else {
+					errCh <- nil
+				}
+			}()
+
+			// 2. Concurrent Get
+			go func() {
+				defer wg.Done()
+				_, err := store.Get(podKey)
+				if err != nil && err != storage.ErrStorageNotFound {
+					errCh <- err
+				} else {
+					errCh <- nil
+				}
+			}()
+
+			// 3. Concurrent Update
+			go func() {
+				defer wg.Done()
+				_, err := store.Update(podKey, podBytes, 200)
+				if err != nil && err != storage.ErrStorageNotFound && err != storage.ErrUpdateConflict {
+					errCh <- err
+				} else {
+					errCh <- nil
+				}
+			}()
+
+			wg.Wait()
+			close(errCh)
+
+			for e := range errCh {
+				Expect(e).NotTo(Equal(storage.ErrStorageAccessConflict))
+			}
 		})
 	})
 

@@ -43,10 +43,10 @@ const (
 	tmpPrefix    = "tmp_"
 )
 
-// TODO: lock should block, and also add comment about it
-// TODO: should optimize the efficiency of the lock mechanism
+// diskStorage implements key-level blocking locking to prevent concurrent access conflicts.
 type diskStorage struct {
 	sync.Mutex
+	cond             *sync.Cond
 	baseDir          string
 	keyPendingStatus map[string]struct{}
 	serializer       runtime.Serializer
@@ -76,6 +76,7 @@ func NewDiskStorage(dir string) (storage.Store, error) {
 		serializer:       json.NewSerializerWithOptions(json.DefaultMetaFactory, scheme.Scheme, scheme.Scheme, json.SerializerOptions{}),
 		fsOperator:       fsOperator,
 	}
+	ds.cond = sync.NewCond(&ds.Mutex)
 
 	enhancementMode, err := ifEnhancement(ds.baseDir, *ds.fsOperator)
 	if err != nil {
@@ -559,24 +560,42 @@ func (ds *diskStorage) lockKey(key storageKey) bool {
 	keyStr := key.Key()
 	ds.Lock()
 	defer ds.Unlock()
-	if _, ok := ds.keyPendingStatus[keyStr]; ok {
-		klog.Infof("key(%s) storage is pending, just skip it", keyStr)
-		return false
+
+	if ds.cond == nil {
+		ds.cond = sync.NewCond(&ds.Mutex)
+	}
+	if ds.keyPendingStatus == nil {
+		ds.keyPendingStatus = make(map[string]struct{})
 	}
 
-	for pendingKey := range ds.keyPendingStatus {
-		if len(keyStr) > len(pendingKey) {
-			if strings.Contains(keyStr, fmt.Sprintf("%s/", pendingKey)) {
-				klog.Infof("key(%s) storage is pending, skip to store key(%s)", pendingKey, keyStr)
-				return false
-			}
+	for {
+		conflict := false
+		if _, ok := ds.keyPendingStatus[keyStr]; ok {
+			conflict = true
 		} else {
-			if strings.Contains(pendingKey, fmt.Sprintf("%s/", keyStr)) {
-				klog.Infof("key(%s) storage is pending, skip to store key(%s)", pendingKey, keyStr)
-				return false
+			for pendingKey := range ds.keyPendingStatus {
+				if len(keyStr) > len(pendingKey) {
+					if strings.Contains(keyStr, fmt.Sprintf("%s/", pendingKey)) {
+						conflict = true
+						break
+					}
+				} else {
+					if strings.Contains(pendingKey, fmt.Sprintf("%s/", keyStr)) {
+						conflict = true
+						break
+					}
+				}
 			}
 		}
+
+		if !conflict {
+			break
+		}
+
+		klog.V(4).Infof("key(%s) storage is pending, waiting for lock", keyStr)
+		ds.cond.Wait()
 	}
+
 	ds.keyPendingStatus[keyStr] = struct{}{}
 	return true
 }
@@ -601,7 +620,13 @@ func (ds *diskStorage) ifFresherThan(oldObj []byte, newRV uint64) (bool, error) 
 func (ds *diskStorage) unLockKey(key storageKey) {
 	ds.Lock()
 	defer ds.Unlock()
-	delete(ds.keyPendingStatus, key.Key())
+
+	if ds.keyPendingStatus != nil {
+		delete(ds.keyPendingStatus, key.Key())
+	}
+	if ds.cond != nil {
+		ds.cond.Broadcast()
+	}
 }
 
 func ifEnhancement(baseDir string, fsOperator fs.FileSystemOperator) (bool, error) {
