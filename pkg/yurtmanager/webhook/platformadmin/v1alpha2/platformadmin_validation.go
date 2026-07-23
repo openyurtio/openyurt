@@ -64,7 +64,7 @@ func (webhook *PlatformAdminHandler) ValidateUpdate(
 	if !ok {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a PlatformAdmin but got a %T", newObj))
 	}
-	oldPlatformAdmin, ok := oldObj.(*v1alpha2.PlatformAdmin)
+	_, ok = oldObj.(*v1alpha2.PlatformAdmin)
 	if !ok {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a PlatformAdmin but got a %T", oldObj))
 	}
