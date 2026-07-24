@@ -412,3 +412,62 @@ func TestReconcile(t *testing.T) {
 		})
 	}
 }
+
+func TestConciliateYurtAppSetStatusWithStatefulSet(t *testing.T) {
+	yas := &v1beta1.YurtAppSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-yas",
+			Namespace: "default",
+		},
+	}
+
+	expectedRevision := &appsv1.ControllerRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "rev-1",
+		},
+	}
+
+	sts1 := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-sts-1",
+			Namespace: "default",
+			Labels: map[string]string{
+				apps.ControllerRevisionHashLabelKey: "rev-1",
+			},
+		},
+		Status: appsv1.StatefulSetStatus{
+			Replicas:        2,
+			ReadyReplicas:   2,
+			UpdatedReplicas: 2,
+		},
+	}
+
+	sts2 := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-sts-2",
+			Namespace: "default",
+			Labels: map[string]string{
+				apps.ControllerRevisionHashLabelKey: "rev-0",
+			},
+		},
+		Status: appsv1.StatefulSetStatus{
+			Replicas:        2,
+			ReadyReplicas:   1,
+			UpdatedReplicas: 1,
+		},
+	}
+
+	curWorkloads := []metav1.Object{sts1, sts2}
+	newStatus := &v1beta1.YurtAppSetStatus{}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(fakeScheme).WithObjects(yas).WithStatusSubresource(&v1beta1.YurtAppSet{}).Build()
+	r := &ReconcileYurtAppSet{
+		Client: fakeClient,
+	}
+
+	err := r.conciliateYurtAppSetStatus(yas, curWorkloads, expectedRevision, nil, newStatus)
+	assert.NoError(t, err)
+	assert.Equal(t, int32(2), newStatus.TotalWorkloads)
+	assert.Equal(t, int32(1), newStatus.ReadyWorkloads)
+	assert.Equal(t, int32(1), newStatus.UpdatedWorkloads)
+}
