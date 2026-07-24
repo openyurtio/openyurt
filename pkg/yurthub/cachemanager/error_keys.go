@@ -135,9 +135,11 @@ func (ek *errorKeys) processNextOperator() bool {
 		klog.Errorf("failed to serialize and persist operation: %v", op)
 		return false
 	}
+	ek.Lock()
 	ek.file.Write(append(data, '\n'))
 	ek.file.Sync()
 	ek.count++
+	ek.Unlock()
 	return true
 }
 
@@ -145,7 +147,10 @@ func (ek *errorKeys) compress() {
 	ticker := time.NewTicker(30 * time.Second)
 	for range ticker.C {
 		if !ek.queue.ShuttingDown() {
-			if ek.count > len(ek.keys)+CompressThresh {
+			ek.RLock()
+			shouldRewrite := ek.count > len(ek.keys)+CompressThresh
+			ek.RUnlock()
+			if shouldRewrite {
 				ek.rewrite()
 			}
 		} else {
@@ -155,8 +160,8 @@ func (ek *errorKeys) compress() {
 }
 
 func (ek *errorKeys) rewrite() {
-	ek.RLock()
-	defer ek.RUnlock()
+	ek.Lock()
+	defer ek.Unlock()
 	count := 0
 	file, err := os.OpenFile(filepath.Join(ek.aofPath, "tmp_aof"), os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0644)
 	if err != nil {
