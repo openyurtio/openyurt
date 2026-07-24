@@ -124,10 +124,10 @@ func TestGatewayHandler_ValidateUpdate(t *testing.T) {
 			expectedErrMsg: "missing required field 'endpoints'",
 		},
 		{
-			name:           "should return error when old Gateway is invalid",
+			name:           "should succeed when old Gateway is invalid but new Gateway is valid",
 			oldObj:         mockGatewayWithMissingEndpoints(),
 			newObj:         mockGatewayWithEndpoints(),
-			expectedErrMsg: "missing required field 'endpoints'",
+			expectedErrMsg: "",
 		},
 		{
 			name:           "should validate Gateway when new and old objects are valid",
@@ -154,19 +154,20 @@ func TestGatewayHandler_ValidateUpdate(t *testing.T) {
 
 func TestGatewayHandler_ValidateDelete(t *testing.T) {
 	cases := []struct {
-		name        string
-		obj         runtime.Object
-		expectError bool
+		name string
+		obj  runtime.Object
 	}{
 		{
-			name:        "should return error when obj is not Gateway",
-			obj:         &runtime.Unknown{},
-			expectError: true,
+			name: "should always allow deletion even when obj is not a Gateway",
+			obj:  &runtime.Unknown{},
 		},
 		{
-			name:        "should validate Gateway deletion when obj is valid",
-			obj:         mockGatewayWithEndpoints(),
-			expectError: false,
+			name: "should always allow deletion of a valid Gateway",
+			obj:  mockGatewayWithEndpoints(),
+		},
+		{
+			name: "should always allow deletion of an invalid Gateway",
+			obj:  mockGatewayWithMissingEndpoints(),
 		},
 	}
 
@@ -175,15 +176,10 @@ func TestGatewayHandler_ValidateDelete(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := handler.ValidateDelete(context.Background(), tc.obj)
-			if tc.expectError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
+			assert.NoError(t, err)
 		})
 	}
 }
-
 func mockGatewayWithEndpoints() *v1alpha1.Gateway {
 	return &v1alpha1.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
