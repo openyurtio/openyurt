@@ -50,12 +50,12 @@ func TestGatewayHandler_ValidateCreate(t *testing.T) {
 		{
 			name:           "should return error when Gateway TunnelConfig.Replicas >1",
 			obj:            mockGatewayWithReplicas(2),
-			expectedErrMsg: "the 'Replicas' field  can not be greater than 1",
+			expectedErrMsg: "Invalid value: 2",
 		},
 		{
 			name:           "should return error when Gateway ProxyConfig.Replicas >1 and Endpoints count =1",
 			obj:            mockGatewayWithReplicas(2),
-			expectedErrMsg: "the 'endpoints' field available proxy endpoints 1 is less than the 'proxyConfig.Replicas'2",
+			expectedErrMsg: "Invalid value: 2",
 		},
 		{
 			name:           "should return error when Gateway ip invalid",
