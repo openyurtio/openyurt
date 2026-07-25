@@ -173,6 +173,9 @@ func (dnsctl *coreDNSRecordController) onNodeUpdate(node *corev1.Node) error {
 }
 
 func (dnsctl *coreDNSRecordController) addOrUpdateNode(node *corev1.Node) error {
+	dnsctl.lock.Lock()
+	defer dnsctl.lock.Unlock()
+
 	ip, err := getNodeHostIP(node)
 	if err != nil {
 		return err
