@@ -627,21 +627,23 @@ func (r *ReconcileYurtAppSet) conciliateYurtAppSetStatus(
 	// calculate yas current status
 	readyWorkloads, updatedWorkloads := 0, 0
 	for _, workload := range curWorkloads {
+		var replicas, readyReplicas, updatedReplicas int32
+		var workloadHash string
+
 		switch w := workload.(type) {
 		case *appsv1.Deployment:
-			if isWorkloadReady(w.Status.Replicas, w.Status.ReadyReplicas) {
-				readyWorkloads++
-			}
-			if isWorkloadUpdated(workloadmanager.GetWorkloadHash(w), expectedRevision.GetName(), w.Status.UpdatedReplicas, w.Status.Replicas) {
-				updatedWorkloads++
-			}
+			replicas, readyReplicas, updatedReplicas = w.Status.Replicas, w.Status.ReadyReplicas, w.Status.UpdatedReplicas
+			workloadHash = workloadmanager.GetWorkloadHash(w)
 		case *appsv1.StatefulSet:
-			if isWorkloadReady(w.Status.Replicas, w.Status.ReadyReplicas) {
-				readyWorkloads++
-			}
-			if isWorkloadUpdated(workloadmanager.GetWorkloadHash(w), expectedRevision.GetName(), w.Status.UpdatedReplicas, w.Status.Replicas) {
-				updatedWorkloads++
-			}
+			replicas, readyReplicas, updatedReplicas = w.Status.Replicas, w.Status.ReadyReplicas, w.Status.UpdatedReplicas
+			workloadHash = workloadmanager.GetWorkloadHash(w)
+		}
+
+		if isWorkloadReady(replicas, readyReplicas) {
+			readyWorkloads++
+		}
+		if isWorkloadUpdated(workloadHash, expectedRevision.GetName(), updatedReplicas, replicas) {
+			updatedWorkloads++
 		}
 	}
 
