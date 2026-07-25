@@ -2880,12 +2880,12 @@ func TestReassembleEndpoints(t *testing.T) {
 func TestReassembleEndpointSliceLogic(t *testing.T) {
 	node1 := "node1"
 	node2 := "node2"
-	
+
 	testcases := map[string]struct {
 		nodeName     string
 		nodes        []string
 		endpoints    []discovery.Endpoint
-		expectNodes  []string 
+		expectNodes  []string
 		expectLength int
 	}{
 		"node topology keeps only the local node and skips nil NodeName": {
