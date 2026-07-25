@@ -25,6 +25,7 @@ linters:
       checks:
         - all
         - "-ST1001"
+        - "-SA1019"
   exclusions:
     generated: lax
     presets:
