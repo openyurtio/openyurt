@@ -629,19 +629,17 @@ func (r *ReconcileYurtAppSet) conciliateYurtAppSetStatus(
 	for _, workload := range curWorkloads {
 		switch w := workload.(type) {
 		case *appsv1.Deployment:
-			if w.Status.Replicas > 0 && w.Status.ReadyReplicas == w.Status.Replicas {
+			if isWorkloadReady(w.Status.Replicas, w.Status.ReadyReplicas) {
 				readyWorkloads++
 			}
-			if workloadmanager.GetWorkloadHash(w) == expectedRevision.GetName() &&
-				w.Status.UpdatedReplicas == w.Status.Replicas {
+			if isWorkloadUpdated(workloadmanager.GetWorkloadHash(w), expectedRevision.GetName(), w.Status.UpdatedReplicas, w.Status.Replicas) {
 				updatedWorkloads++
 			}
 		case *appsv1.StatefulSet:
-			if w.Status.Replicas > 0 && w.Status.ReadyReplicas == w.Status.Replicas {
+			if isWorkloadReady(w.Status.Replicas, w.Status.ReadyReplicas) {
 				readyWorkloads++
 			}
-			if workloadmanager.GetWorkloadHash(w) == expectedRevision.GetName() &&
-				w.Status.UpdatedReplicas == w.Status.Replicas {
+			if isWorkloadUpdated(workloadmanager.GetWorkloadHash(w), expectedRevision.GetName(), w.Status.UpdatedReplicas, w.Status.Replicas) {
 				updatedWorkloads++
 			}
 		}
@@ -692,4 +690,12 @@ func (r *ReconcileYurtAppSet) conciliateYurtAppSetStatus(
 	klog.Infof("YurtAppSet[%s/%s] update status success.", yas.Namespace, yas.Name)
 
 	return nil
+}
+
+func isWorkloadReady(replicas, readyReplicas int32) bool {
+	return replicas > 0 && readyReplicas == replicas
+}
+
+func isWorkloadUpdated(workloadHash string, expectedRevisionName string, updatedReplicas, replicas int32) bool {
+	return workloadHash == expectedRevisionName && updatedReplicas == replicas
 }
