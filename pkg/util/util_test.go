@@ -19,6 +19,8 @@ package util
 import (
 	"errors"
 	"testing"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestIsNil(t *testing.T) {
@@ -54,5 +56,32 @@ func TestIsNil(t *testing.T) {
 				t.Errorf("expect bool result is %v, but got %v", tt.result, got)
 			}
 		})
+	}
+}
+
+func TestTransformStripManagedFields(t *testing.T) {
+	tf := TransformStripManagedFields()
+
+	obj := &metav1.ObjectMeta{
+		Name: "test",
+		ManagedFields: []metav1.ManagedFieldsEntry{
+			{
+				Manager: "test-manager",
+			},
+		},
+	}
+
+	out, err := tf(obj)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	outObj, ok := out.(*metav1.ObjectMeta)
+	if !ok {
+		t.Fatalf("expected *metav1.ObjectMeta, got %T", out)
+	}
+
+	if len(outObj.ManagedFields) != 0 {
+		t.Errorf("expected managed fields to be stripped, got %v", outObj.ManagedFields)
 	}
 }
