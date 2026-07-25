@@ -26,7 +26,7 @@ func TestIsNil(t *testing.T) {
 	realErr := errors.New("test")
 
 	testcases := map[string]struct {
-		inputInterface interface{}
+		inputInterface any
 		result         bool
 	}{
 		"input nil": {
