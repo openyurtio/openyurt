@@ -86,15 +86,17 @@ func (d *Dialer) CloseAll() {
 	d.mu.Lock()
 	addrConns := d.addrConns
 	d.addrConns = make(map[string]map[*closableConn]struct{})
+	var allConns []*closableConn
+	for _, conns := range addrConns {
+		for conn := range conns {
+			allConns = append(allConns, conn)
+		}
+	}
 	d.mu.Unlock()
 
-	for addr, conns := range addrConns {
-		for conn := range conns {
-			conn.Conn.Close()
-			delete(conns, conn)
-			metrics.Metrics.DecClosableConns(addr)
-		}
-		delete(addrConns, addr)
+	for _, conn := range allConns {
+		conn.Conn.Close()
+		metrics.Metrics.DecClosableConns(conn.addr)
 	}
 }
 
@@ -105,12 +107,15 @@ func (d *Dialer) Close(address string) {
 	d.mu.Lock()
 	conns := d.addrConns[address]
 	delete(d.addrConns, address)
+	var targetConns []*closableConn
+	for conn := range conns {
+		targetConns = append(targetConns, conn)
+	}
 	d.mu.Unlock()
 
-	klog.Infof("forcibly close %d connections on %s for %s dialer", len(conns), address, d.name)
-	for conn := range conns {
+	klog.Infof("forcibly close %d connections on %s for %s dialer", len(targetConns), address, d.name)
+	for _, conn := range targetConns {
 		conn.Conn.Close()
-		delete(conns, conn)
 		metrics.Metrics.DecClosableConns(address)
 	}
 }
