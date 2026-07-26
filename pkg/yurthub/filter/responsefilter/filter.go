@@ -198,7 +198,11 @@ func (frc *filterReadCloser) streamResponseFilter(rc io.ReadCloser, ch chan *byt
 			klog.Errorf("could not encode resource in StreamResponseFilter of %s, %v", frc.ownerName, err)
 			return err
 		}
-		ch <- buf
+		select {
+		case ch <- buf:
+		case <-frc.stopCh:
+    			return nil
+}
 	}
 }
 
