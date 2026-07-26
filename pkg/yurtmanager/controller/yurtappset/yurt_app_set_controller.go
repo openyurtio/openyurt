@@ -258,18 +258,18 @@ func (r *ReconcileYurtAppSet) Reconcile(
 
 	// Conciliate workloads, update yas related workloads (deploy/sts)
 	// this may infect yas appdispatched/appupdated/appdeleted condition
-	expectedNps, curWorkloads, nErr := r.conciliateWorkloads(yas, expectedRevision, yasStatus)
-	if nErr != nil {
+	expectedNps, curWorkloads, err := r.conciliateWorkloads(yas, expectedRevision, yasStatus)
+	if err != nil {
 		res.RequeueAfter = 1 * time.Second
-		klog.Warningf("YurtAppSet[%s/%s] conciliate workloads error: %v", yas.Namespace, yas.Name, nErr)
+		klog.Warningf("YurtAppSet[%s/%s] conciliate workloads error: %v", yas.Namespace, yas.Name, err)
 		return
 	}
 
 	// Concilaiate yas, update yas status and clean yas related revisions
-	if nErr := r.conciliateYurtAppSet(yas, curWorkloads, allRevisions, expectedRevision, expectedNps, yasStatus); nErr != nil {
+	if err = r.conciliateYurtAppSet(yas, curWorkloads, allRevisions, expectedRevision, expectedNps, yasStatus); err != nil {
 		// if err, retry after 1s to wait for latest updates synced
 		res.RequeueAfter = 1 * time.Second
-		klog.Warningf("YurtAppSet[%s/%s] conciliate yurtappset error: %v", yas.GetNamespace(), yas.GetName(), nErr)
+		klog.Warningf("YurtAppSet[%s/%s] conciliate yurtappset error: %v", yas.GetNamespace(), yas.GetName(), err)
 		return
 	}
 

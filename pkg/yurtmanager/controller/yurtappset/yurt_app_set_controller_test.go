@@ -19,6 +19,7 @@ package yurtappset
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
@@ -411,4 +412,49 @@ func TestReconcile(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestReconcile_PropagatesConciliateWorkloadsError guards against a regression
+// where the named return err was shadowed by a local nErr inside Reconcile.
+// A bare "return" after only setting res.RequeueAfter sent (Result{RequeueAfter},
+// nil) to controller-runtime, which resets the rate limiter's backoff on every
+// retry instead of backing off exponentially.
+func TestReconcile_PropagatesConciliateWorkloadsError(t *testing.T) {
+	yas := &v1beta1.YurtAppSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-yurtappset",
+			Namespace: "default",
+		},
+		Spec: v1beta1.YurtAppSetSpec{
+			Pools: []string{"test-np1"},
+			// Neither DeploymentTemplate nor StatefulSetTemplate is set, so
+			// getWorkloadManagerFromYurtAppSet fails deterministically and
+			// conciliateWorkloads returns a non-nil error.
+		},
+	}
+	np := &v1beta2.NodePool{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-np1",
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(fakeScheme).WithObjects(yas, np).Build()
+	r := &ReconcileYurtAppSet{
+		scheme:   fakeScheme,
+		Client:   fakeClient,
+		recorder: &fakeEventRecorder{},
+		workloadManagers: map[workloadmanager.TemplateType]workloadmanager.WorkloadManager{
+			workloadmanager.DeploymentTemplateType: &workloadmanager.DeploymentManager{
+				Client: fakeClient,
+				Scheme: fakeScheme,
+			},
+		},
+	}
+
+	res, err := r.Reconcile(context.TODO(), reconcile.Request{
+		NamespacedName: client.ObjectKey{Name: "test-yurtappset", Namespace: "default"},
+	})
+
+	assert.Error(t, err, "conciliateWorkloads error must be propagated as the Reconcile error, not swallowed")
+	assert.Greater(t, res.RequeueAfter, time.Duration(0), "RequeueAfter should still be set alongside the error")
 }
