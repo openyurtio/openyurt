@@ -36,6 +36,7 @@ import (
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/config"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
+	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 )
@@ -264,5 +265,59 @@ func TestNewCloudAPIServerHealthChecker(t *testing.T) {
 
 	if err := os.RemoveAll(rootDir); err != nil {
 		t.Errorf("Got error %v, unable to remove path %s", err, rootDir)
+	}
+}
+
+func TestCloudAPIServerHealthCheckerConcurrency(t *testing.T) {
+	testDir := "/tmp/healthz_concurrent"
+	store, err := disk.NewDiskStorage(testDir)
+	if err != nil {
+		t.Fatalf("failed to create disk storage: %v", err)
+	}
+	defer os.RemoveAll(testDir)
+
+	hc := &cloudAPIServerHealthChecker{
+		probers:           make(map[string]healthchecker.BackendProber),
+		remoteServers:     []*url.URL{{Host: "127.0.0.1:18080"}},
+		remoteServerIndex: 0,
+		sw:                cachemanager.NewStorageWrapper(store),
+		heartbeatInterval: 3,
+	}
+
+	lease := &coordinationv1.Lease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "foo",
+			Namespace:       "kube-node-lease",
+			ResourceVersion: "1",
+			Annotations:     map[string]string{DelegateHeartBeat: "true"},
+		},
+	}
+
+	done := make(chan struct{})
+	go func() {
+		for i := 0; i < 100; i++ {
+			_ = hc.setLastNodeLease(lease.DeepCopy())
+		}
+		done <- struct{}{}
+	}()
+
+	go func() {
+		for i := 0; i < 100; i++ {
+			_ = hc.getLastNodeLease()
+		}
+		done <- struct{}{}
+	}()
+
+	go func() {
+		for i := 0; i < 100; i++ {
+			_ = hc.IsHealthy()
+			_ = hc.getProber()
+			_ = hc.PickOneHealthyBackend()
+		}
+		done <- struct{}{}
+	}()
+
+	for i := 0; i < 3; i++ {
+		<-done
 	}
 }
