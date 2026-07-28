@@ -130,17 +130,22 @@ func Untar(tarFile, dest string) error {
 				return err
 			}
 		} else if hdr.Typeflag == tar.TypeReg {
-			// before OpenFile creating the file, use MkdirAll to ensure that the parent directory exists.
-			if err := os.MkdirAll(filepath.Dir(destFile), 0755); err != nil {
-				return err
-			}
-			file, err := os.OpenFile(destFile, os.O_CREATE|os.O_RDWR, os.FileMode(hdr.Mode))
-			if err != nil {
-				klog.Errorf("open file %s error: %v", destFile, err)
-				return err
-			}
-			defer file.Close()
-			if _, err := io.Copy(file, tr); err != nil {
+			if err := func() error {
+				// before OpenFile creating the file, use MkdirAll to ensure that the parent directory exists.
+				if err := os.MkdirAll(filepath.Dir(destFile), 0755); err != nil {
+					return err
+				}
+				file, err := os.OpenFile(destFile, os.O_CREATE|os.O_RDWR, os.FileMode(hdr.Mode))
+				if err != nil {
+					klog.Errorf("open file %s error: %v", destFile, err)
+					return err
+				}
+				defer file.Close()
+				if _, err := io.Copy(file, tr); err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
 				return err
 			}
 		}
