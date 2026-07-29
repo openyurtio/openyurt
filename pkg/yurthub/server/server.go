@@ -146,6 +146,7 @@ func getPodList(sharedFactory informers.SharedInformerFactory) http.Handler {
 		if err != nil {
 			klog.Errorf("Encode pod list failed, %v", err)
 			otautil.WriteErr(w, "Encode pod list failed", http.StatusInternalServerError)
+			return
 		}
 		otautil.WriteJSONResponse(w, data)
 	})
