@@ -127,7 +127,6 @@ func readyz(cfg *config.YurtHubConfiguration) http.Handler {
 		fmt.Fprintf(w, "OK")
 	})
 }
-
 func getPodList(sharedFactory informers.SharedInformerFactory) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		podLister := sharedFactory.Core().V1().Pods().Lister()
@@ -137,6 +136,7 @@ func getPodList(sharedFactory informers.SharedInformerFactory) http.Handler {
 			otautil.WriteErr(w, "Get pods key failed", http.StatusInternalServerError)
 			return
 		}
+
 		pl := new(corev1.PodList)
 		for i := range podList {
 			pl.Items = append(pl.Items, *podList[i])
@@ -146,6 +146,7 @@ func getPodList(sharedFactory informers.SharedInformerFactory) http.Handler {
 		if err != nil {
 			klog.Errorf("Encode pod list failed, %v", err)
 			otautil.WriteErr(w, "Encode pod list failed", http.StatusInternalServerError)
+			return
 		}
 		otautil.WriteJSONResponse(w, data)
 	})
