@@ -35,6 +35,9 @@ import (
 	otautil "github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/util"
 )
 
+// encodePodsFn is a variable for testability — allows overriding EncodePods in tests.
+var encodePodsFn = otautil.EncodePods
+
 // RunYurtHubServers is used to start up all servers for yurthub
 func RunYurtHubServers(cfg *config.YurtHubConfiguration,
 	proxyHandler http.Handler,
@@ -142,7 +145,7 @@ func getPodList(sharedFactory informers.SharedInformerFactory) http.Handler {
 			pl.Items = append(pl.Items, *podList[i])
 		}
 
-		data, err := otautil.EncodePods(pl)
+		data, err := encodePodsFn(pl)
 		if err != nil {
 			klog.Errorf("Encode pod list failed, %v", err)
 			otautil.WriteErr(w, "Encode pod list failed", http.StatusInternalServerError)
