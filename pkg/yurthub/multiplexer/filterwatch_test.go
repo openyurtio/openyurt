@@ -17,6 +17,7 @@ limitations under the License.
 package multiplexer
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -105,4 +106,37 @@ func TestFilterWatch_Stop(t *testing.T) {
 	fw.Stop()
 
 	assert.Equal(t, true, source.IsStopped())
+}
+
+// TestFilterWatch_ConcurrentStop makes sure Stop is idempotent when several
+// goroutines race on it. Before the fix, the check-then-close in Stop let more
+// than one goroutine reach close(f.done) and crashed yurthub with
+// "panic: close of closed channel".
+func TestFilterWatch_ConcurrentStop(t *testing.T) {
+	filter := &ctesting.IgnoreEndpointslicesWithNodeName{IgnoreNodeName: "node1"}
+	const (
+		rounds   = 1000
+		stoppers = 16
+	)
+
+	for i := 0; i < rounds; i++ {
+		source := watch.NewFake()
+		fw := newFilterWatch(source, filter)
+
+		start := make(chan struct{})
+		var wg sync.WaitGroup
+		wg.Add(stoppers)
+		for j := 0; j < stoppers; j++ {
+			go func() {
+				defer wg.Done()
+				<-start
+				fw.Stop()
+			}()
+		}
+
+		close(start)
+		wg.Wait()
+
+		assert.Equal(t, true, source.IsStopped())
+	}
 }
