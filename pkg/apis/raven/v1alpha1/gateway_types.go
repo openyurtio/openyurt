@@ -32,14 +32,17 @@ const (
 	EventActiveEndpointLost = "ActiveEndpointLost"
 )
 
+// ServiceNamespacedName defines the ServiceNamespacedName
 var ServiceNamespacedName = types.NamespacedName{
 	Namespace: "kube-system",
 	Name:      "raven-agent-service",
 }
 
+// ExposeType defines the ExposeType
 type ExposeType string
 
 const (
+	// ExposeTypeLoadBalancer defines the ExposeTypeLoadBalancer
 	ExposeTypeLoadBalancer = "LoadBalancer"
 )
 

@@ -21,9 +21,11 @@ import (
 )
 
 const (
+	// DeviceProfileFinalizer defines the DeviceProfileFinalizer
 	DeviceProfileFinalizer = "iot.openyurt.io/deviceprofile"
 )
 
+// DeviceResource defines the DeviceResource
 type DeviceResource struct {
 	Description string             `json:"description"`
 	Name        string             `json:"name"`
@@ -33,6 +35,7 @@ type DeviceResource struct {
 	Attributes  map[string]string  `json:"attributes,omitempty"`
 }
 
+// ResourceProperties defines the ResourceProperties
 type ResourceProperties struct {
 	ReadWrite    string `json:"readWrite,omitempty"`    // Read/Write Permissions set for this property
 	Minimum      string `json:"minimum,omitempty"`      // Minimum value that can be get/set from this property
@@ -49,6 +52,7 @@ type ResourceProperties struct {
 	ValueType    string `json:"valueType,omitempty"`
 }
 
+// DeviceCommand defines the DeviceCommand
 type DeviceCommand struct {
 	Name               string              `json:"name"`
 	IsHidden           bool                `json:"isHidden"`
@@ -56,6 +60,7 @@ type DeviceCommand struct {
 	ResourceOperations []ResourceOperation `json:"resourceOperations"`
 }
 
+// ResourceOperation defines the ResourceOperation
 type ResourceOperation struct {
 	DeviceResource string            `json:"deviceResource,omitempty"`
 	Mappings       map[string]string `json:"mappings,omitempty"`

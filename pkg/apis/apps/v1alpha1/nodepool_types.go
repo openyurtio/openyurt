@@ -21,10 +21,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// NodePoolType defines the NodePoolType
 type NodePoolType string
 
 const (
-	Edge  NodePoolType = "Edge"
+	// Edge defines the Edge
+	Edge NodePoolType = "Edge"
+	// Cloud defines the Cloud
 	Cloud NodePoolType = "Cloud"
 )
 

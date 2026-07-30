@@ -18,6 +18,7 @@ package raven
 
 const (
 	// LabelCurrentGateway indicates which gateway the node is currently belonging to
-	LabelCurrentGateway     = "raven.openyurt.io/gateway"
+	LabelCurrentGateway = "raven.openyurt.io/gateway"
+	// LabelCurrentGatewayType defines the LabelCurrentGatewayType
 	LabelCurrentGatewayType = "raven.openyurt.io/gateway-type"
 )

@@ -22,27 +22,36 @@ import (
 )
 
 const (
+	// DeviceFinalizer defines the DeviceFinalizer
 	DeviceFinalizer = "iot.openyurt.io/device"
 )
 
 // DeviceConditionType indicates valid conditions type of a Device.
 type DeviceConditionType string
 
+// AdminState defines the AdminState
 type AdminState string
 
 const (
-	Locked   AdminState = "LOCKED"
+	// Locked defines the Locked
+	Locked AdminState = "LOCKED"
+	// UnLocked defines the UnLocked
 	UnLocked AdminState = "UNLOCKED"
 )
 
+// OperatingState defines the OperatingState
 type OperatingState string
 
 const (
+	// Unknown defines the Unknown
 	Unknown OperatingState = "UNKNOWN"
-	Up      OperatingState = "UP"
-	Down    OperatingState = "DOWN"
+	// Up defines the Up
+	Up OperatingState = "UP"
+	// Down defines the Down
+	Down OperatingState = "DOWN"
 )
 
+// ProtocolProperties defines the ProtocolProperties
 type ProtocolProperties map[string]string
 
 // DeviceSpec defines the desired state of Device
@@ -78,12 +87,14 @@ type DeviceSpec struct {
 	DeviceProperties map[string]DesiredPropertyState `json:"deviceProperties,omitempty"`
 }
 
+// DesiredPropertyState defines the DesiredPropertyState
 type DesiredPropertyState struct {
 	Name         string `json:"name"`
 	PutURL       string `json:"putURL,omitempty"`
 	DesiredValue string `json:"desiredValue"`
 }
 
+// ActualPropertyState defines the ActualPropertyState
 type ActualPropertyState struct {
 	Name        string `json:"name"`
 	GetURL      string `json:"getURL,omitempty"`

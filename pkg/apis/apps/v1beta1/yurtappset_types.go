@@ -124,14 +124,19 @@ type ContainerImage struct {
 	TargetImage string `json:"targetImage"`
 }
 
+// Operation defines the Operation
 type Operation string
 
 const (
-	ADD     Operation = "add"     // json patch
-	REMOVE  Operation = "remove"  // json patch
+	// ADD defines the ADD
+	ADD Operation = "add" // json patch
+	// REMOVE defines the REMOVE
+	REMOVE Operation = "remove" // json patch
+	// REPLACE defines the REPLACE
 	REPLACE Operation = "replace" // json patch
 )
 
+// Patch defines the Patch
 type Patch struct {
 	// Path represents the path in the json patch
 	Path string `json:"path"`

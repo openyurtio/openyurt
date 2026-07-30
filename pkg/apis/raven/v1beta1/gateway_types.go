@@ -30,17 +30,25 @@ const (
 )
 
 const (
-	ExposeTypePublicIP     = "PublicIP"
+	// ExposeTypePublicIP defines the ExposeTypePublicIP
+	ExposeTypePublicIP = "PublicIP"
+	// ExposeTypeLoadBalancer defines the ExposeTypeLoadBalancer
 	ExposeTypeLoadBalancer = "LoadBalancer"
 )
 
 const (
-	Proxy  = "proxy"
+	// Proxy defines the Proxy
+	Proxy = "proxy"
+	// Tunnel defines the Tunnel
 	Tunnel = "tunnel"
 
-	DefaultProxyServerSecurePort   = 10263
+	// DefaultProxyServerSecurePort defines the DefaultProxyServerSecurePort
+	DefaultProxyServerSecurePort = 10263
+	// DefaultProxyServerInsecurePort defines the DefaultProxyServerInsecurePort
 	DefaultProxyServerInsecurePort = 10264
-	DefaultProxyServerExposedPort  = 10262
+	// DefaultProxyServerExposedPort defines the DefaultProxyServerExposedPort
+	DefaultProxyServerExposedPort = 10262
+	// DefaultTunnelServerExposedPort defines the DefaultTunnelServerExposedPort
 	DefaultTunnelServerExposedPort = 4500
 )
 

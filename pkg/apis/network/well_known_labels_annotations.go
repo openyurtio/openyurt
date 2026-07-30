@@ -17,7 +17,10 @@ limitations under the License.
 package network
 
 const (
-	LabelServiceName           = "openyurt.io/service-name"
-	LabelNodePoolName          = "openyurt.io/pool-name"
+	// LabelServiceName defines the LabelServiceName
+	LabelServiceName = "openyurt.io/service-name"
+	// LabelNodePoolName defines the LabelNodePoolName
+	LabelNodePoolName = "openyurt.io/pool-name"
+	// AnnotationNodePoolSelector defines the AnnotationNodePoolSelector
 	AnnotationNodePoolSelector = "service.openyurt.io/nodepool-labelselector"
 )

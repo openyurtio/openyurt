@@ -28,11 +28,14 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+// TemplateType defines the TemplateType
 type TemplateType string
 
 const (
+	// StatefulSetTemplateType defines the StatefulSetTemplateType
 	StatefulSetTemplateType TemplateType = "StatefulSet"
-	DeploymentTemplateType  TemplateType = "Deployment"
+	// DeploymentTemplateType defines the DeploymentTemplateType
+	DeploymentTemplateType TemplateType = "Deployment"
 )
 
 // YurtAppSetConditionType indicates valid conditions type of a YurtAppSet.
@@ -184,6 +187,7 @@ type YurtAppSetStatus struct {
 	TemplateType TemplateType `json:"templateType"`
 }
 
+// WorkloadSummary defines the WorkloadSummary
 type WorkloadSummary struct {
 	AvailableCondition corev1.ConditionStatus `json:"availableCondition"`
 	Replicas           int32                  `json:"replicas"`

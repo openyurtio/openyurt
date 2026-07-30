@@ -25,6 +25,7 @@ const (
 	// name of finalizer
 	PlatformAdminFinalizer = "iot.openyurt.io"
 
+	// LabelPlatformAdminGenerate defines the LabelPlatformAdminGenerate
 	LabelPlatformAdminGenerate = "iot.openyurt.io/generate"
 )
 
@@ -35,6 +36,8 @@ const (
 
 // PlatformAdminConditionType indicates valid conditions type of a PlatformAdmin.
 type PlatformAdminConditionType string
+
+// PlatformAdminConditionSeverity defines the PlatformAdminConditionSeverity
 type PlatformAdminConditionSeverity string
 
 // Component defines the components of EdgeX

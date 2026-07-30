@@ -26,11 +26,14 @@ const (
 	// name of finalizer
 	EdgexFinalizer = "edgex.edgexfoundry.org"
 
+	// LabelEdgeXGenerate defines the LabelEdgeXGenerate
 	LabelEdgeXGenerate = "www.edgexfoundry.org/generate"
 )
 
 // PlatformAdminConditionType indicates valid conditions type of a iot platform.
 type PlatformAdminConditionType string
+
+// PlatformAdminConditionSeverity defines the PlatformAdminConditionSeverity
 type PlatformAdminConditionSeverity string
 
 // DeploymentTemplateSpec defines the pool template of Deployment.

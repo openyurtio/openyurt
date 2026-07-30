@@ -22,12 +22,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
+// SchemeGroupVersion defines the SchemeGroupVersion
 var SchemeGroupVersion = schema.GroupVersion{Group: "crd.projectcalico.org", Version: "v1"}
 
 var (
+	// SchemeBuilder defines the SchemeBuilder
 	SchemeBuilder      runtime.SchemeBuilder
 	localSchemeBuilder = &SchemeBuilder
-	AddToScheme        = localSchemeBuilder.AddToScheme
+	// AddToScheme defines the AddToScheme
+	AddToScheme = localSchemeBuilder.AddToScheme
 )
 
 func init() {

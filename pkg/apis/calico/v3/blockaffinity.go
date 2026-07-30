@@ -22,7 +22,9 @@ import (
 )
 
 const (
-	KindBlockAffinity     = "BlockAffinity"
+	// KindBlockAffinity defines the KindBlockAffinity
+	KindBlockAffinity = "BlockAffinity"
+	// KindBlockAffinityList defines the KindBlockAffinityList
 	KindBlockAffinityList = "BlockAffinityList"
 )
 

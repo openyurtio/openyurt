@@ -20,45 +20,58 @@ const (
 	// ConfigmapAvailableCondition documents the status of the PlatformAdmin configmap.
 	ConfigmapAvailableCondition PlatformAdminConditionType = "ConfigmapAvailable"
 
+	// ConfigmapProvisioningReason defines the ConfigmapProvisioningReason
 	ConfigmapProvisioningReason = "ConfigmapProvisioning"
 
+	// ConfigmapProvisioningFailedReason defines the ConfigmapProvisioningFailedReason
 	ConfigmapProvisioningFailedReason = "ConfigmapProvisioningFailed"
 	// ServiceAvailableCondition documents the status of the PlatformAdmin service.
 	ServiceAvailableCondition PlatformAdminConditionType = "ServiceAvailable"
 
+	// ServiceProvisioningReason defines the ServiceProvisioningReason
 	ServiceProvisioningReason = "ServiceProvisioning"
 
+	// ServiceProvisioningFailedReason defines the ServiceProvisioningFailedReason
 	ServiceProvisioningFailedReason = "ServiceProvisioningFailed"
 	// DeploymentAvailableCondition documents the status of the PlatformAdmin deployment.
 	DeploymentAvailableCondition PlatformAdminConditionType = "DeploymentAvailable"
 
+	// DeploymentProvisioningReason defines the DeploymentProvisioningReason
 	DeploymentProvisioningReason = "DeploymentProvisioning"
 
+	// DeploymentProvisioningFailedReason defines the DeploymentProvisioningFailedReason
 	DeploymentProvisioningFailedReason = "DeploymentProvisioningFailed"
 
 	// DeviceSyncedCondition indicates that the device exists in both OpenYurt and edge platform
 	DeviceSyncedCondition DeviceConditionType = "DeviceSynced"
 
+	// DeviceManagingReason defines the DeviceManagingReason
 	DeviceManagingReason = "This device is not managed by openyurt"
 
+	// DeviceCreateSyncedReason defines the DeviceCreateSyncedReason
 	DeviceCreateSyncedReason = "Failed to create device on edge platform"
 
 	// DeviceManagingCondition indicates that the device is being managed by cloud and its properties are being reconciled
 	DeviceManagingCondition DeviceConditionType = "DeviceManaging"
 
+	// DeviceVisitedCoreMetadataSyncedReason defines the DeviceVisitedCoreMetadataSyncedReason
 	DeviceVisitedCoreMetadataSyncedReason = "Failed to visit the EdgeX core-metadata-service"
 
+	// DeviceUpdateStateReason defines the DeviceUpdateStateReason
 	DeviceUpdateStateReason = "Failed to update AdminState or OperatingState of device on edge platform"
 
 	// DeviceServiceSyncedCondition indicates that the deviceService exists in both OpenYurt and edge platform
 	DeviceServiceSyncedCondition DeviceServiceConditionType = "DeviceServiceSynced"
 
+	// DeviceServiceManagingReason defines the DeviceServiceManagingReason
 	DeviceServiceManagingReason = "This deviceService is not managed by openyurt"
 
 	// DeviceServiceManagingCondition indicates that the deviceService is being managed by cloud and its field are being reconciled
 	DeviceServiceManagingCondition DeviceServiceConditionType = "DeviceServiceManaging"
 
+	// DeviceServiceCreateSyncedReason defines the DeviceServiceCreateSyncedReason
 	DeviceServiceCreateSyncedReason = "Failed to add DeviceService to EdgeX"
 
+	// DeviceServiceUpdateStatusSyncedReason defines the DeviceServiceUpdateStatusSyncedReason
 	DeviceServiceUpdateStatusSyncedReason = "Failed to update DeviceService status"
 )

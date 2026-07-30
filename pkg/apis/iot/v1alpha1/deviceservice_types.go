@@ -22,6 +22,7 @@ import (
 )
 
 const (
+	// DeviceServiceFinalizer defines the DeviceServiceFinalizer
 	DeviceServiceFinalizer = "iot.openyurt.io/deviceservice"
 )
 

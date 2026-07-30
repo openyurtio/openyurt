@@ -29,6 +29,7 @@ var (
 	// GroupVersion is group version used to register these objects
 	GroupVersion = schema.GroupVersion{Group: "raven.openyurt.io", Version: "v1beta1"}
 
+	// SchemeGroupVersion defines the SchemeGroupVersion
 	SchemeGroupVersion = GroupVersion
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme

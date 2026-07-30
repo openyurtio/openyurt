@@ -20,13 +20,17 @@ const (
 	// ConfigmapAvailableCondition documents the status of the PlatformAdmin configmap.
 	ConfigmapAvailableCondition PlatformAdminConditionType = "ConfigmapAvailable"
 
+	// ConfigmapProvisioningReason defines the ConfigmapProvisioningReason
 	ConfigmapProvisioningReason = "ConfigmapProvisioning"
 
+	// ConfigmapProvisioningFailedReason defines the ConfigmapProvisioningFailedReason
 	ConfigmapProvisioningFailedReason = "ConfigmapProvisioningFailed"
 	// ComponentAvailableCondition documents the status of the PlatformAdmin component.
 	ComponentAvailableCondition PlatformAdminConditionType = "ComponentAvailable"
 
+	// ComponentProvisioningReason defines the ComponentProvisioningReason
 	ComponentProvisioningReason = "ComponentProvisioning"
 
+	// ComponentProvisioningFailedReason defines the ComponentProvisioningFailedReason
 	ComponentProvisioningFailedReason = "ComponentProvisioningFailed"
 )

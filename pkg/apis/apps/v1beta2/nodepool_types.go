@@ -21,16 +21,21 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// NodePoolType defines the NodePoolType
 type NodePoolType string
 
 // LeaderElectionStrategy represents the policy how to elect a leader Yurthub in a nodepool.
 type LeaderElectionStrategy string
 
 const (
-	Edge  NodePoolType = "Edge"
+	// Edge defines the Edge
+	Edge NodePoolType = "Edge"
+	// Cloud defines the Cloud
 	Cloud NodePoolType = "Cloud"
 
-	ElectionStrategyMark   LeaderElectionStrategy = "mark"
+	// ElectionStrategyMark defines the ElectionStrategyMark
+	ElectionStrategyMark LeaderElectionStrategy = "mark"
+	// ElectionStrategyRandom defines the ElectionStrategyRandom
 	ElectionStrategyRandom LeaderElectionStrategy = "random"
 
 	// LeaderStatus means the status of leader yurthub election.
@@ -140,6 +145,7 @@ type Leader struct {
 // NodePoolConditionType represents a NodePool condition value.
 type NodePoolConditionType string
 
+// NodePoolCondition defines the NodePoolCondition
 type NodePoolCondition struct {
 	// Type of NodePool condition.
 	Type NodePoolConditionType `json:"type,omitempty"`

@@ -36,8 +36,10 @@ type YurtStaticSetUpgradeStrategy struct {
 type YurtStaticSetUpgradeStrategyType string
 
 const (
+	// AdvancedRollingUpdateUpgradeStrategyType defines the AdvancedRollingUpdateUpgradeStrategyType
 	AdvancedRollingUpdateUpgradeStrategyType YurtStaticSetUpgradeStrategyType = "AdvancedRollingUpdate"
-	OTAUpgradeStrategyType                   YurtStaticSetUpgradeStrategyType = "OTA"
+	// OTAUpgradeStrategyType defines the OTAUpgradeStrategyType
+	OTAUpgradeStrategyType YurtStaticSetUpgradeStrategyType = "OTA"
 )
 
 // YurtStaticSetSpec defines the desired state of YurtStaticSet
