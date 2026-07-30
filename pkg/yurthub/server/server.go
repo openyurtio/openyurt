@@ -35,7 +35,6 @@ import (
 	otautil "github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/util"
 )
 
-// encodePodsFn is a variable for testability — allows overriding EncodePods in tests.
 var encodePodsFn = otautil.EncodePods
 
 // RunYurtHubServers is used to start up all servers for yurthub

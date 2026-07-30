@@ -1,3 +1,19 @@
+/*
+Copyright 2022 The OpenYurt Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package server
 
 import (
@@ -5,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -13,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"reflect"
 	"k8s.io/client-go/informers"
 	admissionregistration "k8s.io/client-go/informers/admissionregistration"
 	apiserverinternal "k8s.io/client-go/informers/apiserverinternal"
@@ -44,7 +60,6 @@ import (
 	otautil "github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/util"
 )
 
-// TestGetPodList_Success tests the getPodList handler when listing pods succeeds.
 func TestGetPodList_Success(t *testing.T) {
 	pod1 := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -68,7 +83,6 @@ func TestGetPodList_Success(t *testing.T) {
 	fakeClientset := fake.NewSimpleClientset(pod1, pod2)
 	factory := informers.NewSharedInformerFactory(fakeClientset, 0)
 
-	// Pre-register the pod informer so it's available after Start
 	factory.Core().V1().Pods().Informer()
 
 	stopCh := make(chan struct{})
@@ -86,7 +100,6 @@ func TestGetPodList_Success(t *testing.T) {
 		t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
 	}
 
-	// Decode both expected and actual to compare structurally (order-independent)
 	var got, expected corev1.PodList
 	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
@@ -106,7 +119,6 @@ func TestGetPodList_Success(t *testing.T) {
 	if len(got.Items) != len(expected.Items) {
 		t.Errorf("Expected %d pods, got %d", len(expected.Items), len(got.Items))
 	}
-	// Verify each pod from expected appears in response (order-independent)
 	gotByName := make(map[string]bool)
 	for _, p := range got.Items {
 		gotByName[p.Name] = true
@@ -118,9 +130,6 @@ func TestGetPodList_Success(t *testing.T) {
 	}
 }
 
-// TestGetPodList_Success_EmptyList tests getPodList when there are no pods.
-
-// TestGetPodList_ListError tests that getPodList returns 500 when listing pods fails.
 func TestGetPodList_ListError(t *testing.T) {
 	factory := &mockFactory{
 		core: &mockCore{
@@ -149,7 +158,6 @@ func TestGetPodList_ListError(t *testing.T) {
 	}
 }
 
-// TestGetPodList_EncodeError tests that getPodList returns 500 when encoding pods fails.
 func TestGetPodList_EncodeError(t *testing.T) {
 	defer func(old func(*corev1.PodList) ([]byte, error)) {
 		encodePodsFn = old
@@ -192,9 +200,6 @@ func TestGetPodList_EncodeError(t *testing.T) {
 	}
 }
 
-// --- Mock implementations ---
-
-// mockPodLister implements listersv1.PodLister
 type mockPodLister struct {
 	pods []*corev1.Pod
 	err  error
@@ -208,7 +213,6 @@ func (m *mockPodLister) Pods(namespace string) listersv1.PodNamespaceLister {
 	return nil
 }
 
-// mockPodInformer implements corev1informers.PodInformer
 type mockPodInformer struct {
 	lister listersv1.PodLister
 }
@@ -221,7 +225,6 @@ func (m *mockPodInformer) Lister() listersv1.PodLister {
 	return m.lister
 }
 
-// mockV1Interface implements corev1informers.Interface
 type mockV1Interface struct {
 	podInformer corev1informers.PodInformer
 }
@@ -232,12 +235,12 @@ func (m *mockV1Interface) Pods() corev1informers.PodInformer {
 func (m *mockV1Interface) ComponentStatuses() corev1informers.ComponentStatusInformer {
 	return nil
 }
-func (m *mockV1Interface) ConfigMaps() corev1informers.ConfigMapInformer     { return nil }
-func (m *mockV1Interface) Endpoints() corev1informers.EndpointsInformer       { return nil }
-func (m *mockV1Interface) Events() corev1informers.EventInformer              { return nil }
-func (m *mockV1Interface) LimitRanges() corev1informers.LimitRangeInformer    { return nil }
-func (m *mockV1Interface) Namespaces() corev1informers.NamespaceInformer      { return nil }
-func (m *mockV1Interface) Nodes() corev1informers.NodeInformer                { return nil }
+func (m *mockV1Interface) ConfigMaps() corev1informers.ConfigMapInformer   { return nil }
+func (m *mockV1Interface) Endpoints() corev1informers.EndpointsInformer    { return nil }
+func (m *mockV1Interface) Events() corev1informers.EventInformer           { return nil }
+func (m *mockV1Interface) LimitRanges() corev1informers.LimitRangeInformer { return nil }
+func (m *mockV1Interface) Namespaces() corev1informers.NamespaceInformer   { return nil }
+func (m *mockV1Interface) Nodes() corev1informers.NodeInformer             { return nil }
 func (m *mockV1Interface) PersistentVolumes() corev1informers.PersistentVolumeInformer {
 	return nil
 }
@@ -249,13 +252,12 @@ func (m *mockV1Interface) ReplicationControllers() corev1informers.ReplicationCo
 	return nil
 }
 func (m *mockV1Interface) ResourceQuotas() corev1informers.ResourceQuotaInformer { return nil }
-func (m *mockV1Interface) Secrets() corev1informers.SecretInformer             { return nil }
-func (m *mockV1Interface) Services() corev1informers.ServiceInformer           { return nil }
+func (m *mockV1Interface) Secrets() corev1informers.SecretInformer               { return nil }
+func (m *mockV1Interface) Services() corev1informers.ServiceInformer             { return nil }
 func (m *mockV1Interface) ServiceAccounts() corev1informers.ServiceAccountInformer {
 	return nil
 }
 
-// mockCore implements coreinformers.Interface
 type mockCore struct {
 	v1iface corev1informers.Interface
 }
@@ -264,14 +266,13 @@ func (m *mockCore) V1() corev1informers.Interface {
 	return m.v1iface
 }
 
-// mockFactory implements informers.SharedInformerFactory
 type mockFactory struct {
 	core coreinformers.Interface
 }
 
-func (m *mockFactory) Core() coreinformers.Interface                  { return m.core }
-func (m *mockFactory) Start(stopCh <-chan struct{})                   {}
-func (m *mockFactory) Shutdown()                                      {}
+func (m *mockFactory) Core() coreinformers.Interface { return m.core }
+func (m *mockFactory) Start(stopCh <-chan struct{})  {}
+func (m *mockFactory) Shutdown()                     {}
 func (m *mockFactory) WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool {
 	return nil
 }
