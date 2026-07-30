@@ -17,6 +17,8 @@ limitations under the License.
 package multiplexer
 
 import (
+	"sync"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -26,19 +28,18 @@ import (
 )
 
 type filterWatch struct {
-	source watch.Interface
-	filter filter.ObjectFilter
-	result chan watch.Event
-	done   chan struct{}
+	source   watch.Interface
+	filter   filter.ObjectFilter
+	result   chan watch.Event
+	done     chan struct{}
+	stopOnce sync.Once
 }
 
 func (f *filterWatch) Stop() {
-	select {
-	case <-f.done:
-	default:
+	f.stopOnce.Do(func() {
 		close(f.done)
 		f.source.Stop()
-	}
+	})
 }
 
 func newFilterWatch(source watch.Interface, filter filter.ObjectFilter) watch.Interface {
