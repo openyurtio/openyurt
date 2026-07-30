@@ -96,6 +96,20 @@ func CopyFile(sourceFile string, destinationFile string, perm os.FileMode) error
 	return nil
 }
 
+// parseEnvironmentFilePath extracts the file path from a systemd EnvironmentFile
+// directive such as "EnvironmentFile=-/var/lib/kubelet/kubeadm-flags.env". It drops
+// the directive key and the optional leading "-" (which only tells systemd to ignore
+// a missing file), and keeps any "-" inside the path itself. An empty string is
+// returned when the directive carries no path.
+func parseEnvironmentFilePath(directive string) string {
+	path := directive
+	if i := strings.IndexByte(path, '='); i >= 0 {
+		path = path[i+1:]
+	}
+	path = strings.TrimPrefix(strings.TrimSpace(path), "-")
+	return strings.TrimSpace(path)
+}
+
 // GetNodeName gets the node name based on environment variable, parameters --hostname-override
 // in the configuration file or hostname
 func GetNodeName(kubeadmConfPath string) (string, error) {
@@ -108,7 +122,7 @@ func GetNodeName(kubeadmConfPath string) (string, error) {
 	//2. find --hostname-override in 10-kubeadm.conf
 	nodeName, err := GetSingleContentFromFile(kubeadmConfPath, constants.KubeletHostname)
 	if nodeName != "" {
-		nodeName = strings.Split(nodeName, NodeNameSplit)[1]
+		nodeName = strings.SplitN(nodeName, NodeNameSplit, 2)[1]
 		return nodeName, nil
 	} else {
 		klog.V(4).Info("get nodename err: ", err)
@@ -120,10 +134,13 @@ func GetNodeName(kubeadmConfPath string) (string, error) {
 		return "", err
 	}
 	for _, ef := range environmentFiles {
-		ef = strings.Split(ef, "-")[1]
+		ef = parseEnvironmentFilePath(ef)
+		if ef == "" {
+			continue
+		}
 		nodeName, err = GetSingleContentFromFile(ef, constants.KubeletHostname)
 		if nodeName != "" {
-			nodeName = strings.Split(nodeName, NodeNameSplit)[1]
+			nodeName = strings.SplitN(nodeName, NodeNameSplit, 2)[1]
 			return nodeName, nil
 		} else {
 			klog.V(4).Info("get nodename err: ", err)
