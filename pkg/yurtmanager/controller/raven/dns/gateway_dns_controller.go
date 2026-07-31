@@ -153,6 +153,9 @@ func (r *ReconcileDNS) Reconcile(ctx context.Context, req reconcile.Request) (re
 		klog.Error(Format("could not list node, error %s", err.Error()))
 		return reconcile.Result{Requeue: true, RequeueAfter: 2 * time.Second}, err
 	}
+	if cm.Data == nil {
+		cm.Data = make(map[string]string)
+	}
 	cm.Data[util.ProxyNodesKey] = buildDNSRecords(&nodeList, enableProxy, proxyAddress)
 	err = r.updateDNS(cm)
 	if err != nil {

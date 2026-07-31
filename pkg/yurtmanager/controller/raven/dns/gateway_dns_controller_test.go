@@ -205,3 +205,31 @@ func TestReconcileDNS_getService(t *testing.T) {
 		assert.Equal(t, ProxyIP, svc.Spec.ClusterIP, "expected correct clusterIP")
 	})
 }
+
+func TestReconcileDNS_InitializesNilConfigMapData(t *testing.T) {
+	r := mockReconciler()
+	key := client.ObjectKey{
+		Namespace: util.WorkingNamespace,
+		Name:      util.RavenProxyNodesConfig,
+	}
+
+	cm := &v1.ConfigMap{}
+	err := r.Get(context.Background(), key, cm)
+	assert.NoError(t, err)
+
+	cm.Data = nil
+	err = r.Update(context.Background(), cm)
+	assert.NoError(t, err)
+
+	_, err = r.Reconcile(context.Background(), reconcile.Request{
+		NamespacedName: key,
+	})
+	assert.NoError(t, err)
+
+	updated := &v1.ConfigMap{}
+	err = r.Get(context.Background(), key, updated)
+	assert.NoError(t, err)
+	assert.NotNil(t, updated.Data)
+	_, exists := updated.Data[util.ProxyNodesKey]
+	assert.True(t, exists)
+}
