@@ -352,6 +352,7 @@ spec:
                 workloadSummary:
                   description: Records the topology detailed information of each workload.
                   items:
+                    description: WorkloadSummary defines the WorkloadSummary
                     properties:
                       availableCondition:
                         type: string
@@ -590,6 +591,7 @@ spec:
                                   Patches is a list of advanced tweaks to be applied to a certain workload
                                   It can add/remove/replace the field values of specified paths in the template.
                                 items:
+                                  description: Patch defines the Patch
                                   properties:
                                     operation:
                                       description: Operation represents the operation

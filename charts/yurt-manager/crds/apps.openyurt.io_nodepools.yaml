@@ -452,6 +452,7 @@ spec:
                     Conditions represents the latest available observations of a NodePool's
                     current state that includes LeaderHubElection status.
                   items:
+                    description: NodePoolCondition defines the NodePoolCondition
                     properties:
                       lastTransitionTime:
                         description: Last time the condition transitioned from one status to another.
