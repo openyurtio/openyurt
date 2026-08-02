@@ -17,8 +17,16 @@ limitations under the License.
 package convert
 
 import (
+	"context"
 	"fmt"
 	"strings"
+
+	rbacv1 "k8s.io/api/rbac/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 
 	nodeservant "github.com/openyurtio/openyurt/pkg/node-servant"
 	"github.com/openyurtio/openyurt/pkg/node-servant/components"
@@ -26,7 +34,10 @@ import (
 	yurthubutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/yurthub"
 )
 
-const bootstrapModeKubeletCertificate = "kubeletcertificate"
+const (
+	bootstrapModeKubeletCertificate   = "kubeletcertificate"
+	multiplexerClusterRoleBindingName = "yurt-hub-multiplexer-binding"
+)
 
 var (
 	getAPIServerAddressFunc = components.GetAPIServerAddress
@@ -38,6 +49,24 @@ var (
 	}
 	restartContainersFunc = func(nodeName string) error {
 		return components.RestartNonPauseContainers(nodeName, conversionJobPodPrefix(nodeName))
+	}
+	getKubeClientFunc = func(kubeadmConfPaths []string) (kubernetes.Interface, error) {
+		cfg, err := rest.InClusterConfig()
+		if err != nil {
+			for _, path := range kubeadmConfPaths {
+				if len(path) == 0 {
+					continue
+				}
+				if c, err := clientcmd.BuildConfigFromFlags("", path); err == nil {
+					cfg = c
+					break
+				}
+			}
+		}
+		if cfg == nil {
+			return nil, fmt.Errorf("failed to get kube client config")
+		}
+		return kubernetes.NewForConfig(cfg)
 	}
 )
 
@@ -69,6 +98,9 @@ func NewConverterWithOptions(o *Options) *nodeConverter {
 // Do is used for the convert job.
 // shall be implemented as idempotent, can execute multiple times with no side effect.
 func (n *nodeConverter) Do() error {
+	if err := n.ensureNodeInMultiplexerRBAC(); err != nil {
+		return err
+	}
 	if err := n.installYurtHub(); err != nil {
 		return err
 	}
@@ -77,6 +109,41 @@ func (n *nodeConverter) Do() error {
 	}
 	if err := n.restartContainers(); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (n *nodeConverter) ensureNodeInMultiplexerRBAC() error {
+	client, err := getKubeClientFunc(n.kubeadmConfPaths)
+	if err != nil {
+		return fmt.Errorf("failed to get kube client for RBAC update: %w", err)
+	}
+
+	crb, err := client.RbacV1().ClusterRoleBindings().Get(context.TODO(), multiplexerClusterRoleBindingName, metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return fmt.Errorf("ClusterRoleBinding %s not found: %w", multiplexerClusterRoleBindingName, err)
+		}
+		return fmt.Errorf("failed to get ClusterRoleBinding %s: %w", multiplexerClusterRoleBindingName, err)
+	}
+
+	targetSubject := rbacv1.Subject{
+		Kind:     "User",
+		Name:     "system:node:" + n.nodeName,
+		APIGroup: "rbac.authorization.k8s.io",
+	}
+
+	for _, sub := range crb.Subjects {
+		if sub.Kind == targetSubject.Kind && sub.Name == targetSubject.Name && sub.APIGroup == targetSubject.APIGroup {
+			return nil
+		}
+	}
+
+	crb.Subjects = append(crb.Subjects, targetSubject)
+	_, err = client.RbacV1().ClusterRoleBindings().Update(context.TODO(), crb, metav1.UpdateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to update ClusterRoleBinding %s: %w", multiplexerClusterRoleBindingName, err)
 	}
 
 	return nil

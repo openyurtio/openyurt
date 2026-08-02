@@ -38,6 +38,35 @@ subjects:
   name: yurt-manager
   namespace: {{ .Release.Namespace }}
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: node-servant
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: node-servant
+rules:
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterrolebindings"]
+    resourceNames: ["yurt-hub-multiplexer-binding"]
+    verbs: ["get", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: node-servant
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: node-servant
+subjects:
+  - kind: ServiceAccount
+    name: node-servant
+    namespace: kube-system
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
