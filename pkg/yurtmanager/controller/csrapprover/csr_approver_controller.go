@@ -333,6 +333,10 @@ func isYurtTLSServerCert(csr *certificatesv1.CertificateSigningRequest, x509cr *
 		return false
 	}
 
+	if strings.HasPrefix(csr.Spec.Username, "system:node:") && csr.Spec.Username != x509cr.Subject.CommonName {
+		return false
+	}
+
 	if !serverRequiredUsages.Equal(usagesToSet(csr.Spec.Usages)) {
 		return false
 	}
@@ -357,6 +361,10 @@ func isYurtHubNodeCert(csr *certificatesv1.CertificateSigningRequest, x509cr *x5
 	}
 
 	if !strings.HasPrefix(x509cr.Subject.CommonName, "system:node:") {
+		return false
+	}
+
+	if strings.HasPrefix(csr.Spec.Username, "system:node:") && csr.Spec.Username != x509cr.Subject.CommonName {
 		return false
 	}
 
