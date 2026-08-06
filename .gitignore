@@ -6,7 +6,8 @@ gopath
 dockerbuild
 hack/cni
 config/demo
-.claude
+.claude/*
+!.claude/skills/
 
 vendor
 .vscode
