@@ -24,6 +24,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
@@ -33,6 +34,23 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 )
+
+type testKey string
+
+func (k testKey) Key() string {
+	return string(k)
+}
+
+// storeWithFixedKeys overrides ListResourceKeysOfComponent to inject nil keys
+// for covering GC nil-key guards.
+type storeWithFixedKeys struct {
+	storage.Store
+	keys []storage.Key
+}
+
+func (s *storeWithFixedKeys) ListResourceKeysOfComponent(_ string, _ schema.GroupVersionResource) ([]storage.Key, error) {
+	return s.keys, nil
+}
 
 func TestGCPodsWhenRestartWithCorruptCachePaths(t *testing.T) {
 	dir, err := os.MkdirTemp("", "gc-pods-restart")
@@ -106,4 +124,81 @@ func TestGCPodsWhenRestartWithCorruptCachePaths(t *testing.T) {
 	if _, err := diskStore.Get(key); err != nil {
 		t.Fatalf("expected cached pod to remain after gc, got error: %v", err)
 	}
+}
+
+func TestGCPodsWhenRestartSkipsNilKeys(t *testing.T) {
+	dir, err := os.MkdirTemp("", "gc-pods-nil-keys")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(dir)
+
+	diskStore, err := disk.NewDiskStorage(dir)
+	if err != nil {
+		t.Fatalf("failed to create disk storage: %v", err)
+	}
+
+	fixedStore := &storeWithFixedKeys{
+		Store: diskStore,
+		// Only a nil key: the nil guard must skip it without treating it as a deleted pod.
+		keys: []storage.Key{nil},
+	}
+	store := cachemanager.NewStorageWrapper(fixedStore)
+
+	serverURL, err := url.Parse("https://127.0.0.1:6443")
+	if err != nil {
+		t.Fatalf("failed to parse url: %v", err)
+	}
+	nodeName := "node1"
+	pod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod-a",
+			Namespace: "default",
+		},
+		Spec: v1.PodSpec{
+			NodeName: nodeName,
+		},
+	}
+	kubeClient := fake.NewSimpleClientset(pod)
+	healthChecker := fakehealth.NewFakeChecker(map[*url.URL]bool{serverURL: true})
+	clientManager := transport.NewFakeTransportManager(200, map[string]kubernetes.Interface{
+		serverURL.String(): kubeClient,
+	})
+
+	mgr := &GCManager{
+		store:         store,
+		nodeName:      nodeName,
+		healthChecker: healthChecker,
+		clientManager: clientManager,
+	}
+
+	// Must not panic when a nil key is present in the local key list.
+	mgr.gcPodsWhenRestart()
+}
+
+func TestGCEventsSkipsNilKeys(t *testing.T) {
+	dir, err := os.MkdirTemp("", "gc-events-nil-keys")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(dir)
+
+	diskStore, err := disk.NewDiskStorage(dir)
+	if err != nil {
+		t.Fatalf("failed to create disk storage: %v", err)
+	}
+
+	fixedStore := &storeWithFixedKeys{
+		Store: diskStore,
+		keys:  []storage.Key{nil, testKey("kubelet/events.v1.events.k8s.io/default/stale-event")},
+	}
+	store := cachemanager.NewStorageWrapper(fixedStore)
+
+	mgr := &GCManager{
+		store:    store,
+		nodeName: "node1",
+	}
+
+	// Must skip the nil key without panicking; unrecognized non-nil keys are logged and ignored.
+	mgr.gcEvents(fake.NewSimpleClientset(), "kubelet")
 }
