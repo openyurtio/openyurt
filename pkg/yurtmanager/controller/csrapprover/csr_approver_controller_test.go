@@ -302,6 +302,141 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 		},
+		"yurthub node client CSR with mismatched node username and commonName": {
+			obj: &certificatesv1.CertificateSigningRequest{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "mismatched-node-client-csr",
+					Namespace: "default",
+				},
+				Spec: certificatesv1.CertificateSigningRequestSpec{
+					Username:   "system:node:attacker-node",
+					SignerName: certificatesv1.KubeAPIServerClientSignerName,
+					Usages: []certificatesv1.KeyUsage{
+						certificatesv1.UsageDigitalSignature,
+						certificatesv1.UsageKeyEncipherment,
+						certificatesv1.UsageClientAuth,
+					},
+					Request: newCSRData("system:node:victim-node", []string{token.YurtHubCSROrg, user.NodesGroup, "openyurt:tenant:xxx"}, []string{}, []net.IP{}),
+				},
+			},
+			csrV1Supported: true,
+			skipRequest:    true,
+			expectedObj: &certificatesv1.CertificateSigningRequest{
+				TypeMeta: metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "mismatched-node-client-csr",
+					Namespace: "default",
+				},
+				Spec: certificatesv1.CertificateSigningRequestSpec{
+					Username:   "system:node:attacker-node",
+					SignerName: certificatesv1.KubeAPIServerClientSignerName,
+					Usages: []certificatesv1.KeyUsage{
+						certificatesv1.UsageDigitalSignature,
+						certificatesv1.UsageKeyEncipherment,
+						certificatesv1.UsageClientAuth,
+					},
+					Request: []byte{},
+				},
+				// SECURITY: CSR should NOT be auto-approved - Status should remain empty
+				Status: certificatesv1.CertificateSigningRequestStatus{},
+			},
+		},
+		"yurthub node client CSR with matching node username should be approved": {
+			obj: &certificatesv1.CertificateSigningRequest{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "matched-node-client-csr",
+					Namespace: "default",
+				},
+				Spec: certificatesv1.CertificateSigningRequestSpec{
+					Username:   "system:node:mynode",
+					SignerName: certificatesv1.KubeAPIServerClientSignerName,
+					Usages: []certificatesv1.KeyUsage{
+						certificatesv1.UsageDigitalSignature,
+						certificatesv1.UsageKeyEncipherment,
+						certificatesv1.UsageClientAuth,
+					},
+					Request: newCSRData("system:node:mynode", []string{token.YurtHubCSROrg, user.NodesGroup, "openyurt:tenant:xxx"}, []string{}, []net.IP{}),
+				},
+			},
+			csrV1Supported: true,
+			skipRequest:    true,
+			expectedObj: &certificatesv1.CertificateSigningRequest{
+				TypeMeta: metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "matched-node-client-csr",
+					Namespace: "default",
+				},
+				Spec: certificatesv1.CertificateSigningRequestSpec{
+					Username:   "system:node:mynode",
+					SignerName: certificatesv1.KubeAPIServerClientSignerName,
+					Usages: []certificatesv1.KeyUsage{
+						certificatesv1.UsageDigitalSignature,
+						certificatesv1.UsageKeyEncipherment,
+						certificatesv1.UsageClientAuth,
+					},
+					Request: []byte{},
+				},
+				// SECURITY: CSR should be auto-approved because username matches CN
+				Status: certificatesv1.CertificateSigningRequestStatus{
+					Conditions: []certificatesv1.CertificateSigningRequestCondition{
+						{
+							Type:    certificatesv1.CertificateApproved,
+							Status:  corev1.ConditionTrue,
+							Reason:  "AutoApproved",
+							Message: "Auto approving yurthub node client certificate",
+						},
+					},
+				},
+			},
+		},
+		"yurthub node client CSR from bootstrap token should be approved": {
+			obj: &certificatesv1.CertificateSigningRequest{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "bootstrap-node-client-csr",
+					Namespace: "default",
+				},
+				Spec: certificatesv1.CertificateSigningRequestSpec{
+					Username:   "system:bootstrap:abcdef",
+					SignerName: certificatesv1.KubeAPIServerClientSignerName,
+					Usages: []certificatesv1.KeyUsage{
+						certificatesv1.UsageDigitalSignature,
+						certificatesv1.UsageKeyEncipherment,
+						certificatesv1.UsageClientAuth,
+					},
+					Request: newCSRData("system:node:new-node", []string{token.YurtHubCSROrg, user.NodesGroup}, []string{}, []net.IP{}),
+				},
+			},
+			csrV1Supported: true,
+			skipRequest:    true,
+			expectedObj: &certificatesv1.CertificateSigningRequest{
+				TypeMeta: metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "bootstrap-node-client-csr",
+					Namespace: "default",
+				},
+				Spec: certificatesv1.CertificateSigningRequestSpec{
+					Username:   "system:bootstrap:abcdef",
+					SignerName: certificatesv1.KubeAPIServerClientSignerName,
+					Usages: []certificatesv1.KeyUsage{
+						certificatesv1.UsageDigitalSignature,
+						certificatesv1.UsageKeyEncipherment,
+						certificatesv1.UsageClientAuth,
+					},
+					Request: []byte{},
+				},
+				// SECURITY: Bootstrap tokens should be allowed for initial node join
+				Status: certificatesv1.CertificateSigningRequestStatus{
+					Conditions: []certificatesv1.CertificateSigningRequestCondition{
+						{
+							Type:    certificatesv1.CertificateApproved,
+							Status:  corev1.ConditionTrue,
+							Reason:  "AutoApproved",
+							Message: "Auto approving yurthub node client certificate",
+						},
+					},
+				},
+			},
+		},
 		"it is not a certificate request": {
 			obj: &certificatesv1.CertificateSigningRequest{
 				ObjectMeta: metav1.ObjectMeta{

@@ -176,8 +176,10 @@ func (r *ReconcileHubLeader) reconcileHubLeader(ctx context.Context, nodepool *a
 	// Set match labels
 	matchLabels := make(map[string]string)
 	if nodepool.Spec.LeaderElectionStrategy == string(appsv1beta2.ElectionStrategyMark) {
-		// Add mark strategy match labels
-		matchLabels = nodepool.Spec.LeaderNodeLabelSelector
+		// Add mark strategy match labels safely without overwriting matchLabels with a potential nil map
+		for k, v := range nodepool.Spec.LeaderNodeLabelSelector {
+			matchLabels[k] = v
+		}
 	}
 	matchLabels[projectinfo.GetNodePoolLabel()] = nodepool.GetName()
 

@@ -333,6 +333,10 @@ func isYurtTLSServerCert(csr *certificatesv1.CertificateSigningRequest, x509cr *
 		return false
 	}
 
+	if strings.HasPrefix(csr.Spec.Username, "system:node:") && csr.Spec.Username != x509cr.Subject.CommonName {
+		return false
+	}
+
 	if !serverRequiredUsages.Equal(usagesToSet(csr.Spec.Usages)) {
 		return false
 	}
@@ -359,6 +363,21 @@ func isYurtHubNodeCert(csr *certificatesv1.CertificateSigningRequest, x509cr *x5
 	if !strings.HasPrefix(x509cr.Subject.CommonName, "system:node:") {
 		return false
 	}
+
+	// SECURITY FIX: Bind the requester identity to the requested node identity.
+	// This prevents lateral movement where one node requests certs for another node.
+	// Exception: system:bootstrappers group is allowed for initial node certificate issuance.
+	if strings.HasPrefix(csr.Spec.Username, "system:node:") {
+		// An existing node is requesting a cert - the CN must match the requesting node's identity
+		if csr.Spec.Username != x509cr.Subject.CommonName {
+			klog.Warningf("CSR %s: requester username %q does not match requested CommonName %q",
+				csr.Name, csr.Spec.Username, x509cr.Subject.CommonName)
+			return false
+		}
+	}
+	// If username does not start with "system:node:", it should be a bootstrap token (system:bootstrappers).
+	// Bootstrap tokens are allowed to request node certs during initial join.
+	// We don't need additional checks here as the API server already validates bootstrap token permissions.
 
 	if !clientRequiredUsages.Equal(usagesToSet(csr.Spec.Usages)) {
 		return false
