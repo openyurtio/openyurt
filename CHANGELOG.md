@@ -81,7 +81,7 @@ All `k8s.io/xxx` dependencies and related modules have been upgraded to `v1.34.0
 - Fix openyurt fuzz test by @tnsimon in https://github.com/openyurtio/openyurt/pull/2319
 - Fix issue 2253 by @RG-Dou in https://github.com/openyurtio/openyurt/pull/2330
 - Ensure hub leader configmap is deleted with nodepool by @tnsimon in https://github.com/openyurtio/openyurt/pull/2324
-- Fix ota controller doesn't has permission to patch pod status by @PersistentJZH in https://github.com/openyurtio/openyurt/pull/2415
+- Fix ota controller doesn't have permission to patch pod status by @PersistentJZH in https://github.com/openyurtio/openyurt/pull/2415
 - Fix: Fix the issue where the masterservice and serviceenvupdater modified the multiplexer cache by @zyjhtangtang in https://github.com/openyurtio/openyurt/pull/2481
 - Fix dummy-if name length exceeds 15 by @KubeKyrie in https://github.com/openyurtio/openyurt/pull/2486
 - Bugfix: remove deprecated rand.Seed() calls by @shiavm006 in https://github.com/openyurtio/openyurt/pull/2499
@@ -149,7 +149,7 @@ OpenYurt already offers robust edge autonomy capabilities, ensuring that applica
 
 **Node-level Traffic Reuse Capability**
 
-In an OpenYurt cluster, control components are deployed in the cloud, and edge nodes usually interact with the cloud through the public internet, which can lead to significant consumption of cloud-edge traffic. This problem is more pronounced in large-scale clusters, mainly due to the edge-side components performing full-scale list/watch operations on resources. This not only consumes a large amount of cloud-edge traffic but also places considerable pressure on the apiserver due to the high volume of list operations. In this release, We have added a traffic multiplexing module in YurtHub. When multiple clients request the same resource (services, endpointslices), YurtHub returns data from the local cache, reducing the number of requests to the apiserver.
+In an OpenYurt cluster, control components are deployed in the cloud, and edge nodes usually interact with the cloud through the public internet, which can lead to significant consumption of cloud-edge traffic. This problem is more pronounced in large-scale clusters, mainly due to the edge-side components performing full-scale list/watch operations on resources. This not only consumes a large amount of cloud-edge traffic but also places considerable pressure on the apiserver due to the high volume of list operations. In this release, we have added a traffic multiplexing module in YurtHub. When multiple clients request the same resource (services, endpointslices), YurtHub returns data from the local cache, reducing the number of requests to the apiserver.
 [#2060](https://github.com/openyurtio/openyurt/pull/2060)
 [#2141](https://github.com/openyurtio/openyurt/pull/2141)
 [#2242](https://github.com/openyurtio/openyurt/pull/2242)
@@ -160,7 +160,7 @@ In an OpenYurt cluster, control components are deployed in the cloud, and edge n
 - Add yurthub service env updater filter by @techworldhello in https://github.com/openyurtio/openyurt/pull/2165
 - set transform to strip managedfields for informer by @vie-serendipity in https://github.com/openyurtio/openyurt/pull/2149
 - support cache response for partial object metadata requests。 by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/2170
-- build iot system configuration isolation on nodepool by @WoShiZhangmingyu in https://github.com/openyurtio/openyurt/pull/2147
+- build IoT system configuration isolation on nodepool by @WoShiZhangmingyu in https://github.com/openyurtio/openyurt/pull/2147
 - using the kubeconfig flag in controller-runtime. by @zyjhtangtang in https://github.com/openyurtio/openyurt/pull/2193
 - add events when no nodepool match with loadbalancerset services. by @zyjhtangtang in https://github.com/openyurtio/openyurt/pull/2195
 - Modify safety reporting Email by @zyjhtangtang in https://github.com/openyurtio/openyurt/pull/2214
@@ -170,7 +170,7 @@ In an OpenYurt cluster, control components are deployed in the cloud, and edge n
 - fix(iot): the mount type of hostpath for localtime in napa by @LavenderQAQ in https://github.com/openyurtio/openyurt/pull/2110
 - fix: create abspath dir in case that contents is empty by @vie-serendipity in https://github.com/openyurtio/openyurt/pull/2164
 - fix: masterservice missing clusterIPs field. by @fungaren in https://github.com/openyurtio/openyurt/pull/2173
-- fix: support cache response for partial object metedata watch request by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/2209
+- fix: support cache response for partial object metadata watch request by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/2209
 - fix: bug of yurtappset always the last tweaks make effect by @vie-serendipity in https://github.com/openyurtio/openyurt/pull/2229
 - fix: CRD WebhookConversion respect WEBHOOK_HOST env by @fungaren in https://github.com/openyurtio/openyurt/pull/2217
 - fix: go lint errors by @luc99hen in https://github.com/openyurtio/openyurt/pull/2235
@@ -180,7 +180,7 @@ In an OpenYurt cluster, control components are deployed in the cloud, and edge n
 - proposal: Node-level Traffic Reuse Capability by @zyjhtangtang in https://github.com/openyurtio/openyurt/pull/2060
 - Proposal: enhancing edge autonomy by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/2155
 - proposal: enhance operational efficiency of K8s cluster in user's IDC by @huangchenzhao in https://github.com/openyurtio/openyurt/pull/2124
-- Proposal: build iot system configuration isolation on nodepool(openyurtio#1597) by @WoShiZhangmingyu in https://github.com/openyurtio/openyurt/pull/2135
+- Proposal: build an IoT system configuration isolation on nodepool(openyurtio#1597) by @WoShiZhangmingyu in https://github.com/openyurtio/openyurt/pull/2135
 
 ### Contributors
 - [@rambohe-ch](https://github.com/rambohe-ch)
@@ -236,13 +236,13 @@ The current transparent management mechanism for cloud-edge control traffic has 
 
 **Separate clients for yurt-manager component**
 
-Yurt-manager is an important component in cloud environment for OpenYurt which holds multiple controllers and webhooks. Those controllers and webhooks shared one client and one set of RBAC (yurt-manager-role/yurt-manager-role-binding/yurt-manager-sa) which grew bigger as we add more function into yurt-manager. This mechanism makes a controller has access it shouldn't has. and it's difficult to find out the request is from which controller from the audit logs. In the latest release, we restrict each controller/webhook to only the permissions it may use and separate RBAC and UA for different controllers and webhooks.
+Yurt-manager is an important component in cloud environment for OpenYurt which holds multiple controllers and webhooks. Those controllers and webhooks shared one client and one set of RBAC (yurt-manager-role/yurt-manager-role-binding/yurt-manager-sa) which grew bigger as we add more functions into yurt-manager. This mechanism gives a controller access it shouldn't have. and it's difficult to find out the request is from which controller from the audit logs. In the latest release, we restrict each controller/webhook to only the permissions it may use and separate RBAC and UA for different controllers and webhooks.
 [#2051](https://github.com/openyurtio/openyurt/pull/2051)
 [#2069](https://github.com/openyurtio/openyurt/pull/2069)
 
 **Enhancement to Yurthub's Autonomy capabilities**
 
-New autonomy condition have been added to node conditions so that yurthub can report autonomy status of node in real time at each nodeStatusUpdateFrequency. This condition allows for accurate determination of each node's autonomy status. In addition, an error key mechanism has been introduced to log cache failure keys along with their corresponding fault reasons. The error keys are persisted using the AOF (Append-Only File) method, ensuring that the autonomy state is recovered even after a reboot and preventing the system from entering a pseudo-autonomous state. These enhancements also facilitate easier troubleshooting when autonomy issues arise.
+A new autonomy condition have been added to node conditions so that yurthub can report autonomy status of node in real time at each nodeStatusUpdateFrequency. This condition allows for accurate determination of each node's autonomy status. In addition, an error key mechanism has been introduced to log cache failure keys along with their corresponding fault reasons. The error keys are persisted using the AOF (Append-Only File) method, ensuring that the autonomy state is recovered even after a reboot and preventing the system from entering a pseudo-autonomous state. These enhancements also facilitate easier troubleshooting when autonomy issues arise.
 [#2015](https://github.com/openyurtio/openyurt/pull/2015)
 [#2033](https://github.com/openyurtio/openyurt/pull/2033)
 [#2096](https://github.com/openyurtio/openyurt/pull/2096)
@@ -261,7 +261,7 @@ New autonomy condition have been added to node conditions so that yurthub can re
 - feat: improve hostNetwork mode of NodePool by adding NodeAffinity to pods with specified annotation (#1935) by @huangchenzhao in https://github.com/openyurtio/openyurt/pull/1959
 - move list object handling from ObjectFilter into ResponseFilter by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/1991
 - The gateway can forward traffic from extra source cidrs by @River-sh in https://github.com/openyurtio/openyurt/pull/1993
-- return back watch.Deleted event to clients when watch object is removed in OjbectFilters by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/1995
+- return back watch.Deleted event to clients when watch object is removed in ObjectFilters by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/1995
 - add pool service controller. by @zyjhtangtang in https://github.com/openyurtio/openyurt/pull/2010
 - aggregated annotations and labels. by @zyjhtangtang in https://github.com/openyurtio/openyurt/pull/2027
 - improve pod webhook for adapting hostnetwork mode nodepool by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/2050
@@ -334,9 +334,9 @@ This method effectively reduces resource consumption while maintaining applicati
 **Support for customized configuration at the nodepool level for multi-region workloads**
 
 YurtAppOverrider is a new CRD used to customize the configuration of the workloads managed by YurtAppSet/YurtAppDaemon. It provides a simple and straightforward way to configure every field of the workload under each nodepool.
-It is fundamental component of multi-region workloads configuration rendering engine.
+It is a fundamental component of multi-region workloads configuration rendering engine.
 
-**Support for building edgex iot systems by using PlatformAdmin**
+**Support for building edgex IoT systems by using PlatformAdmin**
 
 PlatformAdmin is a CRD that manages the IoT systems in the OpenYurt nodepool. It has evolved from the previous yurt-edgex-manager. Starting from this version, the functionality of yurt-edgex-controller has been merged into yurt-manager. This means that users no longer need to deploy any additional components; they only need to install yurt-manager to have all the capabilities for managing edge devices.
 
@@ -346,9 +346,9 @@ Currently, PlatformAdmin supports all versions of EdgeX from Hanoi to Minnesota.
 
 **Supports yurt-iot-dock deployment as an iot system component**
 
-yurt-iot-dock is a component responsible for managing edge devices in IoT system. It has evolved from the previous yurt-device-controller. As a component that connects the cloud and edge device management platforms, yurt-iot-dock abstracts three CRDs: DeviceProfile, DeviceService, and Device. These CRDs are used to represent and manage corresponding resources on the device management platform, thereby impacting real-world devices.
+yurt-iot-dock is a component responsible for managing edge devices in an IoT system. It has evolved from the previous yurt-device-controller. As a component that connects the cloud and edge device management platforms, yurt-iot-dock abstracts three CRDs: DeviceProfile, DeviceService, and Device. These CRDs are used to represent and manage corresponding resources on the device management platform, thereby impacting real-world devices.
 
-By declaratively modifying the fields of these CRs, users can achieve the operational and management goals of complex edge devices in a cloud-native manner. yurt-iot-dock is deployed by PlatformAdmin as an optional IoT component. It is responsible for device synchronization during startup and severs the synchronization relationship when being terminated or destroyed.
+By declaratively modifying the fields of these CRs, users can achieve the operational and management goals of complex edge devices in a cloud-native manner. yurt-iot-dock is deployed by PlatformAdmin as an optional iot component. It is responsible for device synchronization during startup and severs the synchronization relationship when being terminated or destroyed.
 
 In this version, the deployment and destruction of the yurt-iot-dock are all controlled by PlatformAdmin, which improves the ease of use of the yurt-iot-dock.
 
@@ -768,12 +768,12 @@ Thanks again to all the contributors!
 
 **Raven: enable edge-edge and edge-cloud communication in a non-intrusive way**
 
-Raven is component of the OpenYurt to enhance cluster networking capabilities. This enhancement is focused on edge-edge and edge-cloud communication in OpenYurt. It will provide layer 3 network connectivity among pods in different physical regions, as there are in one vanilla Kubernetes cluster.
+Raven is a component of the OpenYurt to enhance cluster networking capabilities. This enhancement is focused on edge-edge and edge-cloud communication in OpenYurt. It will provide layer 3 network connectivity among pods in different physical regions, as there are in one vanilla Kubernetes cluster.
 More information can be found at: (([#637](https://github.com/openyurtio/openyurt/pull/637), [Raven](https://openyurt.io/docs/next/core-concepts/raven/), [@DrmagicE](https://github.com/DrmagicE), [@BSWANG](https://github.com/BSWANG), [@njucjc](https://github.com/njucjc))
 
 **Support Kubernetes V1.22**
 
-Enable OpenYurt can work on the Kubernetes v1.22, includes adapting API change(such as v1beta1.CSR deprecation), adapt StreamingProxyRedirects feature and handle v1.EndpointSlice in service topology and so on. More information can be
+Enable OpenYurt to work on the Kubernetes v1.22, includes adapting API change(such as v1beta1.CSR deprecation), adapt StreamingProxyRedirects feature and handle v1.EndpointSlice in service topology and so on. More information can be
 found at: ([#809](https://github.com/openyurtio/openyurt/pull/809), [#834](https://github.com/openyurtio/openyurt/pull/834), [@rambohe-ch](https://github.com/rambohe-ch), [@JameKeal](https://github.com/JameKeal), [@huiwq1990](https://github.com/huiwq1990))
 
 **Support EdgeX Foundry V2.1**
