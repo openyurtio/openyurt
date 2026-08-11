@@ -152,6 +152,7 @@ func (ek *errorKeys) getCount() int {
 
 func (ek *errorKeys) compress() {
 	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
 	for range ticker.C {
 		if !ek.queue.ShuttingDown() {
 			if ek.getCount() > ek.length()+CompressThresh {
@@ -209,13 +210,24 @@ func (ek *errorKeys) swapAOF(count int) {
 	defer ek.fileMu.Unlock()
 	ek.file.Close()
 
-	err := os.Rename(filepath.Join(ek.aofPath, "tmp_aof"), filepath.Join(ek.aofPath, "aof"))
+	aofPath := filepath.Join(ek.aofPath, "aof")
+	err := os.Rename(filepath.Join(ek.aofPath, "tmp_aof"), aofPath)
 	if err != nil {
 		klog.Errorf("failed to rename tmp_aof to aof, %v", err)
+		// Compaction failed: keep serving the unchanged aof and do not update
+		// the count, so ek.count stays in sync with the on-disk file.
+		if file, oerr := os.OpenFile(aofPath, os.O_RDWR|os.O_APPEND, 0644); oerr != nil {
+			klog.ErrorS(oerr, "failed to reopen aof after failed rename", "name", aofPath)
+			metrics.Metrics.SetErrorKeysPersistencyStatus(0)
+			ek.queue.ShutDown()
+		} else {
+			ek.file = file
+		}
+		return
 	}
-	file, err := os.OpenFile(filepath.Join(ek.aofPath, "aof"), os.O_RDWR, 0644)
+	file, err := os.OpenFile(aofPath, os.O_RDWR|os.O_APPEND, 0644)
 	if err != nil {
-		klog.ErrorS(err, "failed to open file", "name", filepath.Join(ek.aofPath, "aof"))
+		klog.ErrorS(err, "failed to open file", "name", aofPath)
 		metrics.Metrics.SetErrorKeysPersistencyStatus(0)
 		ek.queue.ShutDown()
 		return
