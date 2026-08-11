@@ -49,6 +49,7 @@ spec:
       hostPID: true
       hostNetwork: true
       restartPolicy: Never
+      serviceAccountName: node-servant
       nodeName: {{.nodeName}}
       tolerations:
       - operator: Exists
