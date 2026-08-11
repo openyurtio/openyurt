@@ -30,6 +30,7 @@ import (
 	"testing"
 	"time"
 
+	import_httpmock "github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
@@ -1358,4 +1359,37 @@ func Test_CheckYurthubHealthz_WithTimeout(t *testing.T) {
 
 	err := CheckYurthubServiceHealth("127.0.0.1")
 	assert.Error(t, err)
+}
+
+func TestCheckYurthubHealthz_Success(t *testing.T) {
+	import_httpmock.Activate()
+	defer import_httpmock.DeactivateAndReset()
+
+	import_httpmock.RegisterResponder("GET", "http://127.0.0.1:10267/v1/healthz",
+		import_httpmock.NewStringResponder(200, "OK"))
+
+	err := CheckYurthubHealthz("127.0.0.1")
+	assert.NoError(t, err)
+}
+
+func TestCheckYurthubReadyz_Success(t *testing.T) {
+	import_httpmock.Activate()
+	defer import_httpmock.DeactivateAndReset()
+
+	import_httpmock.RegisterResponder("GET", "http://127.0.0.1:10267/v1/readyz",
+		import_httpmock.NewStringResponder(200, "OK"))
+
+	err := CheckYurthubReadyz("127.0.0.1")
+	assert.NoError(t, err)
+}
+
+func TestCheckYurthubReadyzOnce_Success(t *testing.T) {
+	import_httpmock.Activate()
+	defer import_httpmock.DeactivateAndReset()
+
+	import_httpmock.RegisterResponder("GET", "http://127.0.0.1:10267/v1/readyz",
+		import_httpmock.NewStringResponder(200, "OK"))
+
+	result := CheckYurthubReadyzOnce("127.0.0.1")
+	assert.True(t, result)
 }
