@@ -57,20 +57,32 @@ var (
 	yurthubVersionWithCommitRegexp = regexp.MustCompile(`^(v[0-9]+\.[0-9]+\.[0-9]+)-[0-9a-f]{7,40}$`)
 )
 
-func CheckAndInstallYurthub(yurthubVersion string) error {
+// customYurthubPackageName is the local file name for a package downloaded from
+// --yurthub-binary-url. Using a fixed name rather than the URL's base name keeps a URL
+// ending in "/yurthub" from being picked up by findYurthubBinary as the binary itself.
+const customYurthubPackageName = "yurthub.tar.gz"
+
+// CheckAndInstallYurthub installs the yurthub binary. When yurthubBinaryURL is set, that
+// package is used, otherwise it is derived from the yurtadm release version.
+func CheckAndInstallYurthub(yurthubVersion, yurthubBinaryURL string) error {
 	if _, err := lookPath(yurthubExecStartPath); err == nil {
 		klog.Infof("Yurthub binary already exists, skip install.")
 		return nil
 	}
 
-	yurthubVersion, err := resolveYurthubReleaseVersion(yurthubVersion)
-	if err != nil {
-		return err
-	}
-	klog.Infof("Check and install yurthub %s", yurthubVersion)
+	packageName := customYurthubPackageName
+	packageURL := yurthubBinaryURL
+	if packageURL == "" {
+		yurthubVersion, err := resolveYurthubReleaseVersion(yurthubVersion)
+		if err != nil {
+			return err
+		}
+		klog.Infof("Check and install yurthub %s", yurthubVersion)
 
-	packageName := fmt.Sprintf("yurthub-%s-linux-%s.tar.gz", yurthubVersion, runtime.GOARCH)
-	packageURL := fmt.Sprintf(constants.YurthubExecURLFormat, yurthubVersion, yurthubVersion, runtime.GOARCH)
+		packageName = fmt.Sprintf("yurthub-%s-linux-%s.tar.gz", yurthubVersion, runtime.GOARCH)
+		packageURL = fmt.Sprintf(constants.YurthubExecURLFormat, yurthubVersion, yurthubVersion, runtime.GOARCH)
+	}
+
 	tmpDir, err := os.MkdirTemp(constants.TmpDownloadDir, "yurthub-")
 	if err != nil {
 		return err
