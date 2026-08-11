@@ -750,15 +750,16 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 			Expect(err).To(BeNil())
 
 			// We will launch multiple concurrent reads and writes on the same key.
-			// With blocking locks, they should block and eventually execute,
-			// without returning ErrStorageAccessConflict.
+			// With blocking locks, they should block and eventually execute without errors.
 			errCh := make(chan error, 5)
+			startCh := make(chan struct{})
 			var wg sync.WaitGroup
 			wg.Add(3)
 
 			// 1. First Create
 			go func() {
 				defer wg.Done()
+				<-startCh
 				err := store.Create(podKey, podBytes)
 				if err != nil && err != storage.ErrKeyExists {
 					errCh <- err
@@ -770,6 +771,7 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 			// 2. Concurrent Get
 			go func() {
 				defer wg.Done()
+				<-startCh
 				_, err := store.Get(podKey)
 				if err != nil && err != storage.ErrStorageNotFound {
 					errCh <- err
@@ -781,6 +783,7 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 			// 3. Concurrent Update
 			go func() {
 				defer wg.Done()
+				<-startCh
 				_, err := store.Update(podKey, podBytes, 200)
 				if err != nil && err != storage.ErrStorageNotFound && err != storage.ErrUpdateConflict {
 					errCh <- err
@@ -789,11 +792,12 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 				}
 			}()
 
+			close(startCh)
 			wg.Wait()
 			close(errCh)
 
 			for e := range errCh {
-				Expect(e).NotTo(Equal(storage.ErrStorageAccessConflict))
+				Expect(e).To(BeNil())
 			}
 		})
 	})

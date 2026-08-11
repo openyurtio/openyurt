@@ -43,7 +43,7 @@ const (
 	tmpPrefix    = "tmp_"
 )
 
-// diskStorage implements key-level blocking locking to prevent concurrent access conflicts.
+// diskStorage implements a key-level blocking lock mechanism to prevent concurrent access conflicts.
 type diskStorage struct {
 	sync.Mutex
 	cond             *sync.Cond
@@ -114,9 +114,7 @@ func (ds *diskStorage) Create(key storage.Key, content []byte) error {
 		return storage.ErrKeyHasNoContent
 	}
 
-	if !ds.lockKey(storageKey) {
-		return storage.ErrStorageAccessConflict
-	}
+	ds.lockKey(storageKey)
 	defer ds.unLockKey(storageKey)
 
 	path := filepath.Join(ds.baseDir, storageKey.Key())
@@ -141,9 +139,7 @@ func (ds *diskStorage) Delete(key storage.Key) error {
 	}
 	storageKey := key.(storageKey)
 
-	if !ds.lockKey(storageKey) {
-		return storage.ErrStorageAccessConflict
-	}
+	ds.lockKey(storageKey)
 	defer ds.unLockKey(storageKey)
 
 	path := filepath.Join(ds.baseDir, storageKey.Key())
@@ -166,9 +162,7 @@ func (ds *diskStorage) Get(key storage.Key) ([]byte, error) {
 	}
 	storageKey := key.(storageKey)
 
-	if !ds.lockKey(storageKey) {
-		return nil, storage.ErrStorageAccessConflict
-	}
+	ds.lockKey(storageKey)
 	defer ds.unLockKey(storageKey)
 
 	path := filepath.Join(ds.baseDir, storageKey.Key())
@@ -193,9 +187,7 @@ func (ds *diskStorage) List(key storage.Key) ([][]byte, error) {
 	}
 	storageKey := key.(storageKey)
 
-	if !ds.lockKey(storageKey) {
-		return nil, storage.ErrStorageAccessConflict
-	}
+	ds.lockKey(storageKey)
 	defer ds.unLockKey(storageKey)
 
 	bb := make([][]byte, 0)
@@ -243,9 +235,7 @@ func (ds *diskStorage) Update(key storage.Key, content []byte, rv uint64) ([]byt
 		return nil, storage.ErrIsNotObjectKey
 	}
 
-	if !ds.lockKey(storageKey) {
-		return nil, storage.ErrStorageAccessConflict
-	}
+	ds.lockKey(storageKey)
 	defer ds.unLockKey(storageKey)
 
 	absPath := filepath.Join(ds.baseDir, storageKey.Key())
@@ -295,9 +285,7 @@ func (ds *diskStorage) ListResourceKeysOfComponent(component string, gvr schema.
 	}
 	storageKey := rootKey.(storageKey)
 
-	if !ds.lockKey(storageKey) {
-		return nil, storage.ErrStorageAccessConflict
-	}
+	ds.lockKey(storageKey)
 	defer ds.unLockKey(storageKey)
 
 	absPath := filepath.Join(ds.baseDir, storageKey.Key())
@@ -354,9 +342,7 @@ func (ds *diskStorage) ReplaceComponentList(component string, gvr schema.GroupVe
 		}
 	}
 
-	if !ds.lockKey(storageKey) {
-		return storage.ErrStorageAccessConflict
-	}
+	ds.lockKey(storageKey)
 	defer ds.unLockKey(storageKey)
 
 	// 1. mv old dir into tmp_dir when rootKey dir already exists
@@ -414,9 +400,7 @@ func (ds *diskStorage) DeleteComponentResources(component string) error {
 		path:    component,
 		rootKey: true,
 	}
-	if !ds.lockKey(rootKey) {
-		return storage.ErrStorageAccessConflict
-	}
+	ds.lockKey(rootKey)
 	defer ds.unLockKey(rootKey)
 
 	absKey := filepath.Join(ds.baseDir, rootKey.Key())
@@ -556,7 +540,7 @@ func (ds *diskStorage) restoreReplaceFromBackup(tmpPath, absPath string, restore
 	return restoreErr
 }
 
-func (ds *diskStorage) lockKey(key storageKey) bool {
+func (ds *diskStorage) lockKey(key storageKey) {
 	keyStr := key.Key()
 	ds.Lock()
 	defer ds.Unlock()
@@ -574,16 +558,9 @@ func (ds *diskStorage) lockKey(key storageKey) bool {
 			conflict = true
 		} else {
 			for pendingKey := range ds.keyPendingStatus {
-				if len(keyStr) > len(pendingKey) {
-					if strings.Contains(keyStr, fmt.Sprintf("%s/", pendingKey)) {
-						conflict = true
-						break
-					}
-				} else {
-					if strings.Contains(pendingKey, fmt.Sprintf("%s/", keyStr)) {
-						conflict = true
-						break
-					}
+				if strings.HasPrefix(keyStr, pendingKey+"/") || strings.HasPrefix(pendingKey, keyStr+"/") {
+					conflict = true
+					break
 				}
 			}
 		}
@@ -597,7 +574,6 @@ func (ds *diskStorage) lockKey(key storageKey) bool {
 	}
 
 	ds.keyPendingStatus[keyStr] = struct{}{}
-	return true
 }
 
 func (ds *diskStorage) ifFresherThan(oldObj []byte, newRV uint64) (bool, error) {
@@ -678,6 +654,8 @@ func getKey(tmpKey string) string {
 }
 
 func extractInfoFromPath(baseDir, path string, isRoot bool) (component, gvr, namespace, name string, err error) {
+	baseDir = filepath.ToSlash(baseDir)
+	path = filepath.ToSlash(path)
 	if !strings.HasPrefix(path, baseDir) {
 		err = fmt.Errorf("path %s does not under %s", path, baseDir)
 		return
