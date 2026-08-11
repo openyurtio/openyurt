@@ -18,6 +18,7 @@ package nodeportisolation
 
 import (
 	"reflect"
+	"sync"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -380,5 +381,78 @@ func TestFilter(t *testing.T) {
 				t.Errorf("RuntimeObjectFilter got error, expected: \n%v\nbut got: \n%v\n", tc.expectObj, newObj)
 			}
 		})
+	}
+}
+
+// TestResolveNodePoolNameConcurrently ensures that the node pool name cached on the shared
+// filter instance can be resolved from several goroutines at once. The filter manager hands
+// the same nodePortIsolationFilter to every request, so Filter runs concurrently whenever
+// more than one component is listing or watching services. Run with -race to catch a
+// regression.
+func TestResolveNodePoolNameConcurrently(t *testing.T) {
+	client := fake.NewSimpleClientset(
+		&corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "node1",
+				Labels: map[string]string{projectinfo.GetNodePoolLabel(): "hangzhou"},
+			},
+		},
+		&corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "node2",
+				Labels: map[string]string{projectinfo.GetNodePoolLabel(): "shanghai"},
+			},
+		},
+	)
+	// node pool name is deliberately left unset, so that every Filter call has to resolve it
+	// from the node object. This is the default, because --nodepool-name is optional.
+	nif := &nodePortIsolationFilter{nodeName: "node1", client: client}
+
+	// kept: hangzhou is listed by the annotation. discarded: only shanghai is listed.
+	keptSvc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "kept",
+			Namespace:   "default",
+			Annotations: map[string]string{ServiceAnnotationNodePortListen: "hangzhou"},
+		},
+		Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeNodePort},
+	}
+	discardedSvc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "discarded",
+			Namespace:   "default",
+			Annotations: map[string]string{ServiceAnnotationNodePortListen: "shanghai"},
+		},
+		Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeNodePort},
+	}
+
+	stopCh := make(<-chan struct{})
+	kept := make([]runtime.Object, 50)
+	discarded := make([]runtime.Object, 50)
+	var wg sync.WaitGroup
+	for i := 0; i < 50; i++ {
+		wg.Add(2)
+		go func(i int) {
+			defer wg.Done()
+			kept[i] = nif.Filter(keptSvc.DeepCopy(), stopCh)
+		}(i)
+		go func(i int) {
+			defer wg.Done()
+			discarded[i] = nif.Filter(discardedSvc.DeepCopy(), stopCh)
+		}(i)
+	}
+	wg.Wait()
+
+	for i := range kept {
+		if util.IsNil(kept[i]) {
+			t.Errorf("goroutine %d: service listened by nodepool hangzhou should have been kept", i)
+		}
+		if !util.IsNil(discarded[i]) {
+			t.Errorf("goroutine %d: service listened only by nodepool shanghai should have been discarded, but got %v", i, discarded[i])
+		}
+	}
+
+	if poolName := nif.resolveNodePoolName(); poolName != "hangzhou" {
+		t.Errorf("expect cached node pool name hangzhou, but got %q", poolName)
 	}
 }
