@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"github.com/openyurtio/openyurt/pkg/apis/raven"
 	ravenv1beta1 "github.com/openyurtio/openyurt/pkg/apis/raven/v1beta1"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/gatewaypickup/config"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/raven/util"
@@ -417,6 +418,66 @@ func TestReconcileGateway_electActiveEndpoint(t *testing.T) {
 					NodeName: "node-2",
 					Type:     ravenv1beta1.Proxy,
 				},
+			},
+		},
+		{
+			name: "gateway annotation overrides global config to disable proxy",
+			nodeList: corev1.NodeList{
+				Items: []corev1.Node{
+					{
+						ObjectMeta: metav1.ObjectMeta{Name: "node-1"},
+						Status:     nodeReadyStatus,
+					},
+				},
+			},
+			gw: &ravenv1beta1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "gateway-1",
+					Annotations: map[string]string{
+						raven.AnnotationEnableProxy: "false",
+					},
+				},
+				Spec: ravenv1beta1.GatewaySpec{
+					ProxyConfig:  ravenv1beta1.ProxyConfiguration{Replicas: 1},
+					TunnelConfig: ravenv1beta1.TunnelConfiguration{Replicas: 1},
+					Endpoints: []ravenv1beta1.Endpoint{
+						{NodeName: "node-1", Type: ravenv1beta1.Tunnel},
+						{NodeName: "node-1", Type: ravenv1beta1.Proxy},
+					},
+				},
+			},
+			expectedEps: []*ravenv1beta1.Endpoint{
+				{NodeName: "node-1", Type: ravenv1beta1.Tunnel},
+			},
+		},
+		{
+			name: "gateway annotation overrides global config to disable tunnel",
+			nodeList: corev1.NodeList{
+				Items: []corev1.Node{
+					{
+						ObjectMeta: metav1.ObjectMeta{Name: "node-1"},
+						Status:     nodeReadyStatus,
+					},
+				},
+			},
+			gw: &ravenv1beta1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "gateway-1",
+					Annotations: map[string]string{
+						raven.AnnotationEnableTunnel: "false",
+					},
+				},
+				Spec: ravenv1beta1.GatewaySpec{
+					ProxyConfig:  ravenv1beta1.ProxyConfiguration{Replicas: 1},
+					TunnelConfig: ravenv1beta1.TunnelConfiguration{Replicas: 1},
+					Endpoints: []ravenv1beta1.Endpoint{
+						{NodeName: "node-1", Type: ravenv1beta1.Tunnel},
+						{NodeName: "node-1", Type: ravenv1beta1.Proxy},
+					},
+				},
+			},
+			expectedEps: []*ravenv1beta1.Endpoint{
+				{NodeName: "node-1", Type: ravenv1beta1.Proxy},
 			},
 		},
 	}
