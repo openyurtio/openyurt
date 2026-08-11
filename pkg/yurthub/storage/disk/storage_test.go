@@ -87,6 +87,14 @@ const (
 	  }`
 )
 
+type evilClusterInfoKey struct {
+	path string
+}
+
+func (k evilClusterInfoKey) Key() string {
+	return k.path
+}
+
 type unrecognizedKey struct {
 	path string
 }
@@ -1247,7 +1255,34 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 			}, nil)
 			Expect(err).To(Equal(storage.ErrUnknownClusterInfoType))
 		})
-		// TODO: add unit-test for api-versions and api-resources
+		It("should return ErrUnrecognizedKey if key is not ClusterInfoKey", func() {
+			err = store.SaveClusterInfo(evilClusterInfoKey{path: "../../../tmp/pwned"}, []byte("data"))
+			Expect(err).To(Equal(storage.ErrUnrecognizedKey))
+		})
+		It("should save apis cluster info", func() {
+			apisBytes := []byte(`{"kind":"APIVersionsList"}`)
+			err = store.SaveClusterInfo(&storage.ClusterInfoKey{
+				ClusterInfoType: storage.APIsInfo,
+				URLPath:         "/apis",
+			}, apisBytes)
+			Expect(err).To(BeNil())
+			buf, err := checkFileAt(filepath.Join(baseDir, string(storage.APIsInfo)))
+			Expect(err).To(BeNil())
+			Expect(buf).To(Equal(apisBytes))
+		})
+		It("should save api-resources cluster info", func() {
+			apiResourcesBytes := []byte(`{"kind":"APIResourceList"}`)
+			urlPath := "/apis/discovery.k8s.io/v1"
+			err = store.SaveClusterInfo(&storage.ClusterInfoKey{
+				ClusterInfoType: storage.APIResourcesInfo,
+				URLPath:         urlPath,
+			}, apiResourcesBytes)
+			Expect(err).To(BeNil())
+			expectedKey := strings.ReplaceAll(urlPath, "/", "_")
+			buf, err := checkFileAt(filepath.Join(baseDir, expectedKey))
+			Expect(err).To(BeNil())
+			Expect(buf).To(Equal(apiResourcesBytes))
+		})
 	})
 
 	Context("Test GetClusterInfo", func() {
@@ -1275,7 +1310,36 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 			})
 			Expect(err).To(Equal(storage.ErrUnknownClusterInfoType))
 		})
-		// TODO: add unit-test for api-versions and api-resources
+		It("should return ErrUnrecognizedKey if key is not ClusterInfoKey", func() {
+			_, err = store.GetClusterInfo(evilClusterInfoKey{path: "../../../tmp/secret-data"})
+			Expect(err).To(Equal(storage.ErrUnrecognizedKey))
+		})
+		It("should get apis cluster info", func() {
+			apisBytes := []byte(`{"kind":"APIVersionsList"}`)
+			path := filepath.Join(baseDir, string(storage.APIsInfo))
+			err = writeFileAt(path, apisBytes)
+			Expect(err).To(BeNil())
+			buf, err := store.GetClusterInfo(&storage.ClusterInfoKey{
+				ClusterInfoType: storage.APIsInfo,
+				URLPath:         "/apis",
+			})
+			Expect(err).To(BeNil())
+			Expect(buf).To(Equal(apisBytes))
+		})
+		It("should get api-resources cluster info", func() {
+			apiResourcesBytes := []byte(`{"kind":"APIResourceList"}`)
+			urlPath := "/apis/discovery.k8s.io/v1"
+			expectedKey := strings.ReplaceAll(urlPath, "/", "_")
+			path := filepath.Join(baseDir, expectedKey)
+			err = writeFileAt(path, apiResourcesBytes)
+			Expect(err).To(BeNil())
+			buf, err := store.GetClusterInfo(&storage.ClusterInfoKey{
+				ClusterInfoType: storage.APIResourcesInfo,
+				URLPath:         urlPath,
+			})
+			Expect(err).To(BeNil())
+			Expect(buf).To(Equal(apiResourcesBytes))
+		})
 	})
 })
 
@@ -1497,6 +1561,36 @@ func TestListResourceKeysSkipsInvalidAndTmpFiles(t *testing.T) {
 	wantKey := "kubelet/pods.v1.core/default/pod-a"
 	if keys[0].Key() != wantKey {
 		t.Fatalf("ListResourceKeysOfComponent() key = %q, want %q", keys[0].Key(), wantKey)
+	}
+}
+
+func TestPreventClusterInfoPathTraversal(t *testing.T) {
+	dir, err := os.MkdirTemp("", "clusterinfo-basedir")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(dir)
+
+	store, err := NewDiskStorage(dir)
+	if err != nil {
+		t.Fatalf("failed to create disk storage: %v", err)
+	}
+
+	escapeName := fmt.Sprintf("openyurt-escape-%s", uuid.New().String())
+	escapePath := filepath.Join(filepath.Dir(dir), escapeName)
+	defer os.Remove(escapePath)
+
+	err = store.SaveClusterInfo(evilClusterInfoKey{path: filepath.Join("..", escapeName)}, []byte("data"))
+	if err != storage.ErrUnrecognizedKey {
+		t.Fatalf("SaveClusterInfo() error = %v, want %v", err, storage.ErrUnrecognizedKey)
+	}
+	if _, statErr := os.Stat(escapePath); !os.IsNotExist(statErr) {
+		t.Fatalf("expected escape file %s not to be created", escapePath)
+	}
+
+	_, err = store.GetClusterInfo(evilClusterInfoKey{path: filepath.Join("..", escapeName)})
+	if err != storage.ErrUnrecognizedKey {
+		t.Fatalf("GetClusterInfo() error = %v, want %v", err, storage.ErrUnrecognizedKey)
 	}
 }
 

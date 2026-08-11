@@ -430,11 +430,38 @@ func (ds *diskStorage) DeleteComponentResources(component string) error {
 	return nil
 }
 
-func (ds *diskStorage) SaveClusterInfo(key storage.Key, content []byte) error {
-	if key.Key() == "" {
-		return storage.ErrUnknownClusterInfoType
+func (ds *diskStorage) clusterInfoFilePath(key storage.Key) (string, error) {
+	clusterKey, ok := key.(*storage.ClusterInfoKey)
+	if !ok {
+		return "", storage.ErrUnrecognizedKey
 	}
-	path := filepath.Join(ds.baseDir, key.Key())
+
+	keyPath := clusterKey.Key()
+	if keyPath == "" {
+		return "", storage.ErrUnknownClusterInfoType
+	}
+
+	path := filepath.Join(ds.baseDir, keyPath)
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("could not resolve clusterInfo path %s, %v", path, err)
+	}
+	absBase, err := filepath.Abs(ds.baseDir)
+	if err != nil {
+		return "", fmt.Errorf("could not resolve storage base dir %s, %v", ds.baseDir, err)
+	}
+	rel, err := filepath.Rel(absBase, absPath)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		return "", storage.ErrUnrecognizedKey
+	}
+	return path, nil
+}
+
+func (ds *diskStorage) SaveClusterInfo(key storage.Key, content []byte) error {
+	path, err := ds.clusterInfoFilePath(key)
+	if err != nil {
+		return err
+	}
 	if err := ds.fsOperator.CreateFile(path, content); err != nil {
 		if err == fs.ErrExists {
 			// file exists, overwrite it with content
@@ -449,12 +476,11 @@ func (ds *diskStorage) SaveClusterInfo(key storage.Key, content []byte) error {
 }
 
 func (ds *diskStorage) GetClusterInfo(key storage.Key) ([]byte, error) {
-	if key.Key() == "" {
-		return nil, storage.ErrUnknownClusterInfoType
+	path, err := ds.clusterInfoFilePath(key)
+	if err != nil {
+		return nil, err
 	}
-	path := filepath.Join(ds.baseDir, key.Key())
 	var buf []byte
-	var err error
 	if buf, err = ds.fsOperator.Read(path); err != nil {
 		if err == fs.ErrNotExists {
 			return nil, storage.ErrStorageNotFound
