@@ -366,6 +366,10 @@ func (r *ReconcileYurtNodeConversion) handleSuccessfulAction(ctx context.Context
 		}
 	}
 
+	if err := r.ensureNodeUnschedulable(ctx, nodeName, false); err != nil {
+		return err
+	}
+
 	if job != nil && controllerutil.ContainsFinalizer(job, conversionJobFinalizer) {
 		controllerutil.RemoveFinalizer(job, conversionJobFinalizer)
 		if err := r.Update(ctx, job); err != nil {
@@ -373,7 +377,7 @@ func (r *ReconcileYurtNodeConversion) handleSuccessfulAction(ctx context.Context
 		}
 	}
 
-	return r.ensureNodeUnschedulable(ctx, nodeName, false)
+	return nil
 }
 
 // ensureNodeUnschedulable keeps the node cordon state aligned with the current
