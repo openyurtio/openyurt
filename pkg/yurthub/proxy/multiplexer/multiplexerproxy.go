@@ -44,8 +44,13 @@ const (
 	minRequestTimeout = 300 * time.Second
 )
 
+type resourceMultiplexer interface {
+	Ready(gvr *schema.GroupVersionResource) bool
+	ResourceStore(gvr *schema.GroupVersionResource) (rest.Storage, error)
+}
+
 type multiplexerProxy struct {
-	requestsMultiplexerManager *multiplexer.MultiplexerManager
+	requestsMultiplexerManager resourceMultiplexer
 	restMapperManager          *hubmeta.RESTMapperManager
 	stop                       <-chan struct{}
 }

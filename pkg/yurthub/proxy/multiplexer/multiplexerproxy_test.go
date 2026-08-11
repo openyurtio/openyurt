@@ -20,6 +20,7 @@ package multiplexer
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -36,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/client-go/informers"
@@ -112,6 +114,23 @@ func (wr *wrapResponse) Write(buf []byte) (int, error) {
 	return l, err
 }
 
+type fakeResourceMultiplexer struct {
+	ready    bool
+	store    rest.Storage
+	storeErr error
+}
+
+func (f *fakeResourceMultiplexer) Ready(gvr *schema.GroupVersionResource) bool {
+	return f.ready
+}
+
+func (f *fakeResourceMultiplexer) ResourceStore(gvr *schema.GroupVersionResource) (rest.Storage, error) {
+	if f.storeErr != nil {
+		return nil, f.storeErr
+	}
+	return f.store, nil
+}
+
 func TestGetReqScopeReturnsErrorForUnknownGVR(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "multiplexer-req-scope")
 	if err != nil {
@@ -130,6 +149,40 @@ func TestGetReqScopeReturnsErrorForUnknownGVR(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestMultiplexerProxyServeHTTPReturnsOnResourceStoreError(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "multiplexer-resource-store")
+	if err != nil {
+		t.Fatalf("failed to make temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	restMapperManager, err := meta.NewRESTMapperManager(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create REST mapper manager: %v", err)
+	}
+
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+
+	sp := &multiplexerProxy{
+		requestsMultiplexerManager: &fakeResourceMultiplexer{
+			ready:    true,
+			storeErr: errors.New("storage unavailable"),
+		},
+		restMapperManager: restMapperManager,
+		stop:              stopCh,
+	}
+
+	w := httptest.NewRecorder()
+	req := newEndpointSliceListRequest("/apis/discovery.k8s.io/v1/endpointslices", nil)
+
+	assert.NotPanics(t, func() {
+		sp.ServeHTTP(w, req)
+	})
+	assert.GreaterOrEqual(t, w.Code, http.StatusBadRequest)
+	assert.Contains(t, w.Body.String(), "failed to get rest storage")
+}
+
 func TestMultiplexerProxyServeHTTPReturnsOnGetReqScopeError(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "multiplexer-serve-http")
 	if err != nil {
@@ -137,43 +190,28 @@ func TestMultiplexerProxyServeHTTPReturnsOnGetReqScopeError(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	cfgRESTMapper, err := meta.NewRESTMapperManager(tmpDir)
+	restMapperManager, err := meta.NewRESTMapperManager(tmpDir)
 	if err != nil {
 		t.Fatalf("failed to create REST mapper manager: %v", err)
 	}
-	proxyRESTMapper, err := meta.NewRESTMapperManager(tmpDir)
-	if err != nil {
-		t.Fatalf("failed to create proxy REST mapper manager: %v", err)
-	}
-
-	clientset := fake.NewSimpleClientset()
-	factory := informers.NewSharedInformerFactory(clientset, 0)
-	poolScopeResources := []schema.GroupVersionResource{endpointSliceGVR}
-
-	healthChecker := fakeHealthChecker.NewFakeChecker(map[*url.URL]bool{})
-	loadBalancer := remote.NewLoadBalancer("round-robin", []*url.URL{}, nil, nil, healthChecker, nil, context.Background().Done())
-	dsm := multiplexerstorage.NewDummyStorageManager(mockCacheMap())
-	cfg := &config.YurtHubConfiguration{
-		PoolScopeResources:       poolScopeResources,
-		RESTMapperManager:        cfgRESTMapper,
-		SharedFactory:            factory,
-		LoadBalancerForLeaderHub: loadBalancer,
-	}
-	rmm := multiplexer.NewRequestMultiplexerManager(cfg, dsm, healthChecker)
 
 	stopCh := make(chan struct{})
 	defer close(stopCh)
-	if ok := cache.WaitForCacheSync(stopCh, func() bool { return rmm.Ready(&endpointSliceGVR) }); !ok {
-		t.Fatal("multiplexer manager is not ready")
+
+	sp := &multiplexerProxy{
+		requestsMultiplexerManager: &fakeResourceMultiplexer{ready: true},
+		restMapperManager:          restMapperManager,
+		stop:                       stopCh,
 	}
 
-	sp := NewMultiplexerProxy(rmm, proxyRESTMapper, stopCh)
 	w := httptest.NewRecorder()
-	req := newEndpointSliceListRequest("/apis/discovery.k8s.io/v1/endpointslices", nil)
+	req := newEndpointSliceListRequest("/apis/unknown.example.com/v1/widgets", nil)
 
 	assert.NotPanics(t, func() {
 		sp.ServeHTTP(w, req)
 	})
+	assert.GreaterOrEqual(t, w.Code, http.StatusBadRequest)
+	assert.Contains(t, w.Body.String(), "failed to get req scope")
 }
 
 func TestShareProxy_ServeHTTP_LIST(t *testing.T) {
