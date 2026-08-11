@@ -3455,3 +3455,60 @@ func TestIsListRequestWithNameFieldSelector(t *testing.T) {
 }
 
 // TODO: in-memory cache unit tests
+
+func Test_completeListObjWithObjs(t *testing.T) {
+	testcases := map[string]struct {
+		objs       []runtime.Object
+		expectedRv string
+	}{
+		"normal resourceVersion numbers": {
+			objs: []runtime.Object{
+				&v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod1", ResourceVersion: "100"}},
+				&v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod2", ResourceVersion: "250"}},
+				&v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod3", ResourceVersion: "150"}},
+			},
+			expectedRv: "250",
+		},
+		"large uint64 resourceVersion exceeding 32-bit signed int max": {
+			objs: []runtime.Object{
+				&v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod1", ResourceVersion: "2147483647"}},
+				&v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod2", ResourceVersion: "3000000000"}},
+				&v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod3", ResourceVersion: "2500000000"}},
+			},
+			expectedRv: "3000000000",
+		},
+		"very large 64-bit unsigned int resourceVersion": {
+			objs: []runtime.Object{
+				&v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod1", ResourceVersion: "18446744073709551600"}},
+				&v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod2", ResourceVersion: "100"}},
+			},
+			expectedRv: "18446744073709551600",
+		},
+		"empty and invalid resourceVersions handled safely": {
+			objs: []runtime.Object{
+				&v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod1", ResourceVersion: ""}},
+				&v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod2", ResourceVersion: "invalid"}},
+				&v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod3", ResourceVersion: "500"}},
+			},
+			expectedRv: "500",
+		},
+	}
+
+	for name, tc := range testcases {
+		t.Run(name, func(t *testing.T) {
+			listObj := &v1.PodList{}
+			err := completeListObjWithObjs(listObj, tc.objs)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			accessor := meta.NewAccessor()
+			rv, err := accessor.ResourceVersion(listObj)
+			if err != nil {
+				t.Fatalf("failed to get list object resourceVersion: %v", err)
+			}
+			if rv != tc.expectedRv {
+				t.Errorf("expected list resourceVersion %q, got %q", tc.expectedRv, rv)
+			}
+		})
+	}
+}

@@ -302,6 +302,43 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 		},
+		"yurthub node client CSR with mismatched node username and commonName": {
+			obj: &certificatesv1.CertificateSigningRequest{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "mismatched-node-client-csr",
+					Namespace: "default",
+				},
+				Spec: certificatesv1.CertificateSigningRequestSpec{
+					Username:   "system:node:attacker-node",
+					SignerName: certificatesv1.KubeAPIServerClientSignerName,
+					Usages: []certificatesv1.KeyUsage{
+						certificatesv1.UsageDigitalSignature,
+						certificatesv1.UsageKeyEncipherment,
+						certificatesv1.UsageClientAuth,
+					},
+					Request: newCSRData("system:node:victim-node", []string{token.YurtHubCSROrg, user.NodesGroup, "openyurt:tenant:xxx"}, []string{}, []net.IP{}),
+				},
+			},
+			csrV1Supported: true,
+			skipRequest:    true,
+			expectedObj: &certificatesv1.CertificateSigningRequest{
+				TypeMeta: metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "mismatched-node-client-csr",
+					Namespace: "default",
+				},
+				Spec: certificatesv1.CertificateSigningRequestSpec{
+					Username:   "system:node:attacker-node",
+					SignerName: certificatesv1.KubeAPIServerClientSignerName,
+					Usages: []certificatesv1.KeyUsage{
+						certificatesv1.UsageDigitalSignature,
+						certificatesv1.UsageKeyEncipherment,
+						certificatesv1.UsageClientAuth,
+					},
+					Request: []byte{},
+				},
+			},
+		},
 		"it is not a certificate request": {
 			obj: &certificatesv1.CertificateSigningRequest{
 				ObjectMeta: metav1.ObjectMeta{
