@@ -137,10 +137,10 @@ func (ek *errorKeys) processNextOperator() bool {
 		return false
 	}
 	ek.fileMu.Lock()
+	defer ek.fileMu.Unlock()
 	ek.file.Write(append(data, '\n'))
 	ek.file.Sync()
 	ek.count++
-	ek.fileMu.Unlock()
 	return true
 }
 
