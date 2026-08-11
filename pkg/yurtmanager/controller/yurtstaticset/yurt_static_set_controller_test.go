@@ -218,3 +218,52 @@ func TestReconcileYurtStaticSetDeleteConfigMap(t *testing.T) {
 		})
 	}
 }
+
+func TestSyncConfigMapWithNilAnnotationsAndData(t *testing.T) {
+	instance := &appsv1alpha1.YurtStaticSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      TestStaticPodName,
+			Namespace: metav1.NamespaceDefault,
+		},
+		Spec: appsv1alpha1.YurtStaticSetSpec{
+			StaticPodManifest: "nginx",
+			Template:          corev1.PodTemplateSpec{},
+		},
+	}
+	// a pre-existing configmap with no Annotations and no Data, as could happen if
+	// it was created or edited outside of this controller
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      util.WithConfigMapPrefix(instance.Name),
+			Namespace: metav1.NamespaceDefault,
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	if err := appsv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal("Fail to add yurt custom resource")
+	}
+	if err := clientgoscheme.AddToScheme(scheme); err != nil {
+		t.Fatal("Fail to add kubernetes clint-go custom resource")
+	}
+	c := fakeclient.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(instance).WithObjects(cm).Build()
+
+	r := &ReconcileYurtStaticSet{
+		Client: c,
+	}
+
+	if err := r.syncConfigMap(instance, "new-hash", "pod-manifest-data"); err != nil {
+		t.Fatalf("syncConfigMap() should not panic or error on nil Annotations/Data, got err: %v", err)
+	}
+
+	got := &corev1.ConfigMap{}
+	if err := c.Get(context.TODO(), types.NamespacedName{Name: cm.Name, Namespace: cm.Namespace}, got); err != nil {
+		t.Fatalf("failed to get configmap after sync: %v", err)
+	}
+	if got.Annotations[StaticPodHashAnnotation] != "new-hash" {
+		t.Errorf("expected annotation %q to be %q, got %q", StaticPodHashAnnotation, "new-hash", got.Annotations[StaticPodHashAnnotation])
+	}
+	if got.Data[instance.Spec.StaticPodManifest] != "pod-manifest-data" {
+		t.Errorf("expected data %q to be %q, got %q", instance.Spec.StaticPodManifest, "pod-manifest-data", got.Data[instance.Spec.StaticPodManifest])
+	}
+}
