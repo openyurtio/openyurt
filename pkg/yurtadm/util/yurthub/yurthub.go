@@ -22,6 +22,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -424,14 +425,28 @@ func CheckYurthubServiceHealth(yurthubServer string) error {
 	return nil
 }
 
-// pollYurthubEndpoint polls the specified endpoint on YurtHub until it returns "OK".
-func pollYurthubEndpoint(yurthubServer, endpointPath string) error {
-	client := &http.Client{}
-	url := fmt.Sprintf("http://%s%s", fmt.Sprintf("%s:10267", yurthubServer), endpointPath)
-	return wait.PollUntilContextTimeout(context.Background(), time.Second*5, 300*time.Second, true, func(ctx context.Context) (bool, error) {
+// CheckYurthubHealthz check if YurtHub is healthy.
+func CheckYurthubHealthz(yurthubServer string) error {
+	url := fmt.Sprintf("http://%s%s", net.JoinHostPort(yurthubServer, "10267"), constants.ServerHealthzURLPath)
+	return pollYurthubEndpointOK(url, time.Second*5, 300*time.Second)
+}
+
+// CheckYurthubReadyz check if YurtHub's certificates are ready or not
+func CheckYurthubReadyz(yurthubServer string) error {
+	url := fmt.Sprintf("http://%s%s", net.JoinHostPort(yurthubServer, "10267"), constants.ServerReadyzURLPath)
+	return pollYurthubEndpointOK(url, time.Second*5, 300*time.Second)
+}
+
+func pollYurthubEndpointOK(url string, interval, timeout time.Duration) error {
+	// Bound each request with a client timeout that prevents a blackholed or
+	// stalled socket from hanging for the full poll window, while staying
+	// decoupled from the poll interval so slow-but-valid edge nodes don't trip
+	// a false negative. Outer poll cancellation still propagates via ctx.
+	client := &http.Client{Timeout: min(interval*3, timeout)}
+	return wait.PollUntilContextTimeout(context.Background(), interval, timeout, true, func(ctx context.Context) (bool, error) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 		if err != nil {
-			return false, nil
+			return false, err
 		}
 		resp, err := client.Do(req)
 		if err != nil {
@@ -446,18 +461,8 @@ func pollYurthubEndpoint(yurthubServer, endpointPath string) error {
 	})
 }
 
-// CheckYurthubHealthz check if YurtHub is healthy.
-func CheckYurthubHealthz(yurthubServer string) error {
-	return pollYurthubEndpoint(yurthubServer, constants.ServerHealthzURLPath)
-}
-
-// CheckYurthubReadyz check if YurtHub's certificates are ready or not
-func CheckYurthubReadyz(yurthubServer string) error {
-	return pollYurthubEndpoint(yurthubServer, constants.ServerReadyzURLPath)
-}
-
 func CheckYurthubReadyzOnce(yurthubServer string) bool {
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s%s", fmt.Sprintf("%s:10267", yurthubServer), constants.ServerReadyzURLPath), nil)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s%s", net.JoinHostPort(yurthubServer, "10267"), constants.ServerReadyzURLPath), nil)
 	if err != nil {
 		return false
 	}
@@ -466,7 +471,6 @@ func CheckYurthubReadyzOnce(yurthubServer string) bool {
 	if err != nil {
 		return false
 	}
-	defer resp.Body.Close()
 	ok, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return false
