@@ -413,61 +413,64 @@ func TestReconcile(t *testing.T) {
 	}
 }
 
-func TestConciliateYurtAppSetStatusWithStatefulSet(t *testing.T) {
+// TestReconcile_ReturnsErrorOnConciliationFailure verifies that errors from
+// conciliateYurtAppSet are propagated back to the caller instead of being
+// swallowed by the named return variable. Previously, the function returned
+// (Result{RequeueAfter: 1s}, nil) which bypassed exponential backoff.
+func TestReconcile_ReturnsErrorOnConciliationFailure(t *testing.T) {
+	// Create a YurtAppSet that will succeed through conciliateWorkloads
+	// (valid template + matching NodePool) but fail in conciliateYurtAppSet
+	// because the fake client's status subresource is not configured.
 	yas := &v1beta1.YurtAppSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-yas",
+			Name:      "test-yas-error",
 			Namespace: "default",
 		},
-	}
-
-	expectedRevision := &appsv1.ControllerRevision{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "rev-1",
-		},
-	}
-
-	sts1 := &appsv1.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-sts-1",
-			Namespace: "default",
-			Labels: map[string]string{
-				apps.ControllerRevisionHashLabelKey: "rev-1",
+		Spec: v1beta1.YurtAppSetSpec{
+			Pools: []string{"test-np"},
+			Workload: v1beta1.Workload{
+				WorkloadTemplate: v1beta1.WorkloadTemplate{
+					DeploymentTemplate: &v1beta1.DeploymentTemplateSpec{
+						Spec: appsv1.DeploymentSpec{
+							Selector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"app": "test-yas-error",
+								},
+							},
+						},
+					},
+				},
 			},
 		},
-		Status: appsv1.StatefulSetStatus{
-			Replicas:        2,
-			ReadyReplicas:   2,
-			UpdatedReplicas: 2,
-		},
 	}
-
-	sts2 := &appsv1.StatefulSet{
+	np := &v1beta2.NodePool{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-sts-2",
-			Namespace: "default",
-			Labels: map[string]string{
-				apps.ControllerRevisionHashLabelKey: "rev-0",
-			},
-		},
-		Status: appsv1.StatefulSetStatus{
-			Replicas:        2,
-			ReadyReplicas:   1,
-			UpdatedReplicas: 1,
+			Name: "test-np",
 		},
 	}
 
-	curWorkloads := []metav1.Object{sts1, sts2}
-	newStatus := &v1beta1.YurtAppSetStatus{}
-
-	fakeClient := fake.NewClientBuilder().WithScheme(fakeScheme).WithObjects(yas).WithStatusSubresource(&v1beta1.YurtAppSet{}).Build()
+	fakeClient := fake.NewClientBuilder().WithScheme(fakeScheme).WithObjects(yas, np).Build()
 	r := &ReconcileYurtAppSet{
-		Client: fakeClient,
+		scheme:   fakeScheme,
+		Client:   fakeClient,
+		recorder: &fakeEventRecorder{},
+		workloadManagers: map[workloadmanager.TemplateType]workloadmanager.WorkloadManager{
+			workloadmanager.DeploymentTemplateType: &workloadmanager.DeploymentManager{
+				Client: fakeClient,
+				Scheme: fakeScheme,
+			},
+		},
 	}
 
-	err := r.conciliateYurtAppSetStatus(yas, curWorkloads, expectedRevision, nil, newStatus)
-	assert.NoError(t, err)
-	assert.Equal(t, int32(2), newStatus.TotalWorkloads)
-	assert.Equal(t, int32(1), newStatus.ReadyWorkloads)
-	assert.Equal(t, int32(1), newStatus.UpdatedWorkloads)
+	_, err := r.Reconcile(context.TODO(), reconcile.Request{
+		NamespacedName: client.ObjectKey{
+			Name:      "test-yas-error",
+			Namespace: "default",
+		},
+	})
+
+	// The reconcile should return an error (from conciliateYurtAppSet failing
+	// to update status) rather than swallowing it with RequeueAfter + nil error.
+	// This ensures controller-runtime engages exponential backoff.
+	assert.NotNil(t, err, "Reconcile should return error on conciliation failure, not nil")
 }

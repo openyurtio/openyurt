@@ -19,6 +19,7 @@ package yurthub
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -27,6 +28,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -1357,5 +1359,114 @@ func Test_CheckYurthubHealthz_WithTimeout(t *testing.T) {
 	}
 
 	err := CheckYurthubServiceHealth("127.0.0.1")
+	assert.Error(t, err)
+}
+
+func Test_pollYurthubEndpointOK_Success(t *testing.T) {
+	ts := newLocalHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("OK"))
+	}))
+	defer ts.Close()
+
+	err := pollYurthubEndpointOK(ts.URL, 50*time.Millisecond, 2*time.Second)
+	assert.NoError(t, err)
+}
+
+func Test_pollYurthubEndpointOK_EventualOK(t *testing.T) {
+	var calls atomic.Int32
+	ts := newLocalHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if calls.Add(1) < 3 {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte("NotReady"))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("OK"))
+	}))
+	defer ts.Close()
+
+	err := pollYurthubEndpointOK(ts.URL, 50*time.Millisecond, 3*time.Second)
+	assert.NoError(t, err)
+	assert.GreaterOrEqual(t, calls.Load(), int32(3))
+}
+
+func Test_pollYurthubEndpointOK_TimesOutWhenNeverOK(t *testing.T) {
+	ts := newLocalHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte("NotReady"))
+	}))
+	defer ts.Close()
+
+	err := pollYurthubEndpointOK(ts.URL, 50*time.Millisecond, 300*time.Millisecond)
+	assert.Error(t, err)
+}
+
+func Test_pollYurthubEndpointOK_ContextPropagation(t *testing.T) {
+	release := make(chan struct{})
+	ts := newLocalHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-r.Context().Done():
+		case <-release:
+		}
+	}))
+	defer ts.Close()
+	defer close(release)
+
+	done := make(chan error, 1)
+	go func() {
+		done <- pollYurthubEndpointOK(ts.URL, 100*time.Millisecond, 400*time.Millisecond)
+	}()
+
+	select {
+	case err := <-done:
+		assert.Error(t, err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("pollYurthubEndpointOK did not return after the timeout; context was not propagated to the in-flight request")
+	}
+}
+
+func Test_pollYurthubEndpointOK_PerRequestTimeoutBoundsStalledSocket(t *testing.T) {
+	var hits int32
+	ts := newLocalHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&hits, 1)
+		<-r.Context().Done()
+	}))
+	defer ts.Close()
+
+	err := pollYurthubEndpointOK(ts.URL, 100*time.Millisecond, 700*time.Millisecond)
+	assert.Error(t, err)
+	assert.GreaterOrEqual(t, atomic.LoadInt32(&hits), int32(2),
+		"a stalled endpoint must be retried across poll iterations; each request should be bounded by the interval, not the full timeout")
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+func Test_CheckYurthubHealthzAndReadyz_OK(t *testing.T) {
+	original := http.DefaultTransport
+	defer func() { http.DefaultTransport = original }()
+
+	var paths []string
+	http.DefaultTransport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		paths = append(paths, req.URL.Path)
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader("OK")),
+			Header:     make(http.Header),
+			Request:    req,
+		}, nil
+	})
+
+	assert.NoError(t, CheckYurthubHealthz("127.0.0.1"))
+	assert.NoError(t, CheckYurthubReadyz("127.0.0.1"))
+	assert.Equal(t, []string{constants.ServerHealthzURLPath, constants.ServerReadyzURLPath}, paths)
+}
+
+func Test_pollYurthubEndpointOK_RequestBuildError(t *testing.T) {
+	err := pollYurthubEndpointOK("http://%zz", 10*time.Millisecond, 50*time.Millisecond)
 	assert.Error(t, err)
 }

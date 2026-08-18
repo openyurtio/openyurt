@@ -569,7 +569,13 @@ func classifyService(current, spec *corev1.ServiceList) (added, updated, deleted
 		if key := getKey(&val); key != "" {
 			if idx, ok := r[key]; ok {
 				updatedService := current.Items[idx].DeepCopy()
-				updatedService.Spec = *val.Spec.DeepCopy()
+				// Only update mutable fields from the desired spec.
+				// Preserve Kubernetes-managed immutable fields (ClusterIP, ClusterIPs,
+				// IPFamilies, IPFamilyPolicy, HealthCheckNodePort, SessionAffinity, etc.)
+				// that are assigned by the API server after Service creation.
+				updatedService.Spec.Type = val.Spec.Type
+				updatedService.Spec.ExternalTrafficPolicy = val.Spec.ExternalTrafficPolicy
+				updatedService.Spec.Ports = val.Spec.DeepCopy().Ports
 				updated = append(updated, updatedService)
 				delete(r, key)
 			} else {
