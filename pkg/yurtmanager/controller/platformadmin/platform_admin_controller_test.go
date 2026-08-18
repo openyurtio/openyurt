@@ -180,3 +180,48 @@ func TestReconcilePlatformAdmin(t *testing.T) {
 		})
 	}
 }
+
+func TestWriteFrameworkWithNilConfigMapData(t *testing.T) {
+	platformAdmin := &iotv1beta1.PlatformAdmin{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-platformadmin",
+			Namespace: "default",
+		},
+		Spec: iotv1beta1.PlatformAdminSpec{
+			Version:   "minnesota",
+			NodePools: []string{"pool1"},
+		},
+	}
+
+	// The framework configmap already exists but its Data field is nil, e.g. because
+	// it was created or edited outside of the normal reconcile path.
+	existingConfigMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-platformadmin-framework",
+			Namespace: "default",
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(fakeScheme).WithObjects(platformAdmin, existingConfigMap).Build()
+
+	r := &ReconcilePlatformAdmin{
+		Client:         fakeClient,
+		scheme:         fakeScheme,
+		recorder:       &fakeEventRecorder{},
+		yamlSerializer: kjson.NewSerializerWithOptions(kjson.DefaultMetaFactory, scheme.Scheme, scheme.Scheme, kjson.SerializerOptions{Yaml: true, Pretty: true}),
+	}
+
+	platformAdminFramework := &PlatformAdminFramework{
+		name: "test-platformadmin-framework",
+	}
+
+	assert.NotPanics(t, func() {
+		err := r.writeFramework(context.TODO(), platformAdmin, platformAdminFramework)
+		assert.NoError(t, err)
+	})
+
+	updatedConfigMap := &corev1.ConfigMap{}
+	err := fakeClient.Get(context.TODO(), client.ObjectKey{Name: "test-platformadmin-framework", Namespace: "default"}, updatedConfigMap)
+	assert.NoError(t, err)
+	assert.Contains(t, updatedConfigMap.Data, "framework")
+}
