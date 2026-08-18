@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -133,7 +134,7 @@ func TestCompress(t *testing.T) {
 	}
 	err = wait.PollUntilContextTimeout(context.TODO(), time.Second, time.Minute, false,
 		func(ctx context.Context) (bool, error) {
-			if keys.count == 50 {
+			if keys.getCount() == 50 {
 				return true, nil
 			}
 			return false, nil
@@ -141,4 +142,34 @@ func TestCompress(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to sync")
 	}
+	keys.queue.ShutDown()
+}
+
+func TestConcurrentSyncAndRewrite(t *testing.T) {
+	aofPath, err := os.MkdirTemp("", "errorkeys")
+	if err != nil {
+		t.Fatalf("failed to create dir: %v", err)
+	}
+	defer os.RemoveAll(aofPath)
+
+	ek := NewErrorKeys(aofPath)
+	defer ek.queue.ShutDown()
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 100; i++ {
+			ek.put(fmt.Sprintf("key-%d", i), fmt.Sprintf("value-%d", i))
+			time.Sleep(time.Millisecond)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 5; i++ {
+			ek.rewrite()
+			time.Sleep(10 * time.Millisecond)
+		}
+	}()
+	wg.Wait()
 }
