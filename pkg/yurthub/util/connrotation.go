@@ -107,11 +107,12 @@ func (d *Dialer) Close(address string) {
 	d.mu.Lock()
 	conns := d.addrConns[address]
 	delete(d.addrConns, address)
+	d.mu.Unlock()
+
 	var targetConns []*closableConn
 	for conn := range conns {
 		targetConns = append(targetConns, conn)
 	}
-	d.mu.Unlock()
 
 	klog.Infof("forcibly close %d connections on %s for %s dialer", len(targetConns), address, d.name)
 	for _, conn := range targetConns {
