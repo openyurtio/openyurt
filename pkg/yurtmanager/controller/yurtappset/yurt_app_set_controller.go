@@ -26,7 +26,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -260,17 +259,14 @@ func (r *ReconcileYurtAppSet) Reconcile(
 	// this may infect yas appdispatched/appupdated/appdeleted condition
 	expectedNps, curWorkloads, nErr := r.conciliateWorkloads(yas, expectedRevision, yasStatus)
 	if nErr != nil {
-		res.RequeueAfter = 1 * time.Second
 		klog.Warningf("YurtAppSet[%s/%s] conciliate workloads error: %v", yas.Namespace, yas.Name, nErr)
-		return
+		return reconcile.Result{}, nErr
 	}
 
 	// Concilaiate yas, update yas status and clean yas related revisions
 	if nErr := r.conciliateYurtAppSet(yas, curWorkloads, allRevisions, expectedRevision, expectedNps, yasStatus); nErr != nil {
-		// if err, retry after 1s to wait for latest updates synced
-		res.RequeueAfter = 1 * time.Second
 		klog.Warningf("YurtAppSet[%s/%s] conciliate yurtappset error: %v", yas.GetNamespace(), yas.GetName(), nErr)
-		return
+		return reconcile.Result{}, nErr
 	}
 
 	return

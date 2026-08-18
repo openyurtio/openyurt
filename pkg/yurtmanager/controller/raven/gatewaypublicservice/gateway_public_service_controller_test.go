@@ -213,3 +213,89 @@ func TestReconcileService_Reconcile(t *testing.T) {
 		t.Errorf("failed to reconcile service %s", MockGateway)
 	}
 }
+
+func TestClassifyService_PreservesImmutableFields(t *testing.T) {
+	// Simulate an existing Service with Kubernetes-managed immutable fields
+	currentSvcList := &corev1.ServiceList{
+		Items: []corev1.Service{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "existing-svc",
+					Namespace: util.WorkingNamespace,
+					Labels: map[string]string{
+						raven.LabelCurrentGatewayType:     ravenv1beta1.Proxy,
+						util.LabelCurrentGatewayEndpoints: Node1Name,
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Type:                  corev1.ServiceTypeLoadBalancer,
+					ClusterIP:             "10.96.1.42",
+					ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyTypeLocal,
+					HealthCheckNodePort:   30123,
+					Ports: []corev1.ServicePort{
+						{
+							Protocol: corev1.ProtocolTCP,
+							Port:     10262,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Simulate a desired Service spec (as built by acquiredSpecService) —
+	// it does NOT set ClusterIP or HealthCheckNodePort
+	specSvcList := &corev1.ServiceList{
+		Items: []corev1.Service{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "desired-svc",
+					Namespace: util.WorkingNamespace,
+					Labels: map[string]string{
+						raven.LabelCurrentGatewayType:     ravenv1beta1.Proxy,
+						util.LabelCurrentGatewayEndpoints: Node1Name,
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Type:                  corev1.ServiceTypeLoadBalancer,
+					ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyTypeLocal,
+					Ports: []corev1.ServicePort{
+						{
+							Protocol: corev1.ProtocolTCP,
+							Port:     10263, // changed port
+						},
+					},
+					// ClusterIP deliberately NOT set (zero value "")
+					// HealthCheckNodePort deliberately NOT set (zero value 0)
+				},
+			},
+		},
+	}
+
+	_, updated, _ := classifyService(currentSvcList, specSvcList)
+
+	if len(updated) != 1 {
+		t.Fatalf("expected 1 updated service, got %d", len(updated))
+	}
+
+	svc := updated[0]
+
+	// Verify immutable fields are PRESERVED from the existing service
+	if svc.Spec.ClusterIP != "10.96.1.42" {
+		t.Errorf("expected ClusterIP to be preserved as '10.96.1.42', got '%s'", svc.Spec.ClusterIP)
+	}
+	if svc.Spec.HealthCheckNodePort != 30123 {
+		t.Errorf("expected HealthCheckNodePort to be preserved as 30123, got %d", svc.Spec.HealthCheckNodePort)
+	}
+
+	// Verify mutable fields ARE updated from the desired spec
+	if len(svc.Spec.Ports) != 1 || svc.Spec.Ports[0].Port != 10263 {
+		t.Errorf("expected Port to be updated to 10263, got %v", svc.Spec.Ports)
+	}
+	if svc.Spec.Type != corev1.ServiceTypeLoadBalancer {
+		t.Errorf("expected Type to be LoadBalancer, got %s", svc.Spec.Type)
+	}
+	if svc.Spec.ExternalTrafficPolicy != corev1.ServiceExternalTrafficPolicyTypeLocal {
+		t.Errorf("expected ExternalTrafficPolicy to be Local, got %s", svc.Spec.ExternalTrafficPolicy)
+	}
+}
