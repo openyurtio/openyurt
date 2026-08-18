@@ -46,6 +46,9 @@ subjects:
   - kind: Group
     apiGroup: rbac.authorization.k8s.io
     name: openyurt:multiplexer
+  - kind: Group
+    apiGroup: rbac.authorization.k8s.io
+    name: system:nodes
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
