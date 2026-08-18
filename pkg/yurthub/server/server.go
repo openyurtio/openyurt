@@ -35,6 +35,8 @@ import (
 	otautil "github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/util"
 )
 
+var encodePodsFn = otautil.EncodePods
+
 // RunYurtHubServers is used to start up all servers for yurthub
 func RunYurtHubServers(cfg *config.YurtHubConfiguration,
 	proxyHandler http.Handler,
@@ -127,7 +129,6 @@ func readyz(cfg *config.YurtHubConfiguration) http.Handler {
 		fmt.Fprintf(w, "OK")
 	})
 }
-
 func getPodList(sharedFactory informers.SharedInformerFactory) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		podLister := sharedFactory.Core().V1().Pods().Lister()
@@ -137,15 +138,17 @@ func getPodList(sharedFactory informers.SharedInformerFactory) http.Handler {
 			otautil.WriteErr(w, "Get pods key failed", http.StatusInternalServerError)
 			return
 		}
+
 		pl := new(corev1.PodList)
 		for i := range podList {
 			pl.Items = append(pl.Items, *podList[i])
 		}
 
-		data, err := otautil.EncodePods(pl)
+		data, err := encodePodsFn(pl)
 		if err != nil {
 			klog.Errorf("Encode pod list failed, %v", err)
 			otautil.WriteErr(w, "Encode pod list failed", http.StatusInternalServerError)
+			return
 		}
 		otautil.WriteJSONResponse(w, data)
 	})
