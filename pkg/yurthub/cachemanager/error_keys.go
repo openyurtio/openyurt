@@ -118,6 +118,15 @@ func (ek *errorKeys) length() int {
 	return len(ek.keys)
 }
 
+// errorCount returns the number of persisted operations recorded so far. It
+// takes the same lock that guards ek.count and ek.keys so it can be read
+// safely while sync() and compress() are running concurrently.
+func (ek *errorKeys) errorCount() int {
+	ek.RLock()
+	defer ek.RUnlock()
+	return ek.count
+}
+
 func (ek *errorKeys) sync() {
 	for ek.processNextOperator() {
 	}
@@ -135,9 +144,13 @@ func (ek *errorKeys) processNextOperator() bool {
 		klog.Errorf("failed to serialize and persist operation: %v", op)
 		return false
 	}
+
+	ek.Lock()
 	ek.file.Write(append(data, '\n'))
 	ek.file.Sync()
 	ek.count++
+	ek.Unlock()
+
 	return true
 }
 
@@ -145,7 +158,10 @@ func (ek *errorKeys) compress() {
 	ticker := time.NewTicker(30 * time.Second)
 	for range ticker.C {
 		if !ek.queue.ShuttingDown() {
-			if ek.count > len(ek.keys)+CompressThresh {
+			ek.RLock()
+			needRewrite := ek.count > len(ek.keys)+CompressThresh
+			ek.RUnlock()
+			if needRewrite {
 				ek.rewrite()
 			}
 		} else {
@@ -154,9 +170,14 @@ func (ek *errorKeys) compress() {
 	}
 }
 
+// rewrite compacts the AOF file to only the current set of keys. It takes
+// the full write lock, rather than a read lock, because it reassigns
+// ek.file and ek.count, both of which are also written by
+// processNextOperator() from the sync() goroutine; using a read lock here
+// would race with those writes.
 func (ek *errorKeys) rewrite() {
-	ek.RLock()
-	defer ek.RUnlock()
+	ek.Lock()
+	defer ek.Unlock()
 	count := 0
 	file, err := os.OpenFile(filepath.Join(ek.aofPath, "tmp_aof"), os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0644)
 	if err != nil {
