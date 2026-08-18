@@ -335,7 +335,7 @@ func (r *ReconcileYurtNodeConversion) createConversionJob(ctx context.Context, n
 	if err != nil {
 		return err
 	}
-	job.Finalizers = append(job.Finalizers, conversionJobFinalizer)
+	controllerutil.AddFinalizer(job, conversionJobFinalizer)
 	klog.Info(Format("create %s job %s for node %s", action, job.Name, nodeName))
 	return r.Create(ctx, job)
 }
