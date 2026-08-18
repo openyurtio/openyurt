@@ -43,10 +43,10 @@ const (
 	tmpPrefix    = "tmp_"
 )
 
-// TODO: lock should block, and also add comment about it
-// TODO: should optimize the efficiency of the lock mechanism
+// diskStorage implements a key-level blocking lock mechanism to prevent concurrent access conflicts.
 type diskStorage struct {
 	sync.Mutex
+	cond             *sync.Cond
 	baseDir          string
 	keyPendingStatus map[string]struct{}
 	serializer       runtime.Serializer
@@ -76,6 +76,7 @@ func NewDiskStorage(dir string) (storage.Store, error) {
 		serializer:       json.NewSerializerWithOptions(json.DefaultMetaFactory, scheme.Scheme, scheme.Scheme, json.SerializerOptions{}),
 		fsOperator:       fsOperator,
 	}
+	ds.cond = sync.NewCond(&ds.Mutex)
 
 	enhancementMode, err := ifEnhancement(ds.baseDir, *ds.fsOperator)
 	if err != nil {
@@ -113,9 +114,7 @@ func (ds *diskStorage) Create(key storage.Key, content []byte) error {
 		return storage.ErrKeyHasNoContent
 	}
 
-	if !ds.lockKey(storageKey) {
-		return storage.ErrStorageAccessConflict
-	}
+	ds.lockKey(storageKey)
 	defer ds.unLockKey(storageKey)
 
 	path := filepath.Join(ds.baseDir, storageKey.Key())
@@ -140,9 +139,7 @@ func (ds *diskStorage) Delete(key storage.Key) error {
 	}
 	storageKey := key.(storageKey)
 
-	if !ds.lockKey(storageKey) {
-		return storage.ErrStorageAccessConflict
-	}
+	ds.lockKey(storageKey)
 	defer ds.unLockKey(storageKey)
 
 	path := filepath.Join(ds.baseDir, storageKey.Key())
@@ -165,9 +162,7 @@ func (ds *diskStorage) Get(key storage.Key) ([]byte, error) {
 	}
 	storageKey := key.(storageKey)
 
-	if !ds.lockKey(storageKey) {
-		return nil, storage.ErrStorageAccessConflict
-	}
+	ds.lockKey(storageKey)
 	defer ds.unLockKey(storageKey)
 
 	path := filepath.Join(ds.baseDir, storageKey.Key())
@@ -192,9 +187,7 @@ func (ds *diskStorage) List(key storage.Key) ([][]byte, error) {
 	}
 	storageKey := key.(storageKey)
 
-	if !ds.lockKey(storageKey) {
-		return nil, storage.ErrStorageAccessConflict
-	}
+	ds.lockKey(storageKey)
 	defer ds.unLockKey(storageKey)
 
 	bb := make([][]byte, 0)
@@ -242,9 +235,7 @@ func (ds *diskStorage) Update(key storage.Key, content []byte, rv uint64) ([]byt
 		return nil, storage.ErrIsNotObjectKey
 	}
 
-	if !ds.lockKey(storageKey) {
-		return nil, storage.ErrStorageAccessConflict
-	}
+	ds.lockKey(storageKey)
 	defer ds.unLockKey(storageKey)
 
 	absPath := filepath.Join(ds.baseDir, storageKey.Key())
@@ -294,9 +285,7 @@ func (ds *diskStorage) ListResourceKeysOfComponent(component string, gvr schema.
 	}
 	storageKey := rootKey.(storageKey)
 
-	if !ds.lockKey(storageKey) {
-		return nil, storage.ErrStorageAccessConflict
-	}
+	ds.lockKey(storageKey)
 	defer ds.unLockKey(storageKey)
 
 	absPath := filepath.Join(ds.baseDir, storageKey.Key())
@@ -358,9 +347,7 @@ func (ds *diskStorage) ReplaceComponentList(component string, gvr schema.GroupVe
 		}
 	}
 
-	if !ds.lockKey(storageKey) {
-		return storage.ErrStorageAccessConflict
-	}
+	ds.lockKey(storageKey)
 	defer ds.unLockKey(storageKey)
 
 	// 1. mv old dir into tmp_dir when rootKey dir already exists
@@ -418,9 +405,7 @@ func (ds *diskStorage) DeleteComponentResources(component string) error {
 		path:    component,
 		rootKey: true,
 	}
-	if !ds.lockKey(rootKey) {
-		return storage.ErrStorageAccessConflict
-	}
+	ds.lockKey(rootKey)
 	defer ds.unLockKey(rootKey)
 
 	absKey := filepath.Join(ds.baseDir, rootKey.Key())
@@ -586,30 +571,40 @@ func (ds *diskStorage) restoreReplaceFromBackup(tmpPath, absPath string, restore
 	return restoreErr
 }
 
-func (ds *diskStorage) lockKey(key storageKey) bool {
+func (ds *diskStorage) lockKey(key storageKey) {
 	keyStr := key.Key()
 	ds.Lock()
 	defer ds.Unlock()
-	if _, ok := ds.keyPendingStatus[keyStr]; ok {
-		klog.Infof("key(%s) storage is pending, just skip it", keyStr)
-		return false
+
+	if ds.cond == nil {
+		ds.cond = sync.NewCond(&ds.Mutex)
+	}
+	if ds.keyPendingStatus == nil {
+		ds.keyPendingStatus = make(map[string]struct{})
 	}
 
-	for pendingKey := range ds.keyPendingStatus {
-		if len(keyStr) > len(pendingKey) {
-			if strings.Contains(keyStr, fmt.Sprintf("%s/", pendingKey)) {
-				klog.Infof("key(%s) storage is pending, skip to store key(%s)", pendingKey, keyStr)
-				return false
-			}
+	for {
+		conflict := false
+		if _, ok := ds.keyPendingStatus[keyStr]; ok {
+			conflict = true
 		} else {
-			if strings.Contains(pendingKey, fmt.Sprintf("%s/", keyStr)) {
-				klog.Infof("key(%s) storage is pending, skip to store key(%s)", pendingKey, keyStr)
-				return false
+			for pendingKey := range ds.keyPendingStatus {
+				if strings.HasPrefix(keyStr, pendingKey+"/") || strings.HasPrefix(pendingKey, keyStr+"/") {
+					conflict = true
+					break
+				}
 			}
 		}
+
+		if !conflict {
+			break
+		}
+
+		klog.V(4).Infof("key(%s) storage is pending, waiting for lock", keyStr)
+		ds.cond.Wait()
 	}
+
 	ds.keyPendingStatus[keyStr] = struct{}{}
-	return true
 }
 
 func (ds *diskStorage) ifFresherThan(oldObj []byte, newRV uint64) (bool, error) {
@@ -632,7 +627,13 @@ func (ds *diskStorage) ifFresherThan(oldObj []byte, newRV uint64) (bool, error) 
 func (ds *diskStorage) unLockKey(key storageKey) {
 	ds.Lock()
 	defer ds.Unlock()
-	delete(ds.keyPendingStatus, key.Key())
+
+	if ds.keyPendingStatus != nil {
+		delete(ds.keyPendingStatus, key.Key())
+	}
+	if ds.cond != nil {
+		ds.cond.Broadcast()
+	}
 }
 
 func ifEnhancement(baseDir string, fsOperator fs.FileSystemOperator) (bool, error) {
@@ -684,6 +685,8 @@ func getKey(tmpKey string) string {
 }
 
 func extractInfoFromPath(baseDir, path string, isRoot bool) (component, gvr, namespace, name string, err error) {
+	baseDir = filepath.ToSlash(baseDir)
+	path = filepath.ToSlash(path)
 	if !strings.HasPrefix(path, baseDir) {
 		err = fmt.Errorf("path %s does not under %s", path, baseDir)
 		return
