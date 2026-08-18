@@ -218,6 +218,11 @@ func (r *ReconcileYurtNodeConversion) handleStaleJob(
 	ctx context.Context, node *corev1.Node, job *batchv1.Job,
 	desiredAction, currentJobAction string,
 ) (reconcile.Result, error) {
+	if job.DeletionTimestamp != nil {
+		klog.V(4).Info(Format("node(%s) stale job %s is already deleting, waiting for it to be removed", node.Name, job.Name))
+		return reconcile.Result{}, nil
+	}
+
 	if isJobFinished(job) {
 		klog.V(4).Info(Format("node(%s) deleting stale job %s, desiredAction=%s currentJobAction=%s",
 			node.Name, job.Name, desiredAction, currentJobAction))

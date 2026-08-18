@@ -280,6 +280,34 @@ func TestReconcileDeleteStaleFinishedJob(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestReconcileIgnoreDeletingStaleJob(t *testing.T) {
+	node := newNode("node-a", map[string]string{
+		projectinfo.GetEdgeWorkerLabelKey(): "true",
+	}, false, nil)
+	job := newConversionJobForTest(t, actionConvert, "node-a")
+	job.Status.Conditions = []batchv1.JobCondition{{
+		Type:   batchv1.JobComplete,
+		Status: corev1.ConditionTrue,
+	}}
+	job.Status.Succeeded = 1
+	now := metav1.Now()
+	job.DeletionTimestamp = &now
+	job.Finalizers = []string{"dummy-finalizer"}
+
+	r, cli := newReconcilerForTest(t, node, job)
+
+	result, err := r.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Name: "node-a"}})
+	require.NoError(t, err)
+	assert.False(t, result.Requeue)
+
+	ignoredJob := &batchv1.Job{}
+	err = cli.Get(context.Background(), types.NamespacedName{
+		Namespace: r.conversionJobNamespace(),
+		Name:      conversionJobName("node-a"),
+	}, ignoredJob)
+	assert.NoError(t, err)
+}
+
 func TestReconcileKeepRunningJobInProgress(t *testing.T) {
 	node := newNode("node-a", map[string]string{
 		projectinfo.GetNodePoolLabel(): "pool-a",
