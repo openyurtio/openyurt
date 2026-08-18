@@ -84,6 +84,8 @@ func (hc *cloudAPIServerHealthChecker) RenewKubeletLeaseTime() {
 }
 
 func (hc *cloudAPIServerHealthChecker) IsHealthy() bool {
+	hc.RLock()
+	defer hc.RUnlock()
 	for _, prober := range hc.probers {
 		if prober.IsHealthy() {
 			return true
@@ -105,6 +107,8 @@ func (hc *cloudAPIServerHealthChecker) PickOneHealthyBackend() *url.URL {
 
 // BackendHealthyStatus returns the healthy stats of specified server
 func (hc *cloudAPIServerHealthChecker) BackendIsHealthy(server *url.URL) bool {
+	hc.RLock()
+	defer hc.RUnlock()
 	if prober, ok := hc.probers[server.String()]; ok {
 		return prober.IsHealthy()
 	}
@@ -139,6 +143,8 @@ func (hc *cloudAPIServerHealthChecker) run(stopCh <-chan struct{}) {
 }
 
 func (hc *cloudAPIServerHealthChecker) setLastNodeLease(lease *coordinationv1.Lease) error {
+	hc.Lock()
+	defer hc.Unlock()
 	if lease == nil {
 		return nil
 	}
@@ -175,6 +181,8 @@ func (hc *cloudAPIServerHealthChecker) setLastNodeLease(lease *coordinationv1.Le
 }
 
 func (hc *cloudAPIServerHealthChecker) getLastNodeLease() *coordinationv1.Lease {
+	hc.Lock()
+	defer hc.Unlock()
 	if hc.latestLease != nil {
 		delete(hc.latestLease.Annotations, DelegateHeartBeat)
 	}
@@ -182,6 +190,8 @@ func (hc *cloudAPIServerHealthChecker) getLastNodeLease() *coordinationv1.Lease 
 }
 
 func (hc *cloudAPIServerHealthChecker) getProber() healthchecker.BackendProber {
+	hc.Lock()
+	defer hc.Unlock()
 	prober := hc.probers[hc.remoteServers[hc.remoteServerIndex].String()]
 	hc.remoteServerIndex = (hc.remoteServerIndex + 1) % len(hc.remoteServers)
 	return prober
