@@ -30,6 +30,7 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -62,7 +63,8 @@ const (
 	reasonConvertFailed = "ConvertFailed"
 	reasonRevertFailed  = "RevertFailed"
 
-	zoneLabel = constants.KubernetesTopologyZoneLabel
+	zoneLabel              = constants.KubernetesTopologyZoneLabel
+	conversionJobFinalizer = "openyurt.io/node-conversion"
 )
 
 type ReconcileYurtNodeConversion struct {
@@ -163,7 +165,7 @@ func (r *ReconcileYurtNodeConversion) Reconcile(ctx context.Context, req reconci
 	// but the controller's finalization was interrupted after the Job's disappearance
 	if action := interruptedFinalizationAction(node, cond); action != actionNone {
 		klog.V(4).Info(Format("node(%s) resumes interrupted %s finalization without an active job", node.Name, action))
-		return reconcile.Result{}, r.handleSuccessfulAction(ctx, node.Name, action)
+		return reconcile.Result{}, r.handleSuccessfulAction(ctx, node.Name, action, nil)
 	}
 
 	if desiredAction == actionNone {
@@ -193,12 +195,18 @@ func (r *ReconcileYurtNodeConversion) reconcileExistingJob(
 			newConversionCondition(currentJobAction, failedReasonForAction(currentJobAction), failedMessage(job, currentJobAction))); err != nil {
 			return reconcile.Result{}, fmt.Errorf("set failed conversion condition for node %s: %w", node.Name, err)
 		}
+		if controllerutil.ContainsFinalizer(job, conversionJobFinalizer) {
+			controllerutil.RemoveFinalizer(job, conversionJobFinalizer)
+			if err := r.Update(ctx, job); err != nil {
+				return reconcile.Result{}, fmt.Errorf("remove finalizer from failed job %s: %w", job.Name, err)
+			}
+		}
 		return reconcile.Result{}, nil
 	}
 
 	if isJobSucceeded(job) {
 		klog.Info(Format("node(%s) observed succeeded %s job %s", node.Name, currentJobAction, job.Name))
-		return reconcile.Result{}, r.handleSuccessfulAction(ctx, node.Name, currentJobAction)
+		return reconcile.Result{}, r.handleSuccessfulAction(ctx, node.Name, currentJobAction, job)
 	}
 
 	// Job is still running — keep the node cordoned and update the in-progress condition
@@ -221,6 +229,14 @@ func (r *ReconcileYurtNodeConversion) handleStaleJob(
 	if isJobFinished(job) {
 		klog.V(4).Info(Format("node(%s) deleting stale job %s, desiredAction=%s currentJobAction=%s",
 			node.Name, job.Name, desiredAction, currentJobAction))
+
+		if controllerutil.ContainsFinalizer(job, conversionJobFinalizer) {
+			controllerutil.RemoveFinalizer(job, conversionJobFinalizer)
+			if err := r.Update(ctx, job); err != nil {
+				return reconcile.Result{}, fmt.Errorf("remove finalizer from stale job %s: %w", job.Name, err)
+			}
+		}
+
 		if err := r.Delete(ctx, job, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil && !apierrors.IsNotFound(err) {
 			return reconcile.Result{}, fmt.Errorf("delete stale conversion job %s for node %s: %w", job.Name, node.Name, err)
 		}
@@ -319,13 +335,14 @@ func (r *ReconcileYurtNodeConversion) createConversionJob(ctx context.Context, n
 	if err != nil {
 		return err
 	}
+	controllerutil.AddFinalizer(job, conversionJobFinalizer)
 	klog.Info(Format("create %s job %s for node %s", action, job.Name, nodeName))
 	return r.Create(ctx, job)
 }
 
 // handleSuccessfulAction completes the control-plane side of a successful round
 // after node-servant already finished the host-level operations on the node
-func (r *ReconcileYurtNodeConversion) handleSuccessfulAction(ctx context.Context, nodeName, action string) error {
+func (r *ReconcileYurtNodeConversion) handleSuccessfulAction(ctx context.Context, nodeName, action string, job *batchv1.Job) error {
 	klog.V(4).Info(Format("finalize successful %s round for node(%s)", action, nodeName))
 	node := &corev1.Node{}
 	if err := r.Get(ctx, types.NamespacedName{Name: nodeName}, node); err != nil {
@@ -349,7 +366,18 @@ func (r *ReconcileYurtNodeConversion) handleSuccessfulAction(ctx context.Context
 		}
 	}
 
-	return r.ensureNodeUnschedulable(ctx, nodeName, false)
+	if err := r.ensureNodeUnschedulable(ctx, nodeName, false); err != nil {
+		return err
+	}
+
+	if job != nil && controllerutil.ContainsFinalizer(job, conversionJobFinalizer) {
+		controllerutil.RemoveFinalizer(job, conversionJobFinalizer)
+		if err := r.Update(ctx, job); err != nil {
+			return fmt.Errorf("remove finalizer from successful job %s: %w", job.Name, err)
+		}
+	}
+
+	return nil
 }
 
 // ensureNodeUnschedulable keeps the node cordon state aligned with the current
