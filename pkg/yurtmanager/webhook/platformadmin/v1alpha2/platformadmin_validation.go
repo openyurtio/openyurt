@@ -64,15 +64,13 @@ func (webhook *PlatformAdminHandler) ValidateUpdate(
 	if !ok {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a PlatformAdmin but got a %T", newObj))
 	}
-	oldPlatformAdmin, ok := oldObj.(*v1alpha2.PlatformAdmin)
+	_, ok = oldObj.(*v1alpha2.PlatformAdmin)
 	if !ok {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a PlatformAdmin but got a %T", oldObj))
 	}
 
 	// validate
-	newErrorList := webhook.validate(ctx, newPlatformAdmin)
-	oldErrorList := webhook.validate(ctx, oldPlatformAdmin)
-	if allErrs := append(newErrorList, oldErrorList...); len(allErrs) > 0 {
+	if allErrs := webhook.validate(ctx, newPlatformAdmin); len(allErrs) > 0 {
 		return nil, apierrors.NewInvalid(
 			v1alpha2.GroupVersion.WithKind("PlatformAdmin").GroupKind(),
 			newPlatformAdmin.Name,

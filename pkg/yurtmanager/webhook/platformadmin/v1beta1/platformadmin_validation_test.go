@@ -229,7 +229,7 @@ func TestValidateUpdate(t *testing.T) {
 			errCode: http.StatusUnprocessableEntity,
 		},
 		{
-			name:   "should get StatusUnprocessableEntityError when old PlatformAdmin is invalid and old PlatformAdmin is valid",
+			name:   "should pass when old PlatformAdmin is invalid but new PlatformAdmin is valid",
 			client: NewFakeClient(buildClient(buildNodePool(), buildPlatformAdmin())).Build(),
 			oldObj: &v1beta1.PlatformAdmin{},
 			newObj: &v1beta1.PlatformAdmin{
@@ -242,7 +242,7 @@ func TestValidateUpdate(t *testing.T) {
 					Version:   "v2",
 				},
 			},
-			errCode: http.StatusUnprocessableEntity,
+			errCode: 0,
 		},
 		{
 			name:   "should no err when new PlatformAdmin and old PlatformAdmin both valid",
