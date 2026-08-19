@@ -164,5 +164,8 @@ func (fsm *filterStoreManager) DeleteFilterStore(gvrStr string) {
 	fsm.Lock()
 	defer fsm.Unlock()
 
-	delete(fsm.filterStores, gvrStr)
+	if fs, exists := fsm.filterStores[gvrStr]; exists {
+		fs.Destroy()
+		delete(fsm.filterStores, gvrStr)
+	}
 }
