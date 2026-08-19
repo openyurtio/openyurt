@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated but still supported for backward compatibility
 package gatewaypublicservice
 
 import (
@@ -206,12 +207,119 @@ func MockReconcile() *ReconcileService {
 	}
 }
 
-func TestReconcileService_Reconcile(t *testing.T) {
-	r := MockReconcile()
-	_, err := r.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Name: MockGateway}})
-	if err != nil {
-		t.Errorf("failed to reconcile service %s", MockGateway)
+func servicesByEndpointNode(t *testing.T, r *ReconcileService) map[string]string {
+	t.Helper()
+	svcList := &corev1.ServiceList{}
+	if err := r.List(context.Background(), svcList); err != nil {
+		t.Fatalf("failed to list services: %v", err)
 	}
+	byNode := make(map[string]string)
+	for _, svc := range svcList.Items {
+		byNode[svc.Labels[util.LabelCurrentGatewayEndpoints]] = svc.Name
+	}
+	return byNode
+}
+
+func assertEndpointsForService(t *testing.T, r *ReconcileService, name, expectedIP string) {
+	t.Helper()
+	eps := &corev1.Endpoints{}
+	if err := r.Get(context.Background(), types.NamespacedName{Namespace: util.WorkingNamespace, Name: name}, eps); err != nil {
+		t.Errorf("expected endpoints %q to exist, got error: %v", name, err)
+		return
+	}
+	if len(eps.Subsets) != 1 || len(eps.Subsets[0].Addresses) != 1 || eps.Subsets[0].Addresses[0].IP != expectedIP {
+		t.Errorf("expected endpoints %q to contain IP %q, got %v", name, expectedIP, eps.Subsets)
+	}
+}
+
+func TestReconcileService_TwoReplicas(t *testing.T) {
+	r := MockReconcile()
+	if _, err := r.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Name: MockGateway}}); err != nil {
+		t.Fatalf("failed to reconcile service %s: %v", MockGateway, err)
+	}
+
+	byNode := servicesByEndpointNode(t, r)
+	if len(byNode) != 2 {
+		t.Errorf("expected 2 LoadBalancer services for 2 active proxy endpoints, got %d", len(byNode))
+	}
+	for _, nodeName := range []string{Node1Name, Node2Name} {
+		name, ok := byNode[nodeName]
+		if !ok {
+			t.Errorf("expected a service for active node %q, none found", nodeName)
+			continue
+		}
+		svc := &corev1.Service{}
+		if err := r.Get(context.Background(), types.NamespacedName{Namespace: util.WorkingNamespace, Name: name}, svc); err != nil {
+			t.Errorf("failed to get service %q: %v", name, err)
+			continue
+		}
+		if svc.Spec.Type != corev1.ServiceTypeLoadBalancer {
+			t.Errorf("expected service %q to be of type LoadBalancer, got %s", name, svc.Spec.Type)
+		}
+		assertEndpointsForService(t, r, name, map[string]string{Node1Name: Node1Address, Node2Name: Node2Address}[nodeName])
+	}
+}
+
+func TestReconcileService_Failover(t *testing.T) {
+	r := MockReconcile()
+
+	gateway := &ravenv1beta1.Gateway{}
+	if err := r.Get(context.Background(), types.NamespacedName{Name: MockGateway}, gateway); err != nil {
+		t.Fatalf("failed to get gateway: %v", err)
+	}
+	gateway.Status.ActiveEndpoints = []*ravenv1beta1.Endpoint{
+		{
+			NodeName: Node1Name,
+			Type:     ravenv1beta1.Proxy,
+			Port:     ravenv1beta1.DefaultProxyServerExposedPort,
+			UnderNAT: false,
+		},
+	}
+	if err := r.Update(context.Background(), gateway); err != nil {
+		t.Fatalf("failed to update gateway: %v", err)
+	}
+
+	if _, err := r.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Name: MockGateway}}); err != nil {
+		t.Fatalf("failed to reconcile service %s: %v", MockGateway, err)
+	}
+
+	byNode := servicesByEndpointNode(t, r)
+	if len(byNode) != 1 || byNode[Node1Name] == "" {
+		t.Errorf("expected a service only for active node %q, got %v", Node1Name, byNode)
+	}
+
+	gateway = &ravenv1beta1.Gateway{}
+	if err := r.Get(context.Background(), types.NamespacedName{Name: MockGateway}, gateway); err != nil {
+		t.Fatalf("failed to get gateway: %v", err)
+	}
+	gateway.Status.ActiveEndpoints = []*ravenv1beta1.Endpoint{
+		{
+			NodeName: Node2Name,
+			Type:     ravenv1beta1.Proxy,
+			Port:     ravenv1beta1.DefaultProxyServerExposedPort,
+			UnderNAT: false,
+		},
+	}
+	if err := r.Update(context.Background(), gateway); err != nil {
+		t.Fatalf("failed to update gateway: %v", err)
+	}
+
+	if _, err := r.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Name: MockGateway}}); err != nil {
+		t.Fatalf("failed to reconcile service %s: %v", MockGateway, err)
+	}
+
+	byNode = servicesByEndpointNode(t, r)
+	if len(byNode) != 1 {
+		t.Fatalf("expected exactly 1 service after failover, got %v", byNode)
+	}
+	if byNode[Node1Name] != "" {
+		t.Errorf("expected service for old active node %q to be deleted after failover", Node1Name)
+	}
+	name, ok := byNode[Node2Name]
+	if !ok {
+		t.Fatalf("expected service for new active node %q to be created, none found", Node2Name)
+	}
+	assertEndpointsForService(t, r, name, Node2Address)
 }
 
 func TestClassifyService_PreservesImmutableFields(t *testing.T) {
