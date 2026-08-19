@@ -41,7 +41,6 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonsetupgradestrategy"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonsetupgradestrategy/daemonpodupdater"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonsetupgradestrategy/imagepreheat"
-	podutil "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/util/pod"
 )
 
 const (
@@ -261,14 +260,13 @@ func PullPodImage(clientset kubernetes.Interface, nodeName string) http.Handler 
 			Status:  corev1.ConditionFalse,
 			Message: daemonsetupgradestrategy.VersionPrefix + imagepreheat.GetPodNextHashVersion(pod),
 		}
-		podutil.UpdatePodCondition(&pod.Status, &cond)
 
 		patchBody := struct {
 			Status struct {
 				Conditions []corev1.PodCondition `json:"conditions"`
 			} `json:"status"`
 		}{}
-		patchBody.Status.Conditions = pod.Status.Conditions
+		patchBody.Status.Conditions = []corev1.PodCondition{cond}
 
 		patchBytes, err := json.Marshal(patchBody)
 		if err != nil {
@@ -280,7 +278,7 @@ func PullPodImage(clientset kubernetes.Interface, nodeName string) http.Handler 
 		_, err = clientset.CoreV1().Pods(namespace).Patch(
 			context.TODO(),
 			podName,
-			types.MergePatchType,
+			types.StrategicMergePatchType,
 			patchBytes,
 			metav1.PatchOptions{
 				FieldManager: "yurthub-ota",
