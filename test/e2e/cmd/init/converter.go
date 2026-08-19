@@ -46,6 +46,9 @@ import (
 
 const (
 	conversionConditionType corev1.NodeConditionType = "YurtNodeConversionFailed"
+	YurtManagerChartName                             = "yurt-manager"
+	YurtTunnelChartName                              = "yurt-tunnel"
+	KubeSystemNamespace                              = "kube-system"
 )
 
 type ClusterConverter struct {
@@ -79,6 +82,12 @@ func (c *ClusterConverter) Run() error {
 	klog.Info("Deploying yurt-manager")
 	if err := c.installYurtManagerByHelm(); err != nil {
 		klog.Errorf("failed to deploy yurt-manager with image %s, %s", c.YurtManagerImage, err)
+		return err
+	}
+
+	klog.Info("Deploying yurt-tunnel")
+	if err := c.installYurtTunnelByHelm(); err != nil {
+		klog.Errorf("failed to deploy yurt-tunnel, %s", err)
 		return err
 	}
 
@@ -379,9 +388,6 @@ func (c *ClusterConverter) dumpNodeJobs(nodeName string) {
 }
 
 func (c *ClusterConverter) installYurtManagerByHelm() error {
-	helmPath := filepath.Join(c.RootDir, "bin", "helm")
-	yurtManagerChartPath := filepath.Join(c.RootDir, "charts", "yurt-manager")
-
 	managerTag, err := imageTag(c.YurtManagerImage)
 	if err != nil {
 		return err
@@ -391,32 +397,19 @@ func (c *ClusterConverter) installYurtManagerByHelm() error {
 		return err
 	}
 
-	cmd := exec.Command(
-		helmPath,
-		"install",
-		"yurt-manager",
-		yurtManagerChartPath,
-		"--namespace",
-		"kube-system",
-		"--set",
-		fmt.Sprintf("image.tag=%s", managerTag),
-		"--set",
-		fmt.Sprintf("nodeServant.image.tag=%s", nodeServantTag),
-		"--set",
-		"log.level=5",
+	err = c.installHelmChart(YurtManagerChartName,
+		"--set", fmt.Sprintf("image.tag=%s", managerTag),
+		"--set", fmt.Sprintf("nodeServant.image.tag=%s", nodeServantTag),
+		"--set", "log.level=5",
 	)
-	output, err := cmd.CombinedOutput()
 	if err != nil {
-		klog.Errorf("couldn't install yurt-manager, %v", err)
-		klog.Errorf("Helm install output: %s", string(output))
 		return err
 	}
-	klog.Infof("start to install yurt-manager, %s", string(output))
 
 	// waiting yurt-manager pod ready
 	if err = wait.PollUntilContextTimeout(context.Background(), 10*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
-		podList, err := c.ClientSet.CoreV1().Pods("kube-system").List(context.TODO(), metav1.ListOptions{
-			LabelSelector: labels.SelectorFromSet(map[string]string{"app.kubernetes.io/name": "yurt-manager"}).String(),
+		podList, err := c.ClientSet.CoreV1().Pods(KubeSystemNamespace).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: labels.SelectorFromSet(map[string]string{"app.kubernetes.io/name": YurtManagerChartName}).String(),
 		})
 		if err != nil {
 			klog.Errorf("failed to list yurt-manager pod, %v", err)
@@ -451,6 +444,34 @@ func (c *ClusterConverter) installYurtManagerByHelm() error {
 	return nil
 }
 
+func (c *ClusterConverter) installYurtTunnelByHelm() error {
+	return c.installHelmChart(YurtTunnelChartName)
+}
+
+func (c *ClusterConverter) installHelmChart(chartName string, extraArgs ...string) error {
+	helmPath := filepath.Join(c.RootDir, "bin", "helm")
+	chartPath := filepath.Join(c.RootDir, "charts", chartName)
+
+	args := []string{
+		"install",
+		chartName,
+		chartPath,
+		"--namespace",
+		KubeSystemNamespace,
+	}
+	args = append(args, extraArgs...)
+
+	cmd := exec.Command(helmPath, args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		klog.Errorf("couldn't install %s, %v", chartName, err)
+		klog.Errorf("Helm install output: %s", string(output))
+		return err
+	}
+	klog.Infof("start to install %s, %s", chartName, string(output))
+	return nil
+}
+
 func imageTag(image string) (string, error) {
 	lastColon := strings.LastIndex(image, ":")
 	lastSlash := strings.LastIndex(image, "/")
@@ -463,8 +484,8 @@ func imageTag(image string) (string, error) {
 // print logs of yurt-manager
 func (c *ClusterConverter) dumpYurtManagerLog() {
 	// print logs of yurt-manager
-	podList, logErr := c.ClientSet.CoreV1().Pods("kube-system").List(context.TODO(), metav1.ListOptions{
-		LabelSelector: labels.SelectorFromSet(map[string]string{"app.kubernetes.io/name": "yurt-manager"}).String(),
+	podList, logErr := c.ClientSet.CoreV1().Pods(KubeSystemNamespace).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: labels.SelectorFromSet(map[string]string{"app.kubernetes.io/name": YurtManagerChartName}).String(),
 	})
 	if logErr != nil {
 		klog.Errorf("failed to get yurt-manager pod, %v", logErr)

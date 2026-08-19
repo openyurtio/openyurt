@@ -1,0 +1,46 @@
+# Default values for yurt-tunnel.
+
+server:
+  image:
+    repository: openyurt/yurt-tunnel-server
+    pullPolicy: IfNotPresent
+    tag: ""
+  replicas: 1
+  serviceAccount:
+    create: true
+    name: "yurt-tunnel-server"
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1024Mi
+      ephemeral-storage: 2048Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+      ephemeral-storage: 512Mi
+  nodeSelector:
+    openyurt.io/is-edge-worker: "false"
+
+agent:
+  image:
+    repository: openyurt/yurt-tunnel-agent
+    pullPolicy: IfNotPresent
+    tag: ""
+  serviceAccount:
+    create: true
+    name: "yurt-tunnel-agent"
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1024Mi
+      ephemeral-storage: 2048Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+      ephemeral-storage: 512Mi
+  nodeSelector:
+    openyurt.io/is-edge-worker: "true"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""

@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: yurt-tunnel-agent
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: yurt-tunnel-agent
+spec:
+  selector:
+    matchLabels:
+      app: yurt-tunnel-agent
+  template:
+    metadata:
+      labels:
+        app: yurt-tunnel-agent
+    spec:
+      serviceAccountName: {{ .Values.agent.serviceAccount.name }}
+      hostNetwork: true # NOSONAR
+      nodeSelector:
+{{ toYaml .Values.agent.nodeSelector | indent 8 }}
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: yurt-tunnel-agent
+          image: "{{ .Values.agent.image.repository }}:{{ .Values.agent.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.agent.image.pullPolicy }}
+          command:
+            - yurt-tunnel-agent
+          args:
+            - --tunnelserver-addr=x-tunnel-server-svc.{{ .Release.Namespace }}.svc:10262
+          volumeMounts:
+            - name: k8s-dir
+              mountPath: /etc/kubernetes
+          resources:
+{{ toYaml .Values.agent.resources | indent 12 }}
+      volumes:
+        - name: k8s-dir
+          hostPath:
+            path: /etc/kubernetes
+            type: DirectoryOrCreate
