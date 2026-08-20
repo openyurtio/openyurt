@@ -711,6 +711,79 @@ func TestWithSaTokenSubstituteTenantTokenEmpty(t *testing.T) {
 	}
 }
 
+type stubTenantMgr struct {
+	tenantNs string
+	token    string
+	isSynced bool
+}
+
+func (s *stubTenantMgr) GetTenantNs() string {
+	return s.tenantNs
+}
+
+func (s *stubTenantMgr) GetTenantToken() string {
+	return s.token
+}
+
+func (s *stubTenantMgr) WaitForCacheSync() bool {
+	return s.isSynced
+}
+
+func (s *stubTenantMgr) SetSecret(sec *v1.Secret) {
+}
+
+func TestWithSaTokenSubstituteWithStubTenant(t *testing.T) {
+	kubeSystemToken := "eyJhbGciOiJSUzI1NiIsImtpZCI6InVfTVZpZWIySUFUTzQ4NjlkM0VwTlBRb0xJOWVKUGg1ZXVzbEdaY0ZxckEifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJrdWJlLXN5c3RlbSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VjcmV0Lm5hbWUiOiJkZWZhdWx0LXRva2VuLXF3c2ZtIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQubmFtZSI6ImRlZmF1bHQiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC51aWQiOiI4M2EwMzc4ZS1mY2UxLTRmZDEtOGI1NC00MTE2MjUzYzNkYWMiLCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6a3ViZS1zeXN0ZW06ZGVmYXVsdCJ9.sFpHHg4o88Z0CBJseMBvBeP00bS5isLBmQJpAOiYs3BTkEAD63YLTnDURt0r3I9QjtcP0DZAb5wSOccGChMAFVtxMIoIoZC6Mk4FSB720kawRxFVujNFR1T7uVV_dbpEU-wsxSb9-Y4ILVknuJR9t35x6lUbRkUE9tN1wDy4DH296C3gEGNJf8sbJMERZzOckc82_BamlCzaieo1nX396KafxdQGVIgxstx88hm_rgpjDy3LA1GNsx6x2pqXdzZ8mufQt7sTljRorXUk-rNU6y9wX2RvIMO8tNiPClNkdIpgpmeQo-g7XZivpEeq3VzoeExphRbusgCtO9T9tgU64w"
+	tenantToken := "tenant-token"
+
+	testcases := map[string]struct {
+		tenantToken string
+		isSynced    bool
+		expectToken string
+	}{
+		"non-empty tenant token, header replaced": {
+			tenantToken: tenantToken,
+			isSynced:    true,
+			expectToken: fmt.Sprintf("Bearer %s", tenantToken),
+		},
+		"empty tenant token, original header preserved": {
+			tenantToken: "",
+			isSynced:    true,
+			expectToken: fmt.Sprintf("Bearer %s", kubeSystemToken),
+		},
+		"cache not synced, original header preserved": {
+			tenantToken: tenantToken,
+			isSynced:    false,
+			expectToken: fmt.Sprintf("Bearer %s", kubeSystemToken),
+		},
+	}
+
+	for k, tc := range testcases {
+		t.Run(k, func(t *testing.T) {
+			req, _ := http.NewRequest("GET", "/api/v1/namespaces/kube-system/pods?resourceVersion=1494416105", nil)
+			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", kubeSystemToken))
+
+			tenantMgr := &stubTenantMgr{
+				tenantNs: "myspace",
+				token:    tc.tenantToken,
+				isSynced: tc.isSynced,
+			}
+
+			var gotToken string
+			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				gotToken = req.Header.Get("Authorization")
+			})
+
+			handler = WithSaTokenSubstitute(handler, tenantMgr)
+			handler.ServeHTTP(httptest.NewRecorder(), req)
+
+			if gotToken != tc.expectToken {
+				t.Errorf("expect authorization header %q, but got %q", tc.expectToken, gotToken)
+			}
+		})
+	}
+}
+
 func TestIsListRequestWithNameFieldSelector(t *testing.T) {
 	testcases := map[string]struct {
 		Verb   string
