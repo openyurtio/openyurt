@@ -368,8 +368,13 @@ func WithSaTokenSubstitute(handler http.Handler, tenantMgr tenant.Interface) htt
 					if tenantNs, _, err := serviceaccount.SplitUsername(oldClaim.Subject); err == nil {
 
 						if tenantMgr.GetTenantNs() != tenantNs && tenantNs == "kube-system" && tenantMgr.WaitForCacheSync() { // token is not from tenant's namespace
-							req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tenantMgr.GetTenantToken()))
-							klog.V(2).Infof("replace token, old: %s, new: %s", oldToken, tenantMgr.GetTenantToken())
+							newToken := tenantMgr.GetTenantToken()
+							if newToken != "" {
+								req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", newToken))
+								klog.V(2).Infof("replace token for request %s", util.ReqString(req))
+							} else {
+								klog.Warningf("tenant token is not ready for request %s, keep original token", util.ReqString(req))
+							}
 						}
 
 					} else {
