@@ -247,6 +247,32 @@ spec:
 			}
 			return nil
 		}).WithTimeout(timeout).Should(SatisfyAny(BeNil()))
+
+		Eventually(func() error {
+			flannelPods := &corev1.PodList{}
+			if err := k8sClient.List(ctx, flannelPods, client.InNamespace(FlannelNamespace), client.MatchingFields{"spec.nodeName": nodeName}); err != nil {
+				return err
+			}
+			if len(flannelPods.Items) == 0 {
+				return fmt.Errorf("flannel pod on node %s has not been recreated", nodeName)
+			}
+			for _, pod := range flannelPods.Items {
+				if pod.Status.Phase != corev1.PodRunning {
+					return fmt.Errorf("flannel pod %s on node %s is not running", pod.Name, nodeName)
+				}
+				ready := false
+				for _, condition := range pod.Status.Conditions {
+					if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
+						ready = true
+						break
+					}
+				}
+				if !ready {
+					return fmt.Errorf("flannel pod %s on node %s is not ready", pod.Name, nodeName)
+				}
+			}
+			return nil
+		}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 	}
 
 	BeforeEach(func() {

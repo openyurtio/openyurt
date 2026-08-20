@@ -55,7 +55,7 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: Lint golang code
-        uses: golangci/golangci-lint-action@v9.2.0
+        uses: golangci/golangci-lint-action@v9.3.0
         with:
           version: ${{ env.GOLANGCI_VERSION }}
           args: --verbose
@@ -78,7 +78,7 @@ jobs:
       - name: Publish Unit Test Coverage
         # only publish result in openyurt repo
         if: github.repository == 'openyurtio/openyurt'
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           name: codecov-umbrella
           token: ${{ secrets.CODECOV_TOKEN }}

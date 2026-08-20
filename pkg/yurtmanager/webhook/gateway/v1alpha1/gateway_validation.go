@@ -47,29 +47,17 @@ func (webhook *GatewayHandler) ValidateUpdate(ctx context.Context, oldObj, newOb
 	if !ok {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a Gateway but got a %T", newObj))
 	}
-	oldGw, ok := oldObj.(*v1alpha1.Gateway)
+	_, ok = oldObj.(*v1alpha1.Gateway)
 	if !ok {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a Gateway but got a %T", oldObj))
 	}
 
-	if err := validate(oldGw); err != nil {
-		return nil, err
-	}
-
-	if err := validate(newGw); err != nil {
-		return nil, err
-	}
-
-	return nil, nil
+	return nil, validate(newGw)
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
 func (webhook *GatewayHandler) ValidateDelete(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	gw, ok := obj.(*v1alpha1.Gateway)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a Gateway but got a %T", obj))
-	}
-	return nil, validate(gw)
+	return nil, nil
 }
 
 func validate(g *v1alpha1.Gateway) error {

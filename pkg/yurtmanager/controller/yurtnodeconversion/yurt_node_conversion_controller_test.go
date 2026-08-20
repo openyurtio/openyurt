@@ -67,6 +67,7 @@ func TestReconcileCreateConvertJob(t *testing.T) {
 	assert.Equal(t, "node-a", job.Labels[nodeservant.ConversionNodeLabelKey])
 	assert.Contains(t, job.Spec.Template.Spec.Containers[0].Args[0], "convert")
 	assert.Contains(t, job.Spec.Template.Spec.Containers[0].Args[0], "--nodepool-name=pool-a")
+	assert.Contains(t, job.Finalizers, conversionJobFinalizer)
 }
 
 func TestReconcileConvertSuccess(t *testing.T) {
@@ -175,6 +176,7 @@ func TestReconcileCreateRevertJob(t *testing.T) {
 		Name:      conversionJobName("node-a"),
 	}, job))
 	assert.Equal(t, "/usr/local/bin/entry.sh revert --node-name=node-a", job.Spec.Template.Spec.Containers[0].Args[0])
+	assert.Contains(t, job.Finalizers, conversionJobFinalizer)
 }
 
 func TestReconcileRevertSuccess(t *testing.T) {
@@ -588,6 +590,7 @@ func newConversionJobForTest(t *testing.T, action, nodeName string) *batchv1.Job
 
 	job, err := nodeservant.RenderNodeServantJob(action, renderCtx, nodeName)
 	require.NoError(t, err)
+	job.Finalizers = append(job.Finalizers, conversionJobFinalizer)
 	return job
 }
 

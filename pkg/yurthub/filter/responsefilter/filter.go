@@ -22,6 +22,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"sync"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -46,6 +47,8 @@ type filterReadCloser struct {
 	isList       bool
 	ownerName    string
 	stopCh       <-chan struct{}
+	closeCh      chan struct{}
+	closeOnce    sync.Once
 }
 
 // newFilterReadCloser create an filterReadCloser object
@@ -75,6 +78,7 @@ func newFilterReadCloser(
 		isList:       info.Verb == "list",
 		ownerName:    ownerName,
 		stopCh:       stopCh,
+		closeCh:      make(chan struct{}),
 	}
 
 	if frc.isWatch {
@@ -113,6 +117,9 @@ func (frc *filterReadCloser) Read(p []byte) (int, error) {
 
 // Close will close readers
 func (frc *filterReadCloser) Close() error {
+	frc.closeOnce.Do(func() {
+		close(frc.closeCh)
+	})
 	if frc.filterCache != nil {
 		frc.filterCache.Reset()
 	}
@@ -198,7 +205,13 @@ func (frc *filterReadCloser) streamResponseFilter(rc io.ReadCloser, ch chan *byt
 			klog.Errorf("could not encode resource in StreamResponseFilter of %s, %v", frc.ownerName, err)
 			return err
 		}
-		ch <- buf
+		select {
+		case ch <- buf:
+		case <-frc.stopCh:
+			return nil
+		case <-frc.closeCh:
+			return nil
+		}
 	}
 }
 
