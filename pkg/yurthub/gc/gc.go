@@ -207,12 +207,13 @@ func (m *GCManager) gcEvents(kubeClient clientset.Interface, component string) {
 			continue
 		}
 
-		_, err := kubeClient.CoreV1().Events(ns).Get(context.Background(), name, metav1.GetOptions{})
-		if apierrors.IsNotFound(err) {
-			deletedEvents = append(deletedEvents, key)
-		} else if err != nil {
+		exists, err := eventExistsOnAPIServer(kubeClient, ns, name)
+		if err != nil {
 			klog.Errorf("could not get %s %s event for node(%s), %v", component, key.Key(), m.nodeName, err)
 			break
+		}
+		if !exists {
+			deletedEvents = append(deletedEvents, key)
 		}
 	}
 
@@ -223,4 +224,26 @@ func (m *GCManager) gcEvents(kubeClient clientset.Interface, component string) {
 			klog.Infof("gc events %s successfully", key.Key())
 		}
 	}
+}
+
+// eventExistsOnAPIServer checks whether an event still exists on the apiserver.
+// Cached events use events.k8s.io/v1, so EventsV1 is checked first with a CoreV1 fallback
+// for older clusters that only serve core/v1 Events.
+func eventExistsOnAPIServer(kubeClient clientset.Interface, ns, name string) (bool, error) {
+	_, err := kubeClient.EventsV1().Events(ns).Get(context.Background(), name, metav1.GetOptions{})
+	if err == nil {
+		return true, nil
+	}
+	if !apierrors.IsNotFound(err) {
+		return false, err
+	}
+
+	_, err = kubeClient.CoreV1().Events(ns).Get(context.Background(), name, metav1.GetOptions{})
+	if err == nil {
+		return true, nil
+	}
+	if apierrors.IsNotFound(err) {
+		return false, nil
+	}
+	return false, err
 }
