@@ -19,14 +19,18 @@ package gatewaypublicservice
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -406,4 +410,231 @@ func TestClassifyService_PreservesImmutableFields(t *testing.T) {
 	if svc.Spec.ExternalTrafficPolicy != corev1.ServiceExternalTrafficPolicyTypeLocal {
 		t.Errorf("expected ExternalTrafficPolicy to be Local, got %s", svc.Spec.ExternalTrafficPolicy)
 	}
+}
+
+type createHookClient struct {
+	client.Client
+	createHook func(ctx context.Context, base client.Client, obj client.Object, opts ...client.CreateOption) error
+}
+
+func (c *createHookClient) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
+	if c.createHook != nil {
+		return c.createHook(ctx, c.Client, obj, opts...)
+	}
+	return c.Client.Create(ctx, obj, opts...)
+}
+
+func TestReconcileService_AlreadyExistsReconciledAsUpdate(t *testing.T) {
+	testCases := []struct {
+		name      string
+		resource  string
+		stalePort int32
+	}{
+		{name: "service create collides", resource: "services", stalePort: 9000},
+		{name: "endpoints create collides", resource: "endpoints", stalePort: 9001},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := MockReconcile()
+
+			gateway := &ravenv1beta1.Gateway{}
+			if err := r.Get(context.Background(), types.NamespacedName{Name: MockGateway}, gateway); err != nil {
+				t.Fatalf("failed to get gateway: %v", err)
+			}
+			gateway.Status.ActiveEndpoints = []*ravenv1beta1.Endpoint{
+				{
+					NodeName: Node1Name,
+					Type:     ravenv1beta1.Proxy,
+					Port:     ravenv1beta1.DefaultProxyServerExposedPort,
+					UnderNAT: false,
+				},
+			}
+			if err := r.Update(context.Background(), gateway); err != nil {
+				t.Fatalf("failed to update gateway: %v", err)
+			}
+
+			base := r.Client
+			r.Client = &createHookClient{
+				Client: base,
+				createHook: func(ctx context.Context, c client.Client, obj client.Object, opts ...client.CreateOption) error {
+					isTarget := false
+					switch tc.resource {
+					case "services":
+						_, isTarget = obj.(*corev1.Service)
+					case "endpoints":
+						_, isTarget = obj.(*corev1.Endpoints)
+					}
+					if !isTarget {
+						return c.Create(ctx, obj, opts...)
+					}
+					// simulate a stale object that already exists in the API server,
+					// then let Create collide with it.
+					stale := obj.DeepCopyObject().(client.Object)
+					switch tc.resource {
+					case "services":
+						stale.(*corev1.Service).Spec.Ports[0].Port = tc.stalePort
+					case "endpoints":
+						stale.(*corev1.Endpoints).Subsets[0].Ports[0].Port = tc.stalePort
+					}
+					if err := c.Create(ctx, stale); err != nil {
+						return err
+					}
+					// match the resourceVersion of the collided object so the
+					// follow-up update in the reconcile is accepted by the fake client
+					obj.SetResourceVersion(stale.GetResourceVersion())
+					return apierrs.NewAlreadyExists(schema.GroupResource{Group: "", Resource: tc.resource}, obj.GetName())
+				},
+			}
+
+			if _, err := r.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Name: MockGateway}}); err != nil {
+				t.Fatalf("failed to reconcile service %s: %v", MockGateway, err)
+			}
+
+			// the colliding object must be reconciled as an update, not duplicated
+			byNode := servicesByEndpointNode(t, r)
+			if len(byNode) != 1 || byNode[Node1Name] == "" {
+				t.Fatalf("expected exactly 1 service for active node %q, got %v", Node1Name, byNode)
+			}
+			svcName := byNode[Node1Name]
+
+			svc := &corev1.Service{}
+			if err := r.Get(context.Background(), types.NamespacedName{Namespace: util.WorkingNamespace, Name: svcName}, svc); err != nil {
+				t.Fatalf("failed to get service %q: %v", svcName, err)
+			}
+			if len(svc.Spec.Ports) != 1 || svc.Spec.Ports[0].Port != ravenv1beta1.DefaultProxyServerExposedPort {
+				t.Errorf("expected service port to be reconciled to %d, got %v", ravenv1beta1.DefaultProxyServerExposedPort, svc.Spec.Ports)
+			}
+
+			epsList := &corev1.EndpointsList{}
+			if err := r.List(context.Background(), epsList); err != nil {
+				t.Fatalf("failed to list endpoints: %v", err)
+			}
+			if len(epsList.Items) != 1 {
+				t.Fatalf("expected exactly 1 endpoints for active node %q, got %d", Node1Name, len(epsList.Items))
+			}
+			eps := epsList.Items[0]
+			if eps.GetName() != svcName {
+				t.Errorf("expected endpoints %q to share the service name, got %q", svcName, eps.GetName())
+			}
+			assertEndpointsForService(t, r, svcName, Node1Address)
+			if len(eps.Subsets) != 1 || len(eps.Subsets[0].Ports) != 1 || eps.Subsets[0].Ports[0].Port != ravenv1beta1.DefaultProxyServerExposedPort {
+				t.Errorf("expected endpoints to be reconciled to port %d, got %v", ravenv1beta1.DefaultProxyServerExposedPort, eps.Subsets)
+			}
+		})
+	}
+}
+
+func TestReconcileService_CreateErrorReturned(t *testing.T) {
+	testCases := []struct {
+		name       string
+		resource   string
+		wantErrSub string
+	}{
+		{name: "service create forbidden", resource: "services", wantErrSub: "failed create service for gateway gw-mock"},
+		{name: "endpoints create forbidden", resource: "endpoints", wantErrSub: "failed create endpoints for gateway gw-mock"},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := MockReconcile()
+			base := r.Client
+			r.Client = &createHookClient{
+				Client: base,
+				createHook: func(ctx context.Context, c client.Client, obj client.Object, opts ...client.CreateOption) error {
+					isTarget := false
+					switch tc.resource {
+					case "services":
+						_, isTarget = obj.(*corev1.Service)
+					case "endpoints":
+						_, isTarget = obj.(*corev1.Endpoints)
+					}
+					if isTarget {
+						return apierrs.NewForbidden(schema.GroupResource{Group: "", Resource: tc.resource}, obj.GetName(), nil)
+					}
+					return c.Create(ctx, obj, opts...)
+				},
+			}
+
+			_, err := r.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Name: MockGateway}})
+			if err == nil {
+				t.Fatalf("expected reconcile to fail when %s create is forbidden, got nil error", tc.resource)
+			}
+			if !strings.Contains(err.Error(), tc.wantErrSub) {
+				t.Errorf("expected error to contain %q, got %v", tc.wantErrSub, err)
+			}
+		})
+	}
+}
+
+func TestReconcileService_TunnelActiveEndpoint(t *testing.T) {
+	r := MockReconcile()
+
+	gateway := &ravenv1beta1.Gateway{}
+	if err := r.Get(context.Background(), types.NamespacedName{Name: MockGateway}, gateway); err != nil {
+		t.Fatalf("failed to get gateway: %v", err)
+	}
+	gateway.Status.ActiveEndpoints = []*ravenv1beta1.Endpoint{
+		{
+			NodeName: Node1Name,
+			Type:     ravenv1beta1.Proxy,
+			Port:     ravenv1beta1.DefaultProxyServerExposedPort,
+			UnderNAT: false,
+		},
+		{
+			NodeName: Node1Name,
+			Type:     ravenv1beta1.Tunnel,
+			Port:     ravenv1beta1.DefaultTunnelServerExposedPort,
+			UnderNAT: false,
+		},
+	}
+	if err := r.Update(context.Background(), gateway); err != nil {
+		t.Fatalf("failed to update gateway: %v", err)
+	}
+
+	if _, err := r.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Name: MockGateway}}); err != nil {
+		t.Fatalf("failed to reconcile service %s: %v", MockGateway, err)
+	}
+
+	svcList := &corev1.ServiceList{}
+	if err := r.List(context.Background(), svcList); err != nil {
+		t.Fatalf("failed to list services: %v", err)
+	}
+	proxySvcName, tunnelSvcName := "", ""
+	for _, svc := range svcList.Items {
+		switch svc.Labels[raven.LabelCurrentGatewayType] {
+		case ravenv1beta1.Proxy:
+			if svc.Labels[util.LabelCurrentGatewayEndpoints] == Node1Name {
+				proxySvcName = svc.Name
+			}
+		case ravenv1beta1.Tunnel:
+			if svc.Labels[util.LabelCurrentGatewayEndpoints] == Node1Name {
+				tunnelSvcName = svc.Name
+			}
+		}
+	}
+	if proxySvcName == "" {
+		t.Fatalf("expected a proxy service for node %q, none found", Node1Name)
+	}
+	if tunnelSvcName == "" {
+		t.Fatalf("expected a tunnel service for node %q, none found", Node1Name)
+	}
+	if !strings.HasPrefix(tunnelSvcName, util.GatewayTunnelServiceNamePrefix+"-"+MockGateway+"-"+Node1Name+"-") {
+		t.Errorf("expected tunnel service name to have prefix %q, got %q", util.GatewayTunnelServiceNamePrefix+"-"+MockGateway+"-"+Node1Name+"-", tunnelSvcName)
+	}
+	if !strings.HasPrefix(proxySvcName, util.GatewayProxyServiceNamePrefix+"-"+MockGateway+"-"+Node1Name+"-") {
+		t.Errorf("expected proxy service name to have prefix %q, got %q", util.GatewayProxyServiceNamePrefix+"-"+MockGateway+"-"+Node1Name+"-", proxySvcName)
+	}
+
+	tunnelSvc := &corev1.Service{}
+	if err := r.Get(context.Background(), types.NamespacedName{Namespace: util.WorkingNamespace, Name: tunnelSvcName}, tunnelSvc); err != nil {
+		t.Fatalf("failed to get tunnel service %q: %v", tunnelSvcName, err)
+	}
+	if tunnelSvc.Spec.Type != corev1.ServiceTypeLoadBalancer {
+		t.Errorf("expected tunnel service to be of type LoadBalancer, got %s", tunnelSvc.Spec.Type)
+	}
+	if len(tunnelSvc.Spec.Ports) != 1 || tunnelSvc.Spec.Ports[0].Protocol != corev1.ProtocolUDP || tunnelSvc.Spec.Ports[0].Port != ravenv1beta1.DefaultTunnelServerExposedPort {
+		t.Errorf("expected tunnel service to expose UDP port %d, got %v", ravenv1beta1.DefaultTunnelServerExposedPort, tunnelSvc.Spec.Ports)
+	}
+
+	assertEndpointsForService(t, r, tunnelSvcName, Node1Address)
+	assertEndpointsForService(t, r, proxySvcName, Node1Address)
 }
