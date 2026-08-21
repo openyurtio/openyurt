@@ -706,10 +706,14 @@ func jobAction(job *batchv1.Job) (string, error) {
 	}
 }
 
-// isStaleJobForAction detects that the reused Job still belongs to the previous
-// conversion direction while labels now require the opposite round
+// isStaleJobForAction detects that the existing Job belongs to an action
+// that no longer matches the desiredAction from the node's labels (including
+// when labels are removed and desiredAction is actionNone).
 func isStaleJobForAction(jobAction, desiredAction string) bool {
-	return jobAction != actionNone && desiredAction != actionNone && jobAction != desiredAction
+	if jobAction == actionNone {
+		return false
+	}
+	return jobAction != desiredAction
 }
 
 func isJobFinished(job *batchv1.Job) bool {
