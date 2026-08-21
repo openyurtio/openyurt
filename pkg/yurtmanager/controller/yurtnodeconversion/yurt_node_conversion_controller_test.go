@@ -282,6 +282,51 @@ func TestReconcileDeleteStaleFinishedJob(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestReconcileDeleteStaleFinishedJobWhenNodePoolLabelRemoved(t *testing.T) {
+	// Node has no NodePool label and is not edge-worker (desiredAction is actionNone)
+	node := newNode("node-a", map[string]string{}, false, nil)
+	job := newConversionJobForTest(t, actionConvert, "node-a")
+	job.Status.Conditions = []batchv1.JobCondition{{
+		Type:   batchv1.JobComplete,
+		Status: corev1.ConditionTrue,
+	}}
+	job.Status.Succeeded = 1
+
+	r, cli := newReconcilerForTest(t, node, job)
+
+	result, err := r.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Name: "node-a"}})
+	require.NoError(t, err)
+	assert.True(t, result.Requeue)
+
+	deletedJob := &batchv1.Job{}
+	err = cli.Get(context.Background(), types.NamespacedName{
+		Namespace: r.conversionJobNamespace(),
+		Name:      conversionJobName("node-a"),
+	}, deletedJob)
+	assert.Error(t, err)
+
+	// Node must NOT be labeled as edge worker
+	updatedNode := &corev1.Node{}
+	require.NoError(t, cli.Get(context.Background(), types.NamespacedName{Name: "node-a"}, updatedNode))
+	assert.Empty(t, updatedNode.Labels[projectinfo.GetEdgeWorkerLabelKey()])
+}
+
+func TestReconcileKeepStaleRunningJobWhenNodePoolLabelRemoved(t *testing.T) {
+	// Node has no NodePool label and is not edge-worker (desiredAction is actionNone)
+	node := newNode("node-a", map[string]string{}, false, nil)
+	job := newConversionJobForTest(t, actionConvert, "node-a")
+
+	r, cli := newReconcilerForTest(t, node, job)
+
+	_, err := r.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Name: "node-a"}})
+	require.NoError(t, err)
+
+	// Node must NOT be labeled as edge worker while stale job is still running
+	updatedNode := &corev1.Node{}
+	require.NoError(t, cli.Get(context.Background(), types.NamespacedName{Name: "node-a"}, updatedNode))
+	assert.Empty(t, updatedNode.Labels[projectinfo.GetEdgeWorkerLabelKey()])
+}
+
 func TestReconcileKeepRunningJobInProgress(t *testing.T) {
 	node := newNode("node-a", map[string]string{
 		projectinfo.GetNodePoolLabel(): "pool-a",
