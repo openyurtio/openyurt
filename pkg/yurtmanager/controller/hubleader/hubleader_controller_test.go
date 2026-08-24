@@ -328,6 +328,48 @@ func TestReconcile(t *testing.T) {
 			},
 			expectErr: false,
 		},
+		"mark election strategy with nil LeaderNodeLabelSelector": {
+			pool: &appsv1beta2.NodePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "hangzhou",
+				},
+				Spec: appsv1beta2.NodePoolSpec{
+					Type: appsv1beta2.Edge,
+					Labels: map[string]string{
+						"region": "hangzhou",
+					},
+					LeaderElectionStrategy:  string(appsv1beta2.ElectionStrategyMark),
+					LeaderNodeLabelSelector: nil,
+					LeaderReplicas:          1,
+					EnableLeaderElection:    true,
+				},
+			},
+			expectedNodePool: &appsv1beta2.NodePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "hangzhou",
+				},
+				Spec: appsv1beta2.NodePoolSpec{
+					Type: appsv1beta2.Edge,
+					Labels: map[string]string{
+						"region": "hangzhou",
+					},
+					LeaderElectionStrategy:  string(appsv1beta2.ElectionStrategyMark),
+					LeaderNodeLabelSelector: nil,
+					EnableLeaderElection:    true,
+					LeaderReplicas:          1,
+				},
+				Status: appsv1beta2.NodePoolStatus{
+					LeaderEndpoints: []appsv1beta2.Leader{
+						{
+							NodeName: "ready with internal IP",
+							Address:  "10.0.0.1",
+						},
+					},
+					LeaderNum: 1,
+				},
+			},
+			expectErr: false,
+		},
 		"no potential leaders in hangzhou with mark strategy": {
 			pool: &appsv1beta2.NodePool{
 				ObjectMeta: metav1.ObjectMeta{
