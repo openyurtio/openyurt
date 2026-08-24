@@ -21,10 +21,26 @@ import (
 	"reflect"
 	"testing"
 
+	rbacv1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
+
 	yurthubutil "github.com/openyurtio/openyurt/pkg/yurtadm/util/yurthub"
 )
 
 func TestNodeConverterDo(t *testing.T) {
+	fakeCRB := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: multiplexerClusterRoleBindingName,
+		},
+		Subjects: []rbacv1.Subject{},
+	}
+
+	getKubeClientFunc = func() (kubernetes.Interface, error) {
+		return fake.NewSimpleClientset(fakeCRB), nil
+	}
+
 	oldGetAPIServerAddressFunc := getAPIServerAddressFunc
 	oldInstallYurthubFunc := installYurthubFunc
 	oldRedirectKubeletFunc := redirectKubeletFunc
@@ -94,6 +110,7 @@ func TestNodeConverterDo(t *testing.T) {
 	if !reflect.DeepEqual(gotCfg, wantCfg) {
 		t.Fatalf("unexpected yurthub host config, got=%#v, want=%#v", gotCfg, wantCfg)
 	}
+
 }
 
 func TestNodeConverterStopsWhenInstallFails(t *testing.T) {

@@ -17,8 +17,15 @@ limitations under the License.
 package convert
 
 import (
+	"context"
 	"fmt"
 	"strings"
+
+	rbacv1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/util/retry"
 
 	nodeservant "github.com/openyurtio/openyurt/pkg/node-servant"
 	"github.com/openyurtio/openyurt/pkg/node-servant/components"
@@ -27,6 +34,8 @@ import (
 )
 
 const bootstrapModeKubeletCertificate = "kubeletcertificate"
+
+const multiplexerClusterRoleBindingName = "yurt-hub-multiplexer-binding"
 
 var (
 	getAPIServerAddressFunc = components.GetAPIServerAddress
@@ -38,6 +47,13 @@ var (
 	}
 	restartContainersFunc = func(nodeName string) error {
 		return components.RestartNonPauseContainers(nodeName, conversionJobPodPrefix(nodeName))
+	}
+	getKubeClientFunc = func() (kubernetes.Interface, error) {
+		cfg, err := rest.InClusterConfig()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get in-cluster config: %w", err)
+		}
+		return kubernetes.NewForConfig(cfg)
 	}
 )
 
@@ -69,6 +85,9 @@ func NewConverterWithOptions(o *Options) *nodeConverter {
 // Do is used for the convert job.
 // shall be implemented as idempotent, can execute multiple times with no side effect.
 func (n *nodeConverter) Do() error {
+	if err := n.ensureMultiplexerRBAC(); err != nil {
+		return fmt.Errorf("failed to configure RBAC: %w", err)
+	}
 	if err := n.installYurtHub(); err != nil {
 		return err
 	}
@@ -92,6 +111,43 @@ func (n *nodeConverter) installYurtHub() error {
 	}
 
 	return installYurthubFunc(n.yurthubHostConfig(apiServerAddress))
+}
+
+func (n *nodeConverter) ensureMultiplexerRBAC() error {
+	client, err := getKubeClientFunc()
+	if err != nil {
+		return fmt.Errorf("failed to get Kubernetes client for RBAC setup: %w", err)
+	}
+
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		crb, err := client.RbacV1().ClusterRoleBindings().Get(
+			context.TODO(),
+			multiplexerClusterRoleBindingName,
+			metav1.GetOptions{},
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get ClusterRoleBinding %q: %w", multiplexerClusterRoleBindingName, err)
+		}
+
+		for _, sub := range crb.Subjects {
+			if sub.Kind == rbacv1.GroupKind && sub.Name == "system:nodes" {
+				return nil
+			}
+		}
+
+		crb.Subjects = append(crb.Subjects, rbacv1.Subject{
+			Kind:     rbacv1.GroupKind,
+			Name:     "system:nodes",
+			APIGroup: rbacv1.GroupName,
+		})
+
+		_, err = client.RbacV1().ClusterRoleBindings().Update(
+			context.TODO(),
+			crb,
+			metav1.UpdateOptions{},
+		)
+		return err
+	})
 }
 
 func (n *nodeConverter) convertKubelet() error {
