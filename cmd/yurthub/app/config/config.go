@@ -234,6 +234,15 @@ func Complete(options *options.YurtHubOptions, stopCh <-chan struct{}) (*YurtHub
 		cfg.ConfigManager = configManager
 		cfg.FilterFinder = filterFinder
 
+		// Wire the configuration reload listener so that when the yurt-hub-cfg
+		// ConfigMap changes at runtime, the FilterManager rebuilds its internal state
+		// (nameToObjectFilter and resourceSyncers) to match the new filter settings.
+		configManager.AddListener(func(newCfg map[string]string) {
+			if err := filterFinder.Reset(newCfg); err != nil {
+				klog.Errorf("could not reset filter manager after config reload, %v", err)
+			}
+		})
+
 		if options.EnableDummyIf {
 			klog.V(2).
 				Infof("create dummy network interface %s(%s)", options.HubAgentDummyIfName, options.HubAgentDummyIfIP)

@@ -17,24 +17,32 @@ limitations under the License.
 package autonomy
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	clienttesting "k8s.io/client-go/testing"
 
 	appsv1beta1 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta1"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
 	"github.com/openyurtio/openyurt/pkg/yurthub/configuration"
+	fakechecker "github.com/openyurtio/openyurt/pkg/yurthub/healthchecker/fake"
 	"github.com/openyurtio/openyurt/pkg/yurthub/kubernetes/serializer"
 	proxyutil "github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
+	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
+	hubutil "github.com/openyurtio/openyurt/pkg/yurthub/util"
 )
 
 var (
@@ -208,6 +216,72 @@ func TestTryUpdateNodeConditionsWithNilRequestInfo(t *testing.T) {
 	if err == nil {
 		t.Error("expected error when RequestInfo is nil, got nil")
 	} else if !strings.Contains(err.Error(), "failed to resolve request info") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+func TestUpdateNodeStatusHadError(t *testing.T) {
+	dStorage, err := disk.NewDiskStorage(t.TempDir())
+	if err != nil {
+		t.Fatalf("failed to create disk storage: %v", err)
+	}
+	storageWrapper := cachemanager.NewStorageWrapper(dStorage)
+	serializerM := serializer.NewSerializerManager()
+	fakeSharedInformerFactory := informers.NewSharedInformerFactory(fake.NewSimpleClientset(), 0)
+	configManager := configuration.NewConfigurationManager("node1", fakeSharedInformerFactory)
+	cacheM := cachemanager.NewCacheManager(storageWrapper, serializerM, nil, configManager)
+
+	info := storage.KeyBuildInfo{
+		Group:     "",
+		Component: "kubelet",
+		Version:   "v1",
+		Resources: "nodes",
+		Namespace: "",
+		Name:      "node1",
+	}
+	testNode := &v1.Node{
+		TypeMeta: metav1.TypeMeta{Kind: "Node", APIVersion: "v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node1",
+		},
+	}
+	key, _ := dStorage.KeyFunc(info)
+	storageWrapper.Create(key, testNode)
+
+	serverURL, _ := url.Parse("http://127.0.0.1:8080")
+	fakeChecker := fakechecker.NewFakeChecker(map[*url.URL]bool{serverURL: true})
+	fakeClient := fake.NewSimpleClientset()
+	fakeClient.PrependReactor("*", "*", func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
+		return true, nil, fmt.Errorf("simulated cloud error")
+	})
+
+	fakeTransport := transport.NewFakeTransportManager(http.StatusOK, map[string]kubernetes.Interface{
+		serverURL.String(): fakeClient,
+	})
+
+	ap := NewAutonomyProxy(fakeChecker, fakeTransport, cacheM)
+
+	req, _ := http.NewRequest("GET", "/api/v1/nodes/node1", nil)
+	req.Header.Set("User-Agent", "kubelet")
+	ctx := apirequest.WithRequestInfo(req.Context(), &apirequest.RequestInfo{
+		IsResourceRequest: true,
+		Namespace:         "",
+		Resource:          "nodes",
+		Name:              "node1",
+		Verb:              "get",
+		APIVersion:        "v1",
+	})
+	ctx = hubutil.WithClientComponent(ctx, "kubelet")
+	req = req.WithContext(ctx)
+
+	obj, err := ap.updateNodeStatus(req)
+
+	if obj != nil {
+		t.Errorf("expected nil object on updateNodeStatus failure, got: %#v", obj)
+	}
+	if err == nil {
+		t.Error("expected non-nil error when updateNodeStatus fails after retries, got nil")
+	} else if !strings.Contains(err.Error(), "failed to update node autonomy status after retries") {
 		t.Errorf("unexpected error message: %v", err)
 	}
 }
