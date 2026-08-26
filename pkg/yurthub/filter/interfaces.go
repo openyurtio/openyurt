@@ -58,6 +58,7 @@ type ObjectFilter interface {
 type FilterFinder interface {
 	FindResponseFilter(req *http.Request) (ResponseFilter, bool)
 	FindObjectFilter(req *http.Request) (ObjectFilter, bool)
+	Reset(cmData map[string]string) error
 	ResourceSyncer
 }
 
