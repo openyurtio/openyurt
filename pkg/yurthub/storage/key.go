@@ -22,6 +22,10 @@ type Key interface {
 	Key() string
 }
 
+type KeyFormatValidator interface {
+	Validate() error
+}
+
 type KeyBuildInfo struct {
 	Component string
 	Namespace string

@@ -23,53 +23,89 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 )
 
-type testKey struct {
+// mockValidKey implements storage.Key + storage.KeyFormatValidator.
+type mockValidKey struct {
+	path      string
+	shouldErr bool
+}
+
+func (k mockValidKey) Key() string {
+	return k.path
+}
+
+func (k mockValidKey) Validate() error {
+	if k.shouldErr {
+		return errors.New("bad format")
+	}
+	return nil
+}
+
+// mockPlainKey implements ONLY storage.Key (no Validate).
+// It simulates ClusterInfoKey.
+type mockPlainKey struct {
 	path string
 }
 
-func (k testKey) Key() string {
+func (k mockPlainKey) Key() string {
 	return k.path
 }
 
 func TestValidateKey(t *testing.T) {
-	cases := map[string]struct {
-		key          storage.Key
-		validKeyType interface{}
-		expectedErr  error
-	}{
-		"nil key": {
-			key:          nil,
-			validKeyType: testKey{},
-			expectedErr:  storage.ErrKeyIsEmpty,
-		},
-		"empty key": {
-			key:          testKey{path: ""},
-			validKeyType: testKey{},
-			expectedErr:  storage.ErrKeyIsEmpty,
-		},
-		"unrecognized key type": {
-			key:          testKey{path: "kubelet/pods.v1.core/default/foo"},
-			validKeyType: storage.ClusterInfoKey{},
-			expectedErr:  storage.ErrUnrecognizedKey,
-		},
-		"valid key": {
-			key:          testKey{path: "kubelet/pods.v1.core/default/foo"},
-			validKeyType: testKey{},
-			expectedErr:  nil,
-		},
-	}
+	validType := mockValidKey{}
+	plainType := mockPlainKey{}
 
-	for name, tc := range cases {
-		t.Run(name, func(t *testing.T) {
-			err := ValidateKey(tc.key, tc.validKeyType)
-			if !errors.Is(err, tc.expectedErr) {
-				t.Errorf("ValidateKey() error = %v, want %v", err, tc.expectedErr)
-			}
-		})
-	}
+	t.Run("nil key returns ErrKeyIsEmpty", func(t *testing.T) {
+		err := ValidateKey(nil, validType)
+		if !errors.Is(err, storage.ErrKeyIsEmpty) {
+			t.Errorf("expected ErrKeyIsEmpty, got %v", err)
+		}
+	})
+
+	t.Run("empty key string returns ErrKeyIsEmpty", func(t *testing.T) {
+		err := ValidateKey(mockValidKey{path: ""}, validType)
+		if !errors.Is(err, storage.ErrKeyIsEmpty) {
+			t.Errorf("expected ErrKeyIsEmpty, got %v", err)
+		}
+	})
+
+	t.Run("wrong concrete type returns ErrUnrecognizedKey", func(t *testing.T) {
+		err := ValidateKey(mockPlainKey{path: "x"}, validType)
+		if !errors.Is(err, storage.ErrUnrecognizedKey) {
+			t.Errorf("expected ErrUnrecognizedKey, got %v", err)
+		}
+	})
+
+	t.Run("valid key with good format passes", func(t *testing.T) {
+		err := ValidateKey(
+			mockValidKey{path: "x", shouldErr: false},
+			validType,
+		)
+		if err != nil {
+			t.Errorf("expected nil, got %v", err)
+		}
+	})
+
+	t.Run("valid type but bad internal format is rejected", func(t *testing.T) {
+		err := ValidateKey(
+			mockValidKey{path: "x", shouldErr: true},
+			validType,
+		)
+		if err == nil {
+			t.Errorf("expected format validation error, got nil")
+		}
+	})
+
+	t.Run("key type without Validate still passes", func(t *testing.T) {
+		err := ValidateKey(mockPlainKey{path: "x"}, plainType)
+		if err != nil {
+			t.Errorf("expected nil (no Validate method), got %v", err)
+		}
+	})
 }
 
 func TestValidateKV(t *testing.T) {
+	validKeyType := mockValidKey{}
+
 	cases := map[string]struct {
 		key          storage.Key
 		content      []byte
@@ -79,25 +115,54 @@ func TestValidateKV(t *testing.T) {
 		"nil key": {
 			key:          nil,
 			content:      []byte("data"),
-			validKeyType: testKey{},
+			validKeyType: validKeyType,
+			expectedErr:  storage.ErrKeyIsEmpty,
+		},
+		"empty key": {
+			key:          mockValidKey{path: ""},
+			content:      []byte("data"),
+			validKeyType: validKeyType,
 			expectedErr:  storage.ErrKeyIsEmpty,
 		},
 		"unrecognized key type": {
-			key:          testKey{path: "kubelet/pods.v1.core/default/foo"},
+			key:          mockPlainKey{
+				path: "kubelet/pods.v1.core/default/foo",
+			},
 			content:      []byte("data"),
-			validKeyType: storage.ClusterInfoKey{},
+			validKeyType: validKeyType,
 			expectedErr:  storage.ErrUnrecognizedKey,
 		},
+		"invalid key format": {
+			key: mockValidKey{
+				path:      "kubelet/pods.v1.core/default/foo",
+				shouldErr: true,
+			},
+			content:      []byte("data"),
+			validKeyType: validKeyType,
+			expectedErr:  errors.New("bad format"),
+		},
 		"empty content": {
-			key:          testKey{path: "kubelet/pods.v1.core/default/foo"},
+			key: mockValidKey{
+				path: "kubelet/pods.v1.core/default/foo",
+			},
 			content:      []byte{},
-			validKeyType: testKey{},
+			validKeyType: validKeyType,
 			expectedErr:  storage.ErrKeyHasNoContent,
 		},
 		"valid key and content": {
-			key:          testKey{path: "kubelet/pods.v1.core/default/foo"},
+			key: mockValidKey{
+				path: "kubelet/pods.v1.core/default/foo",
+			},
 			content:      []byte("data"),
-			validKeyType: testKey{},
+			validKeyType: validKeyType,
+			expectedErr:  nil,
+		},
+		"plain key without Validate and valid content": {
+			key: mockPlainKey{
+				path: "kubelet/pods.v1.core/default/foo",
+			},
+			content:      []byte("data"),
+			validKeyType: mockPlainKey{},
 			expectedErr:  nil,
 		},
 	}
@@ -105,8 +170,39 @@ func TestValidateKV(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			err := ValidateKV(tc.key, tc.content, tc.validKeyType)
-			if !errors.Is(err, tc.expectedErr) {
-				t.Errorf("ValidateKV() error = %v, want %v", err, tc.expectedErr)
+
+			if tc.expectedErr != nil {
+				if err == nil {
+					t.Errorf(
+						"ValidateKV() error = nil, want %v",
+						tc.expectedErr,
+					)
+					return
+				}
+
+				if tc.expectedErr.Error() == "bad format" {
+					if err.Error() != tc.expectedErr.Error() {
+						t.Errorf(
+							"ValidateKV() error = %v, want %v",
+							err,
+							tc.expectedErr,
+						)
+					}
+					return
+				}
+
+				if !errors.Is(err, tc.expectedErr) {
+					t.Errorf(
+						"ValidateKV() error = %v, want %v",
+						err,
+						tc.expectedErr,
+					)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("ValidateKV() error = %v, want nil", err)
 			}
 		})
 	}

@@ -22,13 +22,17 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage"
 )
 
-// TODO: should also valid the key format
 func ValidateKey(key storage.Key, validKeyType interface{}) error {
 	if key == nil || key.Key() == "" {
 		return storage.ErrKeyIsEmpty
 	}
 	if reflect.TypeOf(key) != reflect.TypeOf(validKeyType) {
 		return storage.ErrUnrecognizedKey
+	}
+	if v, ok := key.(storage.KeyFormatValidator); ok {
+		if err := v.Validate(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
