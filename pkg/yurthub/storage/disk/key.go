@@ -133,3 +133,34 @@ func ExtractKeyBuildInfo(key storage.Key) (*storage.KeyBuildInfo, error) {
 
 	return buildInfo, nil
 }
+
+func (k storageKey) Validate() error {
+	if k.path == "" {
+		return storage.ErrKeyIsEmpty
+	}
+
+	path := strings.TrimPrefix(k.path, "/")
+	elems := strings.SplitN(path, "/", 3)
+
+	// A non-root key must always have at least
+	// <Component>/<Resource.Version.Group>/<Namespace or Name>
+	if !k.rootKey && len(elems) < 3 {
+		return fmt.Errorf("invalid disk key %s: expect at least component/resource/name, got %d segments", k.path, len(elems))
+	}
+	if len(elems) < 2 {
+		return fmt.Errorf("invalid disk key %s: missing component or resource segment", k.path)
+	}
+	if elems[0] == "" {
+		return fmt.Errorf("invalid disk key %s: empty component", k.path)
+	}
+
+	gvrElems := strings.Split(elems[1], ".")
+	if len(gvrElems) != 1 && len(gvrElems) != 3 {
+		return fmt.Errorf("invalid disk key %s: invalid resource/version/group format %q", k.path, elems[1])
+	}
+	if gvrElems[0] == "" {
+		return fmt.Errorf("invalid disk key %s: empty resource", k.path)
+	}
+
+	return nil
+}
