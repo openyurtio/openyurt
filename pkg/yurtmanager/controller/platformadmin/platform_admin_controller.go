@@ -717,6 +717,9 @@ func (r *ReconcilePlatformAdmin) writeFramework(ctx context.Context, platformAdm
 
 	// Creates configmap on behalf of the framework, which is called only once upon creation
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, cm, func() error {
+		if cm.Data == nil {
+			cm.Data = make(map[string]string)
+		}
 		cm.Data["framework"] = string(data)
 		return controllerutil.SetOwnerReference(platformAdmin, cm, r.Scheme())
 	})
