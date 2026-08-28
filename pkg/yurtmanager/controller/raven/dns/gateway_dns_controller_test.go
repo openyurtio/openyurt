@@ -205,3 +205,33 @@ func TestReconcileDNS_getService(t *testing.T) {
 		assert.Equal(t, ProxyIP, svc.Spec.ClusterIP, "expected correct clusterIP")
 	})
 }
+
+func TestReconcileDNS_ReconcileConfigMapWithoutData(t *testing.T) {
+	// The DNS ConfigMap is read from the cluster, so it may exist without a data
+	// section. buildRavenDNSConfigMap is only called when the ConfigMap is absent,
+	// so that path does not guarantee Data is populated.
+	cm := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      util.RavenProxyNodesConfig,
+			Namespace: util.WorkingNamespace,
+		},
+	}
+	c := fake.NewClientBuilder().WithRuntimeObjects([]runtime.Object{cm, &v1.NodeList{}}...).Build()
+	r := &ReconcileDNS{Client: c, recorder: record.NewFakeRecorder(100)}
+
+	t.Run("reconcile does not panic when the configmap has no data", func(t *testing.T) {
+		res, err := r.Reconcile(context.Background(), reconcile.Request{
+			NamespacedName: types.NamespacedName{Namespace: util.WorkingNamespace, Name: util.RavenProxyNodesConfig},
+		})
+		assert.Equal(t, reconcile.Result{}, res)
+		assert.NoError(t, err)
+
+		updated := &v1.ConfigMap{}
+		err = r.Get(context.TODO(), client.ObjectKey{
+			Namespace: util.WorkingNamespace,
+			Name:      util.RavenProxyNodesConfig,
+		}, updated)
+		assert.NoError(t, err)
+		assert.Contains(t, updated.Data, util.ProxyNodesKey, "expected the dns record key to be populated")
+	})
+}
