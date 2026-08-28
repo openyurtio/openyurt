@@ -89,7 +89,7 @@ func (sp *multiplexerProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	reqScope, err := sp.getReqScope(gvr)
+	reqScope, err := sp.getReqScope(gvr, restStore)
 	if err != nil {
 		util.Err(errors.Wrapf(err, "failed to get req scope"), w, r)
 		return
@@ -101,10 +101,15 @@ func (sp *multiplexerProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	handlers.ListResource(lister, watcher, reqScope, forceWatch, minRequestTimeout).ServeHTTP(w, r)
 }
 
-func (sp *multiplexerProxy) getReqScope(gvr *schema.GroupVersionResource) (*handlers.RequestScope, error) {
+func (sp *multiplexerProxy) getReqScope(gvr *schema.GroupVersionResource, storage rest.Storage) (*handlers.RequestScope, error) {
 	_, fqKindToRegister := sp.restMapperManager.KindFor(*gvr)
 	if fqKindToRegister.Empty() {
 		return nil, fmt.Errorf("gvk is not found for gvr: %v", *gvr)
+	}
+
+	tableConvertor := rest.NewDefaultTableConvertor(gvr.GroupResource())
+	if convertor, ok := storage.(rest.TableConvertor); ok {
+		tableConvertor = convertor
 	}
 
 	return &handlers.RequestScope{
@@ -118,8 +123,7 @@ func (sp *multiplexerProxy) getReqScope(gvr *schema.GroupVersionResource) (*hand
 
 		EquivalentResourceMapper: runtime.NewEquivalentResourceRegistry(),
 
-		// TODO: Check for the interface on storage
-		TableConvertor: rest.NewDefaultTableConvertor(gvr.GroupResource()),
+		TableConvertor: tableConvertor,
 
 		// TODO: This seems wrong for cross-group subresources. It makes an assumption that a subresource and its parent are in the same group version. Revisit this.
 		Resource: *gvr,
