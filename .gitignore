@@ -6,7 +6,12 @@ gopath
 dockerbuild
 hack/cni
 config/demo
-.claude
+# Ignore local Claude Code state (settings.local.json, caches) while keeping the
+# skills shipped with the repository under version control. The directory itself
+# must not be excluded, otherwise git never descends into it and the negation
+# below would have no effect.
+.claude/*
+!.claude/skills/
 
 vendor
 .vscode
