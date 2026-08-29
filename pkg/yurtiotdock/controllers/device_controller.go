@@ -266,6 +266,7 @@ func (r *DeviceReconciler) reconcileDeviceProperties(d *iotv1alpha1.Device, devi
 				continue
 			}
 			klog.Errorf("DeviceName: %s, property read command not found", d.GetName())
+			continue
 		} else {
 			klog.V(4).Infof("DeviceName: %s, got the actual property state, {Name: %s, GetURL: %s, ActualValue: %s}",
 				d.GetName(), propertyName, actualProperty.GetURL, actualProperty.ActualValue)
@@ -273,9 +274,8 @@ func (r *DeviceReconciler) reconcileDeviceProperties(d *iotv1alpha1.Device, devi
 
 		if newDeviceStatus.DeviceProperties == nil {
 			newDeviceStatus.DeviceProperties = map[string]iotv1alpha1.ActualPropertyState{}
-		} else {
-			newDeviceStatus.DeviceProperties[propertyName] = *actualProperty
 		}
+		newDeviceStatus.DeviceProperties[propertyName] = *actualProperty
 
 		// 1.2. set the device attribute in the edge platform to the expected value
 		var actualValue string
