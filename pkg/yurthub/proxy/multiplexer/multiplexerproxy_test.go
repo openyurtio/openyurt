@@ -145,7 +145,7 @@ func TestGetReqScopeReturnsErrorForUnknownGVR(t *testing.T) {
 
 	sp := &multiplexerProxy{restMapperManager: restMapperManager}
 	unknownGVR := schema.GroupVersionResource{Group: "unknown.example.com", Version: "v1", Resource: "widgets"}
-	_, err = sp.getReqScope(&unknownGVR)
+	_, err = sp.getReqScope(&unknownGVR, nil)
 	assert.Error(t, err)
 }
 
