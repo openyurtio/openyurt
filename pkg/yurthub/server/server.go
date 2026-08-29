@@ -33,6 +33,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	ota "github.com/openyurtio/openyurt/pkg/yurthub/otaupdate"
 	otautil "github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/util"
+	proxyutil "github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 )
 
 // RunYurtHubServers is used to start up all servers for yurthub
@@ -53,13 +54,12 @@ func RunYurtHubServers(cfg *config.YurtHubConfiguration,
 
 	// start yurthub proxy servers for forwarding requests to cloud kube-apiserver
 	if cfg.YurtHubProxyServerServing != nil {
-		if err := cfg.YurtHubProxyServerServing.Serve(proxyHandler, 0, stopCh); err != nil {
-			return err
-		}
-	}
-
-	if cfg.YurtHubDummyProxyServerServing != nil {
-		if err := cfg.YurtHubDummyProxyServerServing.Serve(proxyHandler, 0, stopCh); err != nil {
+		// Wrap the proxy handler so that requests arriving on the plain-HTTP port
+		// without an Authorization header are rejected with 401 instead of being
+		// forwarded using YurtHub's own node client certificate.
+		// See: https://github.com/openyurtio/openyurt/issues/2782
+		insecureProxyHandler := proxyutil.WithRequireAuthorization(proxyHandler, cfg.NodeName)
+		if err := cfg.YurtHubProxyServerServing.Serve(insecureProxyHandler, 0, stopCh); err != nil {
 			return err
 		}
 	}
