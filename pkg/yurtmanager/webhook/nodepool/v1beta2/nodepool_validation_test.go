@@ -326,4 +326,15 @@ func TestValidateDelete(t *testing.T) {
 			assert.Equal(t, tc.errcode, int(statusErr.Status().Code), "Expected error code %d, got %v", tc.errcode, err)
 		})
 	}
+
+	t.Run("cancelled context propagates to ValidateDelete", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		_, err := handler.ValidateDelete(ctx, &appsv1beta2.NodePool{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "beijing",
+			},
+		})
+		require.Error(t, err)
+	})
 }
