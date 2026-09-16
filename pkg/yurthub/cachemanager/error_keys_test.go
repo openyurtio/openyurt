@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -133,7 +134,7 @@ func TestCompress(t *testing.T) {
 	}
 	err = wait.PollUntilContextTimeout(context.TODO(), time.Second, time.Minute, false,
 		func(ctx context.Context) (bool, error) {
-			if keys.count == 50 {
+			if keys.errorCount() == 50 {
 				return true, nil
 			}
 			return false, nil
@@ -141,4 +142,63 @@ func TestCompress(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to sync")
 	}
+}
+
+// TestErrorKeysConcurrentAccessRace drives put()/del() (which feed the
+// sync() goroutine started by NewErrorKeys) concurrently with direct calls
+// to rewrite() and with a reader that repeats compress()'s threshold check.
+// This is the same access pattern compress()'s 30-second ticker eventually
+// produces in production; compress() itself isn't invoked here because its
+// hardcoded ticker makes it impractical to trigger from a fast unit test.
+//
+// Before the fix, sync() wrote ek.count/ek.file with no lock at all while
+// compress()'s check read them unlocked and rewrite() reassigned them under
+// only a read lock, so this test reliably tripped `go test -race`.
+func TestErrorKeysConcurrentAccessRace(t *testing.T) {
+	aofPath, err := os.MkdirTemp("", "errorkeys")
+	if err != nil {
+		t.Fatalf("failed to create dir: %v", err)
+	}
+	defer os.RemoveAll(aofPath)
+
+	ek := NewErrorKeys(aofPath)
+	defer ek.queue.ShutDown()
+
+	var workers sync.WaitGroup
+	workers.Add(2)
+
+	go func() {
+		defer workers.Done()
+		for i := 0; i < 500; i++ {
+			key := fmt.Sprintf("key-%d", i)
+			ek.put(key, "value")
+			ek.del(key)
+		}
+	}()
+
+	go func() {
+		defer workers.Done()
+		for i := 0; i < 5; i++ {
+			ek.rewrite()
+		}
+	}()
+
+	stop := make(chan struct{})
+	var reader sync.WaitGroup
+	reader.Add(1)
+	go func() {
+		defer reader.Done()
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+				_ = ek.errorCount() > ek.length()+CompressThresh
+			}
+		}
+	}()
+
+	workers.Wait()
+	close(stop)
+	reader.Wait()
 }
