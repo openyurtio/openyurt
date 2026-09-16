@@ -147,14 +147,12 @@ var labelReconcileInfo = []struct {
 }{
 	{
 		// Reconcile the beta and the stable OS label using the stable label as the source of truth.
-		// TODO(#89477): no earlier than 1.22: drop the beta labels if they differ from the GA labels
 		primaryKey:            v1.LabelOSStable,
 		secondaryKey:          kubeletapis.LabelOS,
 		ensureSecondaryExists: true,
 	},
 	{
 		// Reconcile the beta and the stable arch label using the stable label as the source of truth.
-		// TODO(#89477): no earlier than 1.22: drop the beta labels if they differ from the GA labels
 		primaryKey:            v1.LabelArchStable,
 		secondaryKey:          kubeletapis.LabelArch,
 		ensureSecondaryExists: true,
