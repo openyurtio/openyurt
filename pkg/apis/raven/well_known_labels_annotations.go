@@ -20,4 +20,7 @@ const (
 	// LabelCurrentGateway indicates which gateway the node is currently belonging to
 	LabelCurrentGateway     = "raven.openyurt.io/gateway"
 	LabelCurrentGatewayType = "raven.openyurt.io/gateway-type"
+
+	AnnotationEnableProxy  = "raven.openyurt.io/enable-proxy"
+	AnnotationEnableTunnel = "raven.openyurt.io/enable-tunnel"
 )
