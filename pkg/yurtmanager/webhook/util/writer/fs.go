@@ -30,6 +30,15 @@ import (
 
 const (
 	FsCertWriter = "fs"
+
+	// keyFileMode is the mode used for private key material. Private keys are
+	// readable and writable by the owner only.
+	keyFileMode int32 = 0600
+	// certFileMode is the mode used for certificates, which are public material.
+	certFileMode int32 = 0644
+	// certDirMode is the mode used for the directory holding the certificates. It
+	// matches the mode the atomic writer already applies to its own data directory.
+	certDirMode os.FileMode = 0755
 )
 
 // fsCertWriter provisions the certificate by reading and writing to the filesystem.
@@ -122,8 +131,7 @@ func prepareToWrite(dir string) error {
 	switch {
 	case os.IsNotExist(err):
 		klog.Info("cert directory doesn't exist, creating", "directory", dir)
-		// TODO: figure out if we can reduce the permission. (Now it's 0777)
-		err = os.MkdirAll(dir, 0777)
+		err = os.MkdirAll(dir, certDirMode)
 		if err != nil {
 			return fmt.Errorf("can't create dir: %v", dir)
 		}
@@ -197,31 +205,30 @@ func ensureExist(dir string) error {
 }
 
 func certToProjectionMap(cert *generator.Artifacts) map[string]atomic.FileProjection {
-	// TODO: figure out if we can reduce the permission. (Now it's 0666)
 	return map[string]atomic.FileProjection{
 		CAKeyName: {
 			Data: cert.CAKey,
-			Mode: 0666,
+			Mode: keyFileMode,
 		},
 		CACertName: {
 			Data: cert.CACert,
-			Mode: 0666,
+			Mode: certFileMode,
 		},
 		ServerCertName: {
 			Data: cert.Cert,
-			Mode: 0666,
+			Mode: certFileMode,
 		},
 		ServerCertName2: {
 			Data: cert.Cert,
-			Mode: 0666,
+			Mode: certFileMode,
 		},
 		ServerKeyName: {
 			Data: cert.Key,
-			Mode: 0666,
+			Mode: keyFileMode,
 		},
 		ServerKeyName2: {
 			Data: cert.Key,
-			Mode: 0666,
+			Mode: keyFileMode,
 		},
 	}
 }
