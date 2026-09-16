@@ -73,12 +73,12 @@ func (webhook *NodePoolHandler) ValidateUpdate(
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
-func (webhook *NodePoolHandler) ValidateDelete(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (webhook *NodePoolHandler) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	np, ok := obj.(*appsv1beta2.NodePool)
 	if !ok {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a NodePool but got a %T", obj))
 	}
-	if allErrs := validateNodePoolDeletion(webhook.Client, np); len(allErrs) > 0 {
+	if allErrs := validateNodePoolDeletion(ctx, webhook.Client, np); len(allErrs) > 0 {
 		return nil, apierrors.NewForbidden(
 			appsv1beta2.GroupVersion.WithResource("nodepools").GroupResource(),
 			np.Name,
@@ -177,10 +177,16 @@ func validateNodePoolSpecUpdate(spec, oldSpec *appsv1beta2.NodePoolSpec) field.E
 
 // validateNodePoolDeletion validate the nodepool deletion event, which prevents
 // the default-nodepool from being deleted
-func validateNodePoolDeletion(cli client.Client, np *appsv1beta2.NodePool) field.ErrorList {
+func validateNodePoolDeletion(ctx context.Context, cli client.Client, np *appsv1beta2.NodePool) field.ErrorList {
+	if err := ctx.Err(); err != nil {
+		return field.ErrorList([]*field.Error{
+			field.Forbidden(field.NewPath("metadata").Child("name"),
+				fmt.Sprintf("context error: %v", err))})
+	}
+
 	nodes := corev1.NodeList{}
 
-	if err := cli.List(context.TODO(), &nodes, client.MatchingLabels(map[string]string{projectinfo.GetNodePoolLabel(): np.Name})); err != nil {
+	if err := cli.List(ctx, &nodes, client.MatchingLabels(map[string]string{projectinfo.GetNodePoolLabel(): np.Name})); err != nil {
 		return field.ErrorList([]*field.Error{
 			field.Forbidden(field.NewPath("metadata").Child("name"),
 				"could not get nodes associated to the pool")})
