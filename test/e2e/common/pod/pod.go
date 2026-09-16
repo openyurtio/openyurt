@@ -24,6 +24,7 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
@@ -50,6 +51,9 @@ func GetPod(c clientset.Interface, ns, podName string) (pod *apiv1.Pod, err erro
 
 func GetPodBySelectorOnNode(c clientset.Interface, ns string, label labels.Selector, nodeName string) (*apiv1.Pod, error) {
 	options := metav1.ListOptions{LabelSelector: label.String()}
+	if nodeName != "" {
+		options.FieldSelector = fields.OneTermEqualSelector("spec.nodeName", nodeName).String()
+	}
 	pods, err := c.CoreV1().Pods(ns).List(context.Background(), options)
 	if err != nil {
 		return nil, err

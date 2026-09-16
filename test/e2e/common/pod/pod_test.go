@@ -18,6 +18,7 @@ package pod
 
 import (
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -76,5 +77,27 @@ func TestGetPodBySelectorOnNodeNotFound(t *testing.T) {
 
 	if _, err := GetPodBySelectorOnNode(client, "default", labelSelector, "openyurt-e2e-test-worker2"); err == nil {
 		t.Fatal("expected GetPodBySelectorOnNode to fail when no pod matches the node")
+	}
+}
+
+func TestGetPodBySelectorOnNodeSkipsTerminatingPods(t *testing.T) {
+	now := metav1.NewTime(time.Now())
+	labelSelector := labels.SelectorFromSet(labels.Set(map[string]string{"app": "yurt-e2e-test-nginx"}))
+	client := clientsetfake.NewSimpleClientset(
+		&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "terminating-worker2-pod",
+				Namespace:         "default",
+				Labels:            map[string]string{"app": "yurt-e2e-test-nginx"},
+				DeletionTimestamp: &now,
+			},
+			Spec: corev1.PodSpec{
+				NodeName: "openyurt-e2e-test-worker2",
+			},
+		},
+	)
+
+	if _, err := GetPodBySelectorOnNode(client, "default", labelSelector, "openyurt-e2e-test-worker2"); err == nil {
+		t.Fatal("expected GetPodBySelectorOnNode to ignore terminating pods on the target node")
 	}
 }
