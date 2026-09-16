@@ -18,7 +18,10 @@ package components
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
+
+	testingexec "k8s.io/utils/exec/testing"
 )
 
 func TestDetectCRISocketFromKubeletArgsPrefersConfiguredRuntimeEndpoint(t *testing.T) {
@@ -152,5 +155,52 @@ func fakeIsSocket(paths ...string) func(string) bool {
 	return func(path string) bool {
 		_, ok := known[path]
 		return ok
+	}
+}
+
+func TestNewContainerRuntimeForImageLookPathFallback(t *testing.T) {
+	// 1. Tool found immediately
+	exec1 := &testingexec.FakeExec{
+		LookPathFunc: func(cmd string) (string, error) {
+			return "/usr/bin/crictl", nil
+		},
+	}
+	_, err := NewContainerRuntimeForImage(exec1, "/run/containerd/containerd.sock")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	// 2. Tool not found at all
+	exec2 := &testingexec.FakeExec{
+		LookPathFunc: func(cmd string) (string, error) {
+			return "", os.ErrNotExist
+		},
+	}
+	_, err = NewContainerRuntimeForImage(exec2, "/run/containerd/containerd.sock")
+	if err == nil {
+		t.Fatal("expected error when tool is totally missing, got nil")
+	}
+
+	// 3. Tool found on second try (fallback simulation)
+	calls := 0
+	exec3 := &testingexec.FakeExec{
+		LookPathFunc: func(cmd string) (string, error) {
+			calls++
+			if calls == 1 {
+				return "", os.ErrNotExist
+			}
+			return "/opt/bin/crictl", nil
+		},
+	}
+
+	// Create a dummy file in a temp dir to mock os.Stat succeeding for the fallback loop
+	tmpDir := t.TempDir()
+	os.MkdirAll(filepath.Join(tmpDir, "usr", "local", "bin"), 0755)
+	dummyPath := filepath.Join(tmpDir, "usr", "local", "bin", "crictl")
+	os.WriteFile(dummyPath, []byte("executable"), 0755)
+
+	_, err = NewContainerRuntimeForImage(exec3, "/run/containerd/containerd.sock")
+	if err != nil {
+		t.Fatalf("expected fallback LookPath to succeed, got %v", err)
 	}
 }
