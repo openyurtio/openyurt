@@ -225,7 +225,10 @@ func (ek *errorKeys) recover() {
 	for scanner.Scan() {
 		bytes := scanner.Bytes()
 		var operation operation
-		json.Unmarshal(bytes, &operation)
+		if err := json.Unmarshal(bytes, &operation); err != nil {
+			klog.Errorf("failed to unmarshal AOF operation, skipping corrupted entry: %v", err)
+			continue
+		}
 		operations = append(operations, operation)
 	}
 	for _, op := range operations {
