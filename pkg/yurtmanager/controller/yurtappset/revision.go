@@ -149,7 +149,7 @@ func cleanRevisions(cli client.Client, yas *appsbetav1.YurtAppSet, revisions []*
 				continue
 			}
 			if err := cli.Delete(context.TODO(), revisions[i]); err != nil {
-				klog.Errorf("YurtAppSet [%s/%s] delete expired revision %s error: %v", yas.GetNamespace(), yas.GetName(), yas.Status.CurrentRevision, err)
+				klog.Errorf("YurtAppSet [%s/%s] delete expired revision %s error: %v", yas.GetNamespace(), yas.GetName(), revisions[i].GetName(), err)
 				return err
 			}
 			klog.Infof("YurtAppSet [%s/%s] delete expired revision %s", yas.GetNamespace(), yas.GetName(), revisions[i].Name)
