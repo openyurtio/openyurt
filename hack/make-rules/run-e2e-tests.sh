@@ -94,20 +94,39 @@ function run_e2e_edge_autonomy_tests {
     $YURT_ROOT/test/e2e/e2e.test e2e --ginkgo.label-filter='edge-autonomy' --ginkgo.v
 }
 
+function wait_for_static_pod_ready {
+    local nodeName=$1
+    local timeoutSeconds=$2
+    local podName=""
+    local endTime=$((SECONDS + timeoutSeconds))
+
+    while [ $SECONDS -lt $endTime ]; do
+        podName=$(kubectl get pods -n default -l app=yurt-e2e-test-nginx --field-selector spec.nodeName=${nodeName} -o jsonpath='{.items[0].metadata.name}')
+        if [ -n "${podName}" ]; then
+            kubectl wait -n default --for=condition=Ready pod/${podName} --timeout=${timeoutSeconds}s
+            return 0
+        fi
+        sleep 2
+    done
+
+    echo "Timed out waiting ${timeoutSeconds}s for yurt-e2e-test-nginx static pod on node ${nodeName}" >&2
+    return 1
+}
+
 function prepare_autonomy_tests {
 #   run a nginx pod as static pod on each edge node
     local nginxYamlPath="${YURT_ROOT}/test/e2e/yamls/nginx.yaml"
     local nginxServiceYamlPath="${YURT_ROOT}/test/e2e/yamls/nginxService.yaml"
     local staticPodPath="/etc/kubernetes/manifests/"
-    local POD_CREATE_TIMEOUT=240s
+    local POD_CREATE_TIMEOUT_SECONDS=240
 
 #   create service for nginx pods
     kubectl apply -f $nginxServiceYamlPath
     docker cp $nginxYamlPath $edgeNodeContainerName:$staticPodPath
     docker cp $nginxYamlPath $edgeNodeContainer2Name:$staticPodPath
 #   wait confirm that nginx is running
-    kubectl wait --for=condition=Ready pod/yurt-e2e-test-nginx-openyurt-e2e-test-worker --timeout=${POD_CREATE_TIMEOUT}
-    kubectl wait --for=condition=Ready pod/yurt-e2e-test-nginx-openyurt-e2e-test-worker2 --timeout=${POD_CREATE_TIMEOUT}
+    wait_for_static_pod_ready $edgeNodeContainerName ${POD_CREATE_TIMEOUT_SECONDS}
+    wait_for_static_pod_ready $edgeNodeContainer2Name ${POD_CREATE_TIMEOUT_SECONDS}
 
 #   set up dig in edge node1 
 #    docker exec -t $edgeNodeContainerName /bin/bash -c "sed -i -r 's/([a-z]{2}.)?archive.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list"
