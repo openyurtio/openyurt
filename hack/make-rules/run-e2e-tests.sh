@@ -106,8 +106,8 @@ function prepare_autonomy_tests {
     docker cp $nginxYamlPath $edgeNodeContainerName:$staticPodPath
     docker cp $nginxYamlPath $edgeNodeContainer2Name:$staticPodPath
 #   wait confirm that nginx is running
-    kubectl wait --for=condition=Ready pod/yurt-e2e-test-nginx-openyurt-e2e-test-worker --timeout=${POD_CREATE_TIMEOUT}
-    kubectl wait --for=condition=Ready pod/yurt-e2e-test-nginx-openyurt-e2e-test-worker2 --timeout=${POD_CREATE_TIMEOUT}
+    kubectl wait --for=condition=Ready pod -l app=yurt-e2e-test-nginx --field-selector spec.nodeName=${edgeNodeContainerName} --timeout=${POD_CREATE_TIMEOUT}
+    kubectl wait --for=condition=Ready pod -l app=yurt-e2e-test-nginx --field-selector spec.nodeName=${edgeNodeContainer2Name} --timeout=${POD_CREATE_TIMEOUT}
 
 #   set up dig in edge node1 
 #    docker exec -t $edgeNodeContainerName /bin/bash -c "sed -i -r 's/([a-z]{2}.)?archive.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list"

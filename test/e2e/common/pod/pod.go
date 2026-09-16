@@ -48,6 +48,22 @@ func GetPod(c clientset.Interface, ns, podName string) (pod *apiv1.Pod, err erro
 	return c.CoreV1().Pods(ns).Get(context.Background(), podName, metav1.GetOptions{})
 }
 
+func GetPodBySelectorOnNode(c clientset.Interface, ns string, label labels.Selector, nodeName string) (*apiv1.Pod, error) {
+	options := metav1.ListOptions{LabelSelector: label.String()}
+	pods, err := c.CoreV1().Pods(ns).List(context.Background(), options)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range pods.Items {
+		if pods.Items[i].DeletionTimestamp == nil && (nodeName == "" || pods.Items[i].Spec.NodeName == nodeName) {
+			return &pods.Items[i], nil
+		}
+	}
+
+	return nil, fmt.Errorf("no active pod found in namespace %s for selector %q on node %q", ns, label.String(), nodeName)
+}
+
 func DeletePod(c clientset.Interface, ns, podName string) (err error) {
 	return c.CoreV1().Pods(ns).Delete(context.Background(), podName, metav1.DeleteOptions{})
 }
