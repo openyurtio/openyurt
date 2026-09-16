@@ -426,6 +426,12 @@ func (r *ReconcileYurtStaticSet) syncConfigMap(instance *appsv1alpha1.YurtStatic
 
 	// if the hash value in the annotation of the cm does not match the latest hash, then update the data in the cm
 	if cm.Annotations[StaticPodHashAnnotation] != hash {
+		if cm.Annotations == nil {
+			cm.Annotations = make(map[string]string)
+		}
+		if cm.Data == nil {
+			cm.Data = make(map[string]string)
+		}
 		cm.Annotations[StaticPodHashAnnotation] = hash
 		cm.Data[instance.Spec.StaticPodManifest] = data
 
