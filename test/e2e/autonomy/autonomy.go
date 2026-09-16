@@ -82,11 +82,20 @@ var _ = ginkgo.Describe("edge-autonomy"+constants.YurtE2ENamespaceName, ginkgo.O
 			checkCmd := `docker exec -t openyurt-e2e-test-worker /bin/bash -c "crictl ps | grep ` + flannelContainerID + ` || true"`
 			checkBytes, _ := exec.Command("/bin/bash", "-c", checkCmd).CombinedOutput()
 			if strings.Contains(string(checkBytes), flannelContainerID) {
-				// Container is running, stop it
-				_, err = exec.Command("/bin/bash", "-c", "docker exec -t openyurt-e2e-test-worker /bin/bash -c 'crictl stop "+flannelContainerID+"'").CombinedOutput()
-				if err != nil {
-					klog.Errorf("fail to stop flannel, continuing test: %v", err)
+				// Container is running, stop it with retries
+				stopCmd := fmt.Sprintf("docker exec -t openyurt-e2e-test-worker /bin/bash -c 'crictl stop %s'", flannelContainerID)
+				var stopErr error
+				for attempt := 1; attempt <= 3; attempt++ {
+					_, stopErr = exec.Command("/bin/bash", "-c", stopCmd).CombinedOutput()
+					if stopErr == nil {
+						break
+					}
+					klog.Errorf("attempt %d/3 fail to stop flannel: %v", attempt, stopErr)
+					if attempt < 3 {
+						time.Sleep(1 * time.Second)
+					}
 				}
+				gomega.Expect(stopErr).NotTo(gomega.HaveOccurred(), fmt.Sprintf("fail to stop flannel after 3 attempts: %v", stopErr))
 			}
 			// If container is already stopped, that's acceptable - continue with test
 
