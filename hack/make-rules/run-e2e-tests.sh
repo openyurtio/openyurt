@@ -102,10 +102,11 @@ function wait_for_static_pod_ready {
     local defaultNamespace="default"
 
     for (( elapsed=0; elapsed<podCreateTimeoutSeconds; elapsed+=2 )); do
-        podName=$(kubectl get pods -n "${defaultNamespace}" -l "${labelSelector}" --field-selector "spec.nodeName=${nodeName}" -o jsonpath='{.items[0].metadata.name}')
+        podName=$(kubectl get pods -n "${defaultNamespace}" -l "${labelSelector}" --field-selector "spec.nodeName=${nodeName}" -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.nodeName}{"\t"}{.metadata.deletionTimestamp}{"\n"}{end}' | awk -v nodeName="${nodeName}" '$2 == nodeName && NF == 2 {print $1; exit}')
         if [ -n "${podName}" ]; then
-            kubectl wait -n "${defaultNamespace}" --for=condition=Ready "pod/${podName}" --timeout="$((podCreateTimeoutSeconds-elapsed))s"
-            return 0
+            if kubectl wait -n "${defaultNamespace}" --for=condition=Ready "pod/${podName}" --timeout="$((podCreateTimeoutSeconds-elapsed))s"; then
+                return 0
+            fi
         fi
 
         sleep 2
