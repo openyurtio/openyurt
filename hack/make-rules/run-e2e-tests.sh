@@ -103,7 +103,7 @@ function wait_for_static_pod_ready {
     while [ $SECONDS -lt $endTime ]; do
         podName=$(kubectl get pods -n default -l app=yurt-e2e-test-nginx --field-selector spec.nodeName=${nodeName} -o jsonpath='{.items[0].metadata.name}')
         if [ -n "${podName}" ]; then
-            kubectl wait --for=condition=Ready pod/${podName} --timeout=${timeoutSeconds}s
+            kubectl wait -n default --for=condition=Ready pod/${podName} --timeout=${timeoutSeconds}s
             return 0
         fi
         sleep 2
