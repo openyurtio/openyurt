@@ -72,6 +72,11 @@ type CacheResult struct {
 	Msg    string
 }
 
+type pendingWrite struct {
+	key storage.Key
+	obj runtime.Object
+}
+
 type cacheManager struct {
 	sync.RWMutex
 	storage               StorageWrapper
@@ -80,6 +85,7 @@ type cacheManager struct {
 	configManager         *configuration.Manager
 	listSelectorCollector map[storage.Key]string
 	inMemoryCache         map[string]runtime.Object
+	pendingWrites         []pendingWrite
 }
 
 // NewCacheManager creates a new CacheManager
@@ -96,6 +102,7 @@ func NewCacheManager(
 		configManager:         configManager,
 		listSelectorCollector: make(map[storage.Key]string),
 		inMemoryCache:         make(map[string]runtime.Object),
+		pendingWrites:         make([]pendingWrite, 0),
 	}
 	return cm
 }
@@ -556,11 +563,35 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 			objs[key] = items[i]
 		}
 		// if no objects in cloud cluster(objs is empty), it will clean the old files in the path of rootkey
-		return cm.storage.ReplaceComponentList(comp, schema.GroupVersionResource{
+		err := cm.storage.ReplaceComponentList(comp, schema.GroupVersionResource{
 			Group:    info.APIGroup,
 			Version:  info.APIVersion,
 			Resource: info.Resource,
 		}, info.Namespace, objs)
+		if err != nil {
+			return err
+		}
+		cm.drainPendingWrites()
+		return nil
+	}
+}
+
+func (cm *cacheManager) enqueuePendingWrite(key storage.Key, obj runtime.Object) {
+	cm.Lock()
+	defer cm.Unlock()
+	cm.pendingWrites = append(cm.pendingWrites, pendingWrite{key: key, obj: obj})
+}
+
+func (cm *cacheManager) drainPendingWrites() {
+	cm.Lock()
+	writes := cm.pendingWrites
+	cm.pendingWrites = nil
+	cm.Unlock()
+
+	for _, pw := range writes {
+		if err := cm.storeObjectWithKey(pw.key, pw.obj); err != nil {
+			klog.Errorf("could not store pending object %s, %v", pw.key.Key(), err)
+		}
 	}
 }
 
@@ -679,12 +710,14 @@ func (cm *cacheManager) storeObjectWithKey(key storage.Key, obj runtime.Object) 
 		if err := cm.storage.Create(key, obj); err != nil {
 			if errors.Is(err, storage.ErrStorageAccessConflict) {
 				klog.V(2).Infof("skip to cache obj because key(%s) is under processing", key.Key())
+				cm.enqueuePendingWrite(key, obj)
 				return nil
 			}
 			return fmt.Errorf("could not create obj of key: %s, %v", key.Key(), err)
 		}
 	case errors.Is(err, storage.ErrStorageAccessConflict):
 		klog.V(2).Infof("skip to cache watch event because key(%s) is under processing", key.Key())
+		cm.enqueuePendingWrite(key, obj)
 		return nil
 	default:
 		return fmt.Errorf("could not store obj with rv %s of key: %s, %v", newRv, key.Key(), err)

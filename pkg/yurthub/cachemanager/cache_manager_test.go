@@ -19,6 +19,7 @@ package cachemanager
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -26,6 +27,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -3454,4 +3456,189 @@ func TestIsListRequestWithNameFieldSelector(t *testing.T) {
 	}
 }
 
-// TODO: in-memory cache unit tests
+type blockingStorageWrapper struct {
+	StorageWrapper
+	replaceStartedCh chan struct{}
+	replaceUnblockCh chan struct{}
+	replaceConflict  sync.Mutex
+	inConflict       bool
+}
+
+func (b *blockingStorageWrapper) ReplaceComponentList(component string, gvr schema.GroupVersionResource, namespace string, objs map[storage.Key]runtime.Object) error {
+	b.replaceStartedCh <- struct{}{}
+	<-b.replaceUnblockCh
+	return b.StorageWrapper.ReplaceComponentList(component, gvr, namespace, objs)
+}
+
+func (b *blockingStorageWrapper) Update(key storage.Key, obj runtime.Object, rv uint64) (runtime.Object, error) {
+	b.replaceConflict.Lock()
+	conflict := b.inConflict
+	b.replaceConflict.Unlock()
+	if conflict {
+		return nil, storage.ErrStorageAccessConflict
+	}
+	return b.StorageWrapper.Update(key, obj, rv)
+}
+
+func (b *blockingStorageWrapper) Create(key storage.Key, obj runtime.Object) error {
+	b.replaceConflict.Lock()
+	conflict := b.inConflict
+	b.replaceConflict.Unlock()
+	if conflict {
+		return storage.ErrStorageAccessConflict
+	}
+	return b.StorageWrapper.Create(key, obj)
+}
+
+func TestWatchDuringReplaceComponentListDrainsPendingWritesToDisk(t *testing.T) {
+	tempDir := t.TempDir()
+	dStorage, err := disk.NewDiskStorage(tempDir)
+	if err != nil {
+		t.Fatalf("could not create disk storage, %v", err)
+	}
+	sWrapper := NewStorageWrapper(dStorage)
+
+	bWrapper := &blockingStorageWrapper{
+		StorageWrapper:   sWrapper,
+		replaceStartedCh: make(chan struct{}),
+		replaceUnblockCh: make(chan struct{}),
+	}
+
+	fakeSharedInformerFactory := informers.NewSharedInformerFactory(fake.NewSimpleClientset(), 0)
+	configManager := configuration.NewConfigurationManager("node1", fakeSharedInformerFactory)
+	serializerM := serializer.NewSerializerManager()
+	restMapperM, err := hubmeta.NewRESTMapperManager(tempDir)
+	if err != nil {
+		t.Fatalf("could not create RESTMapperManager, %v", err)
+	}
+
+	cm := NewCacheManager(bWrapper, serializerM, restMapperM, configManager)
+
+	pod1 := &v1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Pod",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "pod1",
+			Namespace:       "default",
+			ResourceVersion: "1",
+		},
+		Spec: v1.PodSpec{
+			NodeName: "node1",
+		},
+	}
+	podList := &v1.PodList{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "PodList",
+		},
+		ListMeta: metav1.ListMeta{
+			ResourceVersion: "1",
+		},
+		Items: []v1.Pod{*pod1},
+	}
+
+	podListBytes, err := json.Marshal(podList)
+	if err != nil {
+		t.Fatalf("failed to marshal pod list, %v", err)
+	}
+
+	pod2 := &v1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Pod",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "pod2",
+			Namespace:       "default",
+			ResourceVersion: "2",
+		},
+		Spec: v1.PodSpec{
+			NodeName: "node1",
+		},
+	}
+
+	resolver := newTestRequestInfoResolver()
+
+	var listErr error
+	var listWg sync.WaitGroup
+	listWg.Add(1)
+	go func() {
+		defer listWg.Done()
+		req, _ := http.NewRequest("GET", "/api/v1/namespaces/default/pods", nil)
+		req.Header.Set("User-Agent", "kubelet")
+		req.Header.Set("Accept", "application/json")
+		req.RemoteAddr = "127.0.0.1"
+
+		var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := util.WithRespContentType(r.Context(), "application/json")
+			r = r.WithContext(ctx)
+			listErr = cm.CacheResponse(r, io.NopCloser(bytes.NewReader(podListBytes)), nil)
+		})
+		handler = proxyutil.WithListRequestSelector(handler)
+		handler = proxyutil.WithRequestClientComponent(handler)
+		handler = filters.WithRequestInfo(handler, resolver)
+		handler.ServeHTTP(httptest.NewRecorder(), req)
+	}()
+
+	<-bWrapper.replaceStartedCh
+	bWrapper.replaceConflict.Lock()
+	bWrapper.inConflict = true
+	bWrapper.replaceConflict.Unlock()
+
+	s := serializerM.CreateSerializer("application/json", "", "v1", "pods")
+	eventBuf := new(bytes.Buffer)
+	if _, err := s.WatchEncode(eventBuf, &watch.Event{
+		Type:   watch.Added,
+		Object: pod2,
+	}); err != nil {
+		t.Fatalf("failed to encode watch event, %v", err)
+	}
+
+	watchReq, _ := http.NewRequest("GET", "/api/v1/namespaces/default/pods?watch=true", nil)
+	watchReq.Header.Set("User-Agent", "kubelet")
+	watchReq.Header.Set("Accept", "application/json")
+	watchReq.RemoteAddr = "127.0.0.1"
+
+	var watchErr error
+	var watchHandler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := util.WithRespContentType(r.Context(), "application/json")
+		r = r.WithContext(ctx)
+		watchErr = cm.CacheResponse(r, io.NopCloser(bytes.NewReader(eventBuf.Bytes())), nil)
+	})
+	watchHandler = proxyutil.WithRequestClientComponent(watchHandler)
+	watchHandler = filters.WithRequestInfo(watchHandler, resolver)
+	watchHandler.ServeHTTP(httptest.NewRecorder(), watchReq)
+
+	bWrapper.replaceConflict.Lock()
+	bWrapper.inConflict = false
+	bWrapper.replaceConflict.Unlock()
+	bWrapper.replaceUnblockCh <- struct{}{}
+
+	listWg.Wait()
+
+	if listErr != nil {
+		t.Errorf("unexpected list error: %v", listErr)
+	}
+	if watchErr != nil && !errors.Is(watchErr, io.EOF) {
+		t.Errorf("unexpected watch error: %v", watchErr)
+	}
+
+	pod2Key, err := sWrapper.KeyFunc(storage.KeyBuildInfo{
+		Component: "kubelet",
+		Namespace: "default",
+		Name:      "pod2",
+		Resources: "pods",
+		Group:     "",
+		Version:   "v1",
+	})
+	if err != nil {
+		t.Fatalf("failed to build key for pod2, %v", err)
+	}
+
+	diskObj, err := sWrapper.Get(pod2Key)
+	if err != nil || diskObj == nil {
+		t.Fatalf("expected pod2 to be present on disk, but got err: %v, obj: %v", err, diskObj)
+	}
+}
