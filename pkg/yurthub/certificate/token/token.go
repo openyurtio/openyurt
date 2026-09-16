@@ -28,6 +28,7 @@ import (
 
 	"github.com/pkg/errors"
 	certificatesv1 "k8s.io/api/certificates/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/authentication/user"
 	clientset "k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
@@ -374,27 +375,47 @@ func (ycm *yurtHubClientCertManager) generateCertClientFn(current *tls.Certifica
 func (ycm *yurtHubClientCertManager) retrieveHubBootstrapConfig(joinToken string) (*clientcmdapi.Config, error) {
 	// retrieve bootstrap config info from cluster-info configmap by bootstrap token
 	serverAddr := findActiveRemoteServer(ycm.remoteServers).Host
-	if cfg, err := token.RetrieveValidatedConfigInfo(ycm.client, &token.BootstrapData{
-		ServerAddr:   serverAddr,
-		JoinToken:    joinToken,
-		CaCertHashes: ycm.caCertHashes,
-	}); err != nil {
-		return nil, errors.Wrap(err, "couldn't retrieve bootstrap config info")
-	} else {
-		clusterInfo := kubeconfigutil.GetClusterFromKubeConfig(cfg)
-		tlsBootstrapCfg := kubeconfigutil.CreateWithToken(
-			fmt.Sprintf("https://%s", serverAddr),
-			"kubernetes",
-			"token-bootstrap-client",
-			clusterInfo.CertificateAuthorityData,
-			joinToken,
-		)
-		if err = kubeconfigutil.WriteToDisk(ycm.getBootstrapConfFile(), tlsBootstrapCfg); err != nil {
-			return nil, errors.Wrap(err, "couldn't save bootstrap-hub.conf to disk")
-		}
 
-		return tlsBootstrapCfg, nil
+	var cfg *clientcmdapi.Config
+	var err error
+
+	backoff := wait.Backoff{
+		Duration: 2 * time.Second,
+		Factor:   2.0,
+		Jitter:   1.0,
+		Steps:    5,
 	}
+
+	err = wait.ExponentialBackoff(backoff, func() (bool, error) {
+		cfg, err = token.RetrieveValidatedConfigInfo(ycm.client, &token.BootstrapData{
+			ServerAddr:   serverAddr,
+			JoinToken:    joinToken,
+			CaCertHashes: ycm.caCertHashes,
+		})
+		if err != nil {
+			klog.Errorf("failed to retrieve bootstrap config info, will retry: %v", err)
+			return false, nil
+		}
+		return true, nil
+	})
+
+	if err != nil {
+		return nil, errors.Wrap(err, "couldn't retrieve bootstrap config info after backoff")
+	}
+
+	clusterInfo := kubeconfigutil.GetClusterFromKubeConfig(cfg)
+	tlsBootstrapCfg := kubeconfigutil.CreateWithToken(
+		fmt.Sprintf("https://%s", serverAddr),
+		"kubernetes",
+		"token-bootstrap-client",
+		clusterInfo.CertificateAuthorityData,
+		joinToken,
+	)
+	if err = kubeconfigutil.WriteToDisk(ycm.getBootstrapConfFile(), tlsBootstrapCfg); err != nil {
+		return nil, errors.Wrap(err, "couldn't save bootstrap-hub.conf to disk")
+	}
+
+	return tlsBootstrapCfg, nil
 }
 
 func createHubConfig(tlsBootstrapCfg *clientcmdapi.Config, pemPath string) *clientcmdapi.Config {
