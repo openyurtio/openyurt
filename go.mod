@@ -21,7 +21,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.42.1
-	github.com/opencontainers/selinux v1.13.1
+	github.com/opencontainers/selinux v1.15.1
 	github.com/pkg/errors v0.9.1
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
 	github.com/projectcalico/api v0.0.0-20240708202104-e3f70b269c2c
