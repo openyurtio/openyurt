@@ -48,6 +48,26 @@ func GetPod(c clientset.Interface, ns, podName string) (pod *apiv1.Pod, err erro
 	return c.CoreV1().Pods(ns).Get(context.Background(), podName, metav1.GetOptions{})
 }
 
+func GetPodByLabelAndNode(c clientset.Interface, ns string, label labels.Selector, nodeName string) (*apiv1.Pod, error) {
+	options := metav1.ListOptions{LabelSelector: label.String()}
+	pods, err := c.CoreV1().Pods(ns).List(context.Background(), options)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range pods.Items {
+		pod := &pods.Items[i]
+		if pod.DeletionTimestamp != nil {
+			continue
+		}
+		if pod.Spec.NodeName == nodeName {
+			return pod, nil
+		}
+	}
+
+	return nil, fmt.Errorf("failed to find pod with label %q on node %s in namespace %s", label.String(), nodeName, ns)
+}
+
 func DeletePod(c clientset.Interface, ns, podName string) (err error) {
 	return c.CoreV1().Pods(ns).Delete(context.Background(), podName, metav1.DeleteOptions{})
 }
