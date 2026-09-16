@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,6 +50,9 @@ func Register(filters *base.Filters) {
 }
 
 type nodePortIsolationFilter struct {
+	// nodePoolLock guards nodePoolName, because a single filter instance is shared
+	// by all of the goroutines that filter responses concurrently.
+	nodePoolLock sync.RWMutex
 	nodePoolName string
 	nodeName     string
 	client       kubernetes.Interface
@@ -63,6 +67,8 @@ func (nif *nodePortIsolationFilter) Name() string {
 }
 
 func (nif *nodePortIsolationFilter) SetNodePoolName(name string) error {
+	nif.nodePoolLock.Lock()
+	defer nif.nodePoolLock.Unlock()
 	nif.nodePoolName = name
 	return nil
 }
@@ -109,15 +115,23 @@ func (nif *nodePortIsolationFilter) isolateNodePortService(svc *v1.Service) *v1.
 }
 
 func (nif *nodePortIsolationFilter) resolveNodePoolName() string {
-	if len(nif.nodePoolName) != 0 {
-		return nif.nodePoolName
+	nif.nodePoolLock.RLock()
+	nodePoolName := nif.nodePoolName
+	nif.nodePoolLock.RUnlock()
+	if len(nodePoolName) != 0 {
+		return nodePoolName
 	}
 
+	// the node is fetched without holding the lock, so that a slow kube-apiserver
+	// can not block the other goroutines that are filtering responses.
 	node, err := nif.client.CoreV1().Nodes().Get(context.Background(), nif.nodeName, metav1.GetOptions{})
 	if err != nil {
 		klog.Warningf("skip isolateNodePortService filter, could not get node(%s), %v", nif.nodeName, err)
-		return nif.nodePoolName
+		return ""
 	}
+
+	nif.nodePoolLock.Lock()
+	defer nif.nodePoolLock.Unlock()
 	nif.nodePoolName = node.Labels[projectinfo.GetNodePoolLabel()]
 	return nif.nodePoolName
 }
