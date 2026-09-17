@@ -452,8 +452,22 @@ func prepareServerServing(
 	}).ApplyTo(&cfg.YurtHubSecureProxyServerServing); err != nil {
 		return err
 	}
-	cfg.YurtHubSecureProxyServerServing.ClientCA = caBundleProvider
-	cfg.YurtHubSecureProxyServerServing.DisableHTTP2 = true
+	// SecureServingOptions.ApplyTo returns without populating the SecureServingInfo when
+	// BindPort is not positive, which is how a port is switched off. Guard the follow-up
+	// configuration so that disabling the port leaves the listener unconfigured instead of
+	// panicking here, which would stop yurthub from starting at all.
+	//
+	// This one is warned about rather than merely noted: in-cluster clients reach the
+	// apiserver through the secure proxy port, so switching it off keeps the node running
+	// while silently cutting every pod's access to the apiserver. Not starting at all was
+	// worse, but this must not be a quiet consequence of a stray flag either.
+	if cfg.YurtHubSecureProxyServerServing != nil {
+		cfg.YurtHubSecureProxyServerServing.ClientCA = caBundleProvider
+		cfg.YurtHubSecureProxyServerServing.DisableHTTP2 = true
+	} else {
+		klog.Warningf("secure proxy port is %d, so the secure proxy server is disabled and in-cluster clients will not be able to reach the apiserver through %s",
+			options.YurtHubProxySecurePort, projectinfo.GetHubName())
+	}
 
 	if err := (&apiserveroptions.SecureServingOptions{
 		BindAddress: net.ParseIP(options.NodeIP),
@@ -468,8 +482,12 @@ func prepareServerServing(
 	}).ApplyTo(&cfg.YurtHubMultiplexerServerServing); err != nil {
 		return err
 	}
-	cfg.YurtHubMultiplexerServerServing.ClientCA = caBundleProvider
-	cfg.YurtHubMultiplexerServerServing.DisableHTTP2 = true
+	if cfg.YurtHubMultiplexerServerServing != nil {
+		cfg.YurtHubMultiplexerServerServing.ClientCA = caBundleProvider
+		cfg.YurtHubMultiplexerServerServing.DisableHTTP2 = true
+	} else {
+		klog.Infof("multiplexer port is %d, so the multiplexer server is disabled", options.PortForMultiplexer)
+	}
 	return nil
 }
 
