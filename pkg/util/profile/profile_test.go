@@ -68,3 +68,24 @@ func TestRedirectTo(t *testing.T) {
 		t.Errorf("expected redirect to %s, got %s", destination, location)
 	}
 }
+
+func TestGetPprofHandlersTrace(t *testing.T) {
+	router := http.NewServeMux()
+	for path, handler := range GetPprofHandlers() {
+		router.Handle(path, handler)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/debug/pprof/trace?seconds=0.001", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("trace returned status %d: %s", rr.Code, rr.Body.String())
+	}
+	if got := rr.Header().Get("Content-Type"); got != "application/octet-stream" {
+		t.Errorf("trace content type = %q, want application/octet-stream", got)
+	}
+	if rr.Body.Len() == 0 {
+		t.Error("trace response is empty")
+	}
+}
