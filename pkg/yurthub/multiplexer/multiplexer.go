@@ -57,8 +57,7 @@ type MultiplexerManager struct {
 	multiplexerUserAgent    string
 
 	sync.RWMutex
-	lazyLoadedGVRCache            map[string]Interface
-	lazyLoadedGVRCacheDestroyFunc map[string]func()
+
 	sourceForPoolScopeMetadata    string
 	poolScopeMetadata             sets.Set[string]
 	leaderAddresses               sets.Set[string]
@@ -81,8 +80,7 @@ func NewRequestMultiplexerManager(
 		healthCheckerForLeaders:       healthCheckerForLeaders,
 		loadBalancerForLeaders:        cfg.LoadBalancerForLeaderHub,
 		poolScopeMetadata:             poolScopeMetadata,
-		lazyLoadedGVRCache:            make(map[string]Interface),
-		lazyLoadedGVRCacheDestroyFunc: make(map[string]func()),
+
 		leaderAddresses:               sets.New[string](),
 		portForLeaderHub:              cfg.PortForMultiplexer,
 		nodeName:                      cfg.NodeName,
@@ -193,11 +191,7 @@ func (m *MultiplexerManager) updateLeaderHubConfiguration(cm *corev1.ConfigMap) 
 	m.sourceForPoolScopeMetadata = newSource
 	m.poolScopeMetadata = newPoolScopeMetadata
 	for _, gvrStr := range deletedPoolScopeMetadata.UnsortedList() {
-		if destroyFunc, ok := m.lazyLoadedGVRCacheDestroyFunc[gvrStr]; ok {
-			destroyFunc()
-		}
-		delete(m.lazyLoadedGVRCacheDestroyFunc, gvrStr)
-		delete(m.lazyLoadedGVRCache, gvrStr)
+		m.filterStoreManager.DeleteFilterStore(gvrStr)
 	}
 }
 
