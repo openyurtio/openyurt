@@ -534,6 +534,9 @@ func compareAndUpdatePoolServiceLabel(
 	desireLabels map[string]string,
 ) bool {
 	isUpdate := false
+	if currentPoolService.Labels == nil {
+		currentPoolService.Labels = make(map[string]string)
+	}
 	if currentPoolService.Labels[network.LabelServiceName] != desireLabels[network.LabelServiceName] {
 		currentPoolService.Labels[network.LabelServiceName] = desireLabels[network.LabelServiceName]
 		isUpdate = true
