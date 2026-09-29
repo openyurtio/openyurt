@@ -225,3 +225,48 @@ func TestWriteFrameworkWithNilConfigMapData(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Contains(t, updatedConfigMap.Data, "framework")
 }
+
+func TestReconcileWithoutConditionsSet(t *testing.T) {
+	platformAdmin := &iotv1beta1.PlatformAdmin{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-platformadmin",
+			Namespace: "default",
+		},
+		Spec: iotv1beta1.PlatformAdminSpec{
+			Version:   "minnesota",
+			NodePools: []string{"pool1"},
+		},
+	}
+
+	// A framework configmap with invalid data makes readFramework fail,
+	// so reconcileNormal returns before any condition is set.
+	brokenConfigMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      FrameworkName,
+			Namespace: "default",
+		},
+		Data: map[string]string{"framework": "{invalid"},
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(fakeScheme).WithObjects(platformAdmin, brokenConfigMap).WithStatusSubresource(platformAdmin).Build()
+
+	r := &ReconcilePlatformAdmin{
+		Client:         fakeClient,
+		scheme:         fakeScheme,
+		recorder:       &fakeEventRecorder{},
+		yamlSerializer: kjson.NewSerializerWithOptions(kjson.DefaultMetaFactory, scheme.Scheme, scheme.Scheme, kjson.SerializerOptions{Yaml: true, Pretty: true}),
+		Configuration:  *config.NewPlatformAdminControllerConfiguration(),
+	}
+
+	assert.NotPanics(t, func() {
+		_, err := r.Reconcile(context.TODO(), reconcile.Request{
+			NamespacedName: client.ObjectKey{Name: "test-platformadmin", Namespace: "default"},
+		})
+		assert.Error(t, err)
+	})
+
+	updated := &iotv1beta1.PlatformAdmin{}
+	err := fakeClient.Get(context.TODO(), client.ObjectKey{Name: "test-platformadmin", Namespace: "default"}, updated)
+	assert.NoError(t, err)
+	assert.False(t, updated.Status.Ready)
+}
