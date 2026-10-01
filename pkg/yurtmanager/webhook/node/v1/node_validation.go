@@ -46,7 +46,7 @@ func (webhook *NodeHandler) ValidateUpdate(ctx context.Context, oldObj, newObj r
 	}
 	oldNode, ok := oldObj.(*v1.Node)
 	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a Node} but got a %T", oldObj))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a Node but got a %T", oldObj))
 	}
 
 	username := requestUsernameFromContext(ctx)
