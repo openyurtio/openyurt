@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -626,3 +627,15 @@ func endpoint2Pod2(isUp bool) discovery.Endpoint {
 		},
 	}
 }
+
+func TestDefault_InvalidObjectType(t *testing.T) {
+	scheme := runtime.NewScheme()
+	err := clientgoscheme.AddToScheme(scheme)
+	require.NoError(t, err)
+
+	w := &v1.EndpointSliceHandler{Client: fakeclient.NewClientBuilder().WithScheme(scheme).Build()}
+	err = w.Default(context.TODO(), &corev1.Node{})
+	require.Error(t, err)
+	require.True(t, apierrors.IsBadRequest(err), "expected BadRequest error, got %v", err)
+}
+

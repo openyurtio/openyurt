@@ -34,7 +34,7 @@ import (
 func (webhook *EndpointSliceHandler) Default(ctx context.Context, obj runtime.Object) error {
 	endpoints, ok := obj.(*discovery.EndpointSlice)
 	if !ok {
-		apierrors.NewBadRequest(fmt.Sprintf("expected an EndpointSlice object but got %T", obj))
+		return apierrors.NewBadRequest(fmt.Sprintf("expected an EndpointSlice object but got %T", obj))
 	}
 
 	return remapAutonomyEndpoints(ctx, webhook.Client, endpoints)
