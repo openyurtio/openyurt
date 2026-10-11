@@ -88,7 +88,7 @@ func newReconciler(c *config.CompletedConfig, mgr manager.Manager) reconcile.Rec
 		Client: yurtClient.GetClientByControllerNameOrDie(mgr, names.YurtAppSetController),
 		scheme: mgr.GetScheme(),
 
-		recorder: mgr.GetEventRecorderFor(names.YurtAppSetController),
+		recorder: mgr.GetEventRecorderFor(names.YurtAppSetController), //nolint:staticcheck // SA1019: GetEventRecorderFor (core/v1 events) is deprecated in controller-runtime v0.24 but still supported
 		workloadManagers: map[workloadmanager.TemplateType]workloadmanager.WorkloadManager{
 			workloadmanager.DeploymentTemplateType: &workloadmanager.DeploymentManager{
 				Client: yurtClient.GetClientByControllerNameOrDie(mgr, names.YurtAppSetController),

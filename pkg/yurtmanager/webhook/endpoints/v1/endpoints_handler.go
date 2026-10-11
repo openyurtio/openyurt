@@ -47,4 +47,5 @@ func (webhook *EndpointsHandler) SetupWebhookWithManager(mgr ctrl.Manager) (stri
 
 // +kubebuilder:webhook:path=/mutate-core-openyurt-io-v1-endpoints,mutating=true,failurePolicy=ignore,sideEffects=None,admissionReviewVersions=v1,groups="",resources=endpoints,verbs=update,versions=v1,name=mutate.core.v1.endpoints.openyurt.io
 
+//nolint:staticcheck // SA1019: CustomDefaulter is deprecated in controller-runtime v0.24 but still supported
 var _ webhook.CustomDefaulter = &EndpointsHandler{}

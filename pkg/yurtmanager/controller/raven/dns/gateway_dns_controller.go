@@ -69,7 +69,7 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileDNS{
 		Client:   yurtClient.GetClientByControllerNameOrDie(mgr, names.GatewayDNSController),
 		scheme:   mgr.GetScheme(),
-		recorder: mgr.GetEventRecorderFor(names.GatewayDNSController),
+		recorder: mgr.GetEventRecorderFor(names.GatewayDNSController), //nolint:staticcheck // SA1019: GetEventRecorderFor (core/v1 events) is deprecated in controller-runtime v0.24 but still supported
 	}
 }
 

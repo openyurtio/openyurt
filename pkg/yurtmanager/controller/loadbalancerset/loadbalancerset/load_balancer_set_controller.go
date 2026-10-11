@@ -99,7 +99,7 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) *Reconcile
 		Client:        yurtClient.GetClientByControllerNameOrDie(mgr, names.LoadBalancerSetController),
 		scheme:        mgr.GetScheme(),
 		mapper:        mgr.GetRESTMapper(),
-		recorder:      mgr.GetEventRecorderFor(names.LoadBalancerSetController),
+		recorder:      mgr.GetEventRecorderFor(names.LoadBalancerSetController), //nolint:staticcheck // SA1019: GetEventRecorderFor (core/v1 events) is deprecated in controller-runtime v0.24 but still supported
 		configuration: c.ComponentConfig.LoadBalancerSetController,
 	}
 }

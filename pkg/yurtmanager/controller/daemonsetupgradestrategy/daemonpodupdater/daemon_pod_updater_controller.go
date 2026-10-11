@@ -91,7 +91,7 @@ func newReconciler(_ *appconfig.CompletedConfig, mgr manager.Manager) (reconcile
 	r := &ReconcileDaemonpodupdater{
 		Client:       yurtClient.GetClientByControllerNameOrDie(mgr, names.DaemonPodUpdaterController),
 		expectations: k8sutil.NewControllerExpectations(),
-		recorder:     mgr.GetEventRecorderFor(names.DaemonPodUpdaterController),
+		recorder:     mgr.GetEventRecorderFor(names.DaemonPodUpdaterController), //nolint:staticcheck // SA1019: GetEventRecorderFor (core/v1 events) is deprecated in controller-runtime v0.24 but still supported
 	}
 
 	c, err := kubernetes.NewForConfig(yurtClient.GetConfigByControllerNameOrDie(mgr, names.DaemonPodUpdaterController))

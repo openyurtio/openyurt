@@ -146,7 +146,7 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 	return &ReconcileYurtStaticSet{
 		Client:        yurtClient.GetClientByControllerNameOrDie(mgr, names.YurtStaticSetController),
 		scheme:        mgr.GetScheme(),
-		recorder:      mgr.GetEventRecorderFor(names.YurtStaticSetController),
+		recorder:      mgr.GetEventRecorderFor(names.YurtStaticSetController), //nolint:staticcheck // SA1019: GetEventRecorderFor (core/v1 events) is deprecated in controller-runtime v0.24 but still supported
 		Configuration: c.ComponentConfig.YurtStaticSetController,
 	}
 }

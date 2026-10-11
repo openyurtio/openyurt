@@ -56,7 +56,7 @@ func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manage
 
 	reconciler := &ReconcileHubLeader{
 		Client:        yurtClient.GetClientByControllerNameOrDie(mgr, names.HubLeaderController),
-		recorder:      mgr.GetEventRecorderFor(names.HubLeaderController),
+		recorder:      mgr.GetEventRecorderFor(names.HubLeaderController), //nolint:staticcheck // SA1019: GetEventRecorderFor (core/v1 events) is deprecated in controller-runtime v0.24 but still supported
 		Configuration: cfg.ComponentConfig.HubLeaderController,
 	}
 
