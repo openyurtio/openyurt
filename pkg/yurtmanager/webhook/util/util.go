@@ -141,7 +141,7 @@ func RegisterWebhook(mgr ctrl.Manager, obj runtime.Object, webhook interface{}) 
 
 	if ok {
 		if !isAlreadyHandled(mgr, "/convert") {
-			mgr.GetWebhookServer().Register("/convert", conversion.NewWebhookHandler(mgr.GetScheme()))
+			mgr.GetWebhookServer().Register("/convert", conversion.NewWebhookHandler(mgr.GetScheme(), mgr.GetConverterRegistry()))
 		}
 		klog.InfoS("Conversion webhook enabled", "GVK", gvk)
 	}

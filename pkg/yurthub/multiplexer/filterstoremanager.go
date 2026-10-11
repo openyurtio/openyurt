@@ -93,9 +93,9 @@ func (fsm *filterStoreManager) genericStore(gvr *schema.GroupVersionResource) (*
 	return &registry.Store{
 		NewFunc:     newFunc,
 		NewListFunc: newListFunc,
-		KeyFunc:     resourceKeyFunc,
+		KeyFunc:     newResourceKeyFunc(resourcePrefix(gvr)),
 		DestroyFunc: destroy,
-		KeyRootFunc: resourceKeyRootFunc,
+		KeyRootFunc: newResourceKeyRootFunc(resourcePrefix(gvr)),
 		Storage: registry.DryRunnableStorage{
 			Storage: cache,
 		},
@@ -127,7 +127,7 @@ func (fsm *filterStoreManager) newResourceCacheConfig(gvr *schema.GroupVersionRe
 	newFunc, newListFunc := fsm.getNewFunc(gvk, listGVK)
 
 	return &resourceCacheConfig{
-		KeyFunc:      keyFunc,
+		KeyFunc:      newKeyFunc(resourcePrefix(gvr)),
 		NewFunc:      newFunc,
 		NewListFunc:  newListFunc,
 		GetAttrsFunc: GetAttrsFunc(gvr),

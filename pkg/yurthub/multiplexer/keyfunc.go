@@ -22,41 +22,58 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 )
 
-var keyFunc = func(obj runtime.Object) (string, error) {
-	accessor, err := meta.Accessor(obj)
-	if err != nil {
-		return "", err
+// resourcePrefix is the key prefix all objects of a resource live under in the
+// multiplexer cache. Since k8s v1.36 the cacher requires a non-empty prefix and
+// rejects keys that don't start with it, so every key below is built on top of it.
+func resourcePrefix(gvr *schema.GroupVersionResource) string {
+	if len(gvr.Group) == 0 {
+		return "/" + gvr.Resource
 	}
-
-	name := accessor.GetName()
-	if len(name) == 0 {
-		return "", apierrors.NewBadRequest("Name parameter required.")
-	}
-
-	ns := accessor.GetNamespace()
-	if len(ns) == 0 {
-		return "/" + name, nil
-	}
-	return "/" + ns + "/" + name, nil
+	return "/" + gvr.Group + "/" + gvr.Resource
 }
 
-func resourceKeyRootFunc(ctx context.Context) string {
-	ns, ok := genericapirequest.NamespaceFrom(ctx)
-	if ok {
-		return "/" + ns
-	}
+func newKeyFunc(prefix string) func(obj runtime.Object) (string, error) {
+	return func(obj runtime.Object) (string, error) {
+		accessor, err := meta.Accessor(obj)
+		if err != nil {
+			return "", err
+		}
 
-	return "/"
+		name := accessor.GetName()
+		if len(name) == 0 {
+			return "", apierrors.NewBadRequest("Name parameter required.")
+		}
+
+		ns := accessor.GetNamespace()
+		if len(ns) == 0 {
+			return prefix + "/" + name, nil
+		}
+		return prefix + "/" + ns + "/" + name, nil
+	}
 }
 
-func resourceKeyFunc(ctx context.Context, name string) (string, error) {
-	ns, ok := genericapirequest.NamespaceFrom(ctx)
-	if ok {
-		return "/" + ns + "/" + name, nil
-	}
+func newResourceKeyRootFunc(prefix string) func(ctx context.Context) string {
+	return func(ctx context.Context) string {
+		ns, ok := genericapirequest.NamespaceFrom(ctx)
+		if ok {
+			return prefix + "/" + ns
+		}
 
-	return "/" + name, nil
+		return prefix
+	}
+}
+
+func newResourceKeyFunc(prefix string) func(ctx context.Context, name string) (string, error) {
+	return func(ctx context.Context, name string) (string, error) {
+		ns, ok := genericapirequest.NamespaceFrom(ctx)
+		if ok {
+			return prefix + "/" + ns + "/" + name, nil
+		}
+
+		return prefix + "/" + name, nil
+	}
 }

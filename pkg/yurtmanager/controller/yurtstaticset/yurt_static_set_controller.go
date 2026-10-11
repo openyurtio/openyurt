@@ -336,7 +336,7 @@ func (r *ReconcileYurtStaticSet) Reconcile(_ context.Context, request reconcile.
 	if err != nil {
 		// The worker pod is failed, then some irreparable failure has occurred. Just stop reconcile and update status
 		if strings.Contains(err.Error(), "could not init worker pod") {
-			r.recorder.Eventf(instance, corev1.EventTypeWarning, "YurtStaticSet Upgrade Failed", err.Error())
+			r.recorder.Event(instance, corev1.EventTypeWarning, "YurtStaticSet Upgrade Failed", err.Error())
 			klog.Error(err.Error())
 			return reconcile.Result{}, err
 		}

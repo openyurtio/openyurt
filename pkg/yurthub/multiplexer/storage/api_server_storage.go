@@ -96,10 +96,6 @@ func (rs *apiServerStorage) GuaranteedUpdate(
 	return ErrNoSupport
 }
 
-func (rs *apiServerStorage) Count(key string) (int64, error) {
-	return 0, ErrNoSupport
-}
-
 func (rs *apiServerStorage) ReadinessCheck() error {
 	return ErrNoSupport
 }
@@ -120,10 +116,18 @@ func (rs *apiServerStorage) GetCurrentResourceVersion(ctx context.Context) (uint
 	return 0, ErrNoSupport
 }
 
-// SetKeysFunc allows to override the function used to get keys from storage.
-// This is required by storage.Interface in k8s v1.34+
-func (rs *apiServerStorage) SetKeysFunc(storage.KeysFunc) {
-	// No-op for API server storage
+// IsWatchListSemanticsUnSupported tells the cacher's reflector to fall back to a plain
+// list+watch. Watch below doesn't forward SendInitialEvents to the apiserver, so the
+// streaming watch-list (on by default in client-go since k8s v1.35) would never sync.
+func (rs *apiServerStorage) IsWatchListSemanticsUnSupported() bool {
+	return true
+}
+
+// EnableResourceSizeEstimation is called by the cacher when the SizeBasedListCostEstimate
+// feature gate is on (default since k8s v1.34). It must not return an error, otherwise
+// cacher creation fails, so it's a no-op here.
+func (rs *apiServerStorage) EnableResourceSizeEstimation(storage.KeysFunc) error {
+	return nil
 }
 
 // Stats returns storage statistics.

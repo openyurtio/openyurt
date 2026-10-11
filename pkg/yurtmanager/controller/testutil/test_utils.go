@@ -316,6 +316,12 @@ func (m *ClientWrapper) DeleteAllOf(ctx context.Context, obj ctlclient.Object, o
 
 // Patch patches the given obj in the Kubernetes cluster. obj must be a
 // struct pointer so that obj can be updated with the content returned by the Server.
+func (m *ClientWrapper) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...ctlclient.ApplyOption) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.delegateClient.Apply(ctx, obj, opts...)
+}
+
 func (m *ClientWrapper) Patch(ctx context.Context, obj ctlclient.Object, patch ctlclient.Patch, opts ...ctlclient.PatchOption) error {
 	m.Lock()
 	defer m.Unlock()
@@ -431,6 +437,10 @@ func (sw *fakeStatusWriter) Patch(ctx context.Context, obj ctlclient.Object, pat
 
 func (sw *fakeStatusWriter) Create(ctx context.Context, obj ctlclient.Object, subResource ctlclient.Object, opts ...ctlclient.SubResourceCreateOption) error {
 	return nil
+}
+
+func (sw *fakeStatusWriter) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...ctlclient.SubResourceApplyOption) error {
+	return sw.statusWriter.Apply(ctx, obj, opts...)
 }
 
 func (m *ClientWrapper) SubResource(subResource string) ctlclient.SubResourceClient {
