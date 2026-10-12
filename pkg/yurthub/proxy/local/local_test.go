@@ -100,6 +100,26 @@ func TestServeHTTPForWatch(t *testing.T) {
 			code:      http.StatusOK,
 			ceil:      61 * time.Second,
 		},
+		// A WatchList client must be rejected rather than parked on a 200 that never
+		// carries the initial-events-end bookmark, so client-go falls back to list+watch.
+		// The tight ceiling is the point: it must fail fast, not hang for the timeout.
+		"watchlist request is rejected immediately": {
+			userAgent: "kubelet",
+			accept:    "application/json",
+			verb:      "GET",
+			path:      "/api/v1/nodes?watch=true&sendInitialEvents=true&resourceVersionMatch=NotOlderThan&allowWatchBookmarks=true&timeoutSeconds=60",
+			code:      http.StatusBadRequest,
+			ceil:      5 * time.Second,
+		},
+		"watch request with sendInitialEvents=false is unaffected": {
+			userAgent: "kubelet",
+			accept:    "application/json",
+			verb:      "GET",
+			path:      "/api/v1/nodes?watch=true&sendInitialEvents=false&timeoutSeconds=5",
+			code:      http.StatusOK,
+			floor:     4 * time.Second,
+			ceil:      6 * time.Second,
+		},
 	}
 
 	resolver := newTestRequestInfoResolver()
