@@ -18,6 +18,8 @@ package otaupdate
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -29,8 +31,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
 	"github.com/openyurtio/openyurt/pkg/yurthub/cachemanager"
@@ -42,6 +47,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/storage/disk"
 	"github.com/openyurtio/openyurt/pkg/yurthub/transport"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonsetupgradestrategy"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonsetupgradestrategy/imagepreheat"
 )
 
 func TestGetPods(t *testing.T) {
@@ -749,5 +755,62 @@ func TestImagePullPod(t *testing.T) {
 				assert.Contains(t, rr.Body.String(), tt.expectedBody)
 			}
 		})
+	}
+}
+
+func TestPullPodImageStrategicMergePatch(t *testing.T) {
+	pod := createDaemonPod("nginx", "default", "node1")
+	clientset := fake.NewSimpleClientset(pod)
+
+	expectedCond := corev1.PodCondition{
+		Type:    daemonsetupgradestrategy.PodImageReady,
+		Status:  corev1.ConditionFalse,
+		Message: daemonsetupgradestrategy.VersionPrefix + imagepreheat.GetPodNextHashVersion(pod),
+	}
+
+	var gotPatchType types.PatchType
+	var gotPatch []byte
+	clientset.PrependReactor("patch", "pods", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		patchAction, ok := action.(k8stesting.PatchAction)
+		if !ok {
+			return true, nil, fmt.Errorf("expected patch action, got %T", action)
+		}
+		gotPatchType = patchAction.GetPatchType()
+		gotPatch = patchAction.GetPatch()
+		return false, nil, nil
+	})
+
+	req, err := http.NewRequest("POST", "/openyurt.io/v1/namespaces/default/pods/nginx/imagepull", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	vars := map[string]string{
+		"ns":      "default",
+		"podname": "nginx",
+	}
+	req = mux.SetURLVars(req, vars)
+	rr := httptest.NewRecorder()
+
+	PullPodImage(clientset, "node1").ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Equal(t, types.StrategicMergePatchType, gotPatchType)
+
+	var patchBody struct {
+		Status struct {
+			Conditions []corev1.PodCondition `json:"conditions"`
+		} `json:"status"`
+	}
+	err = json.Unmarshal(gotPatch, &patchBody)
+	assert.NoError(t, err)
+	assert.Equal(t, []corev1.PodCondition{expectedCond}, patchBody.Status.Conditions)
+
+	updated, err := clientset.CoreV1().Pods("default").Get(context.TODO(), "nginx", metav1.GetOptions{})
+	assert.NoError(t, err)
+	assert.Len(t, updated.Status.Conditions, 2)
+	for _, cond := range updated.Status.Conditions {
+		if cond.Type == daemonsetupgradestrategy.PodImageReady {
+			assert.Equal(t, expectedCond, cond)
+		}
 	}
 }
