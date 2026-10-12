@@ -36,6 +36,7 @@ import (
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog/v2"
 
+	"github.com/openyurtio/openyurt/pkg/projectinfo"
 	"github.com/openyurtio/openyurt/pkg/yurthub/filter"
 	"github.com/openyurtio/openyurt/pkg/yurthub/metrics"
 	"github.com/openyurtio/openyurt/pkg/yurthub/tenant"
@@ -456,4 +457,34 @@ func IsSubjectAccessReviewCreateGetRequest(req *http.Request) bool {
 		comp == "kubelet" &&
 		info.Resource == "subjectaccessreviews" &&
 		(info.Verb == "create" || info.Verb == "get")
+}
+
+// WithRequireAuthorization rejects any request that does not carry an Authorization
+// header with a 401 Unauthorized response, unless the request originates from
+// YurtHub itself (identified by its well-known User-Agent prefixes).
+//
+// This middleware MUST be applied to the insecure (plain-HTTP) proxy port.
+// Without it, RemoteProxy.RoundTrip forwards credential-free requests using
+// YurtHub's own node client certificate, effectively lending the node identity
+// (system:node:<node>) to any pod that can reach the dummy interface IP
+// (169.254.2.1:10261). See: https://github.com/openyurtio/openyurt/issues/2782
+func WithRequireAuthorization(handler http.Handler, nodeName string) http.Handler {
+	multiplexerUserAgent := util.MultiplexerProxyClientUserAgentPrefix + nodeName
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		// Allow requests from YurtHub itself: the internal multiplexer client
+		// and the shared-informer clients both omit Authorization headers but
+		// carry well-known User-Agent values. They must not be blocked.
+		ua := req.UserAgent()
+		if ua == multiplexerUserAgent || strings.HasPrefix(ua, projectinfo.GetHubName()) {
+			handler.ServeHTTP(w, req)
+			return
+		}
+
+		if strings.TrimSpace(req.Header.Get("Authorization")) == "" {
+			klog.V(2).Infof("rejected unauthenticated request %s: missing Authorization header on insecure proxy port", util.ReqString(req))
+			http.Error(w, "Unauthorized: requests to the YurtHub proxy must include an Authorization header", http.StatusUnauthorized)
+			return
+		}
+		handler.ServeHTTP(w, req)
+	})
 }
