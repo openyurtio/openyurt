@@ -27,7 +27,7 @@ require (
 	github.com/projectcalico/api v0.0.0-20240708202104-e3f70b269c2c
 	github.com/prometheus/client_golang v1.22.0
 	github.com/spf13/cobra v1.9.1
-	github.com/spf13/pflag v1.0.6
+	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.11.1
 	github.com/vishvananda/netlink v1.3.1
 	golang.org/x/net v0.56.0
