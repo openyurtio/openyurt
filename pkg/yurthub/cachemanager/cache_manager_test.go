@@ -26,6 +26,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -42,6 +43,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
@@ -3451,6 +3453,323 @@ func TestIsListRequestWithNameFieldSelector(t *testing.T) {
 				t.Errorf("failed at case %s, want: %v, got: %v", k, tc.Expect, isMetadataNameFieldSelector)
 			}
 		})
+	}
+}
+
+type conflictInjectingStorageWrapper struct {
+	StorageWrapper
+	replaceListStarted    chan struct{}
+	replaceListCanProceed chan struct{}
+	mu                    sync.Mutex
+	replaceListInProgress bool
+}
+
+func newConflictInjectingStorageWrapper(inner StorageWrapper) *conflictInjectingStorageWrapper {
+	return &conflictInjectingStorageWrapper{
+		StorageWrapper:        inner,
+		replaceListStarted:    make(chan struct{}),
+		replaceListCanProceed: make(chan struct{}),
+	}
+}
+
+func (w *conflictInjectingStorageWrapper) ReplaceComponentList(component string, gvr schema.GroupVersionResource, namespace string, contents map[storage.Key]runtime.Object) error {
+	w.mu.Lock()
+	w.replaceListInProgress = true
+	w.mu.Unlock()
+
+	close(w.replaceListStarted)
+	<-w.replaceListCanProceed
+
+	defer func() {
+		w.mu.Lock()
+		w.replaceListInProgress = false
+		w.mu.Unlock()
+	}()
+
+	return w.StorageWrapper.ReplaceComponentList(component, gvr, namespace, contents)
+}
+
+func (w *conflictInjectingStorageWrapper) Update(key storage.Key, obj runtime.Object, rv uint64) (runtime.Object, error) {
+	w.mu.Lock()
+	inProgress := w.replaceListInProgress
+	w.mu.Unlock()
+
+	if inProgress {
+		return nil, storage.ErrStorageAccessConflict
+	}
+	return w.StorageWrapper.Update(key, obj, rv)
+}
+
+func (w *conflictInjectingStorageWrapper) Create(key storage.Key, obj runtime.Object) error {
+	w.mu.Lock()
+	inProgress := w.replaceListInProgress
+	w.mu.Unlock()
+
+	if inProgress {
+		return storage.ErrStorageAccessConflict
+	}
+	return w.StorageWrapper.Create(key, obj)
+}
+
+func TestCacheWatchResponseKeepsInMemoryCacheConsistentWithDiskOnAccessConflict(t *testing.T) {
+	testDir, err := os.MkdirTemp("", "cachemanager-watch-conflict")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(testDir)
+
+	dStorage, err := disk.NewDiskStorage(testDir)
+	if err != nil {
+		t.Fatalf("failed to create disk storage: %v", err)
+	}
+	innerWrapper := NewStorageWrapper(dStorage)
+	conflictWrapper := newConflictInjectingStorageWrapper(innerWrapper)
+	serializerM := serializer.NewSerializerManager()
+
+	restRESTMapperMgr, err := hubmeta.NewRESTMapperManager(testDir)
+	if err != nil {
+		t.Fatalf("failed to create RESTMapper manager: %v", err)
+	}
+
+	fakeSharedInformerFactory := informers.NewSharedInformerFactory(fake.NewSimpleClientset(), 0)
+	configManager := configuration.NewConfigurationManager("node1", fakeSharedInformerFactory)
+	yurtCM := NewCacheManager(conflictWrapper, serializerM, restRESTMapperMgr, configManager)
+
+	resolver := newTestRequestInfoResolver()
+	accessor := meta.NewAccessor()
+
+	nodeName := "conflict-node"
+	nodeInitialRV := "10"
+	nodeConflictRV := "20"
+	initialNode := &v1.Node{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Node",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            nodeName,
+			ResourceVersion: nodeInitialRV,
+		},
+	}
+
+	seedReq, _ := http.NewRequest("GET", "/api/v1/nodes/"+nodeName, nil)
+	seedReq.Header.Set("User-Agent", "kubelet")
+	seedReq.Header.Set("Accept", "application/json")
+	seedReq.RemoteAddr = "127.0.0.1"
+
+	var seedHandler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		ctx := req.Context()
+		info, _ := request.RequestInfoFrom(ctx)
+		reqContentType, _ := util.ReqContentTypeFrom(ctx)
+		ctx = util.WithRespContentType(ctx, reqContentType)
+		req = req.WithContext(ctx)
+
+		gvr := schema.GroupVersionResource{
+			Group:    info.APIGroup,
+			Version:  info.APIVersion,
+			Resource: info.Resource,
+		}
+		s := serializerM.CreateSerializer(reqContentType, gvr.Group, gvr.Version, gvr.Resource)
+		encoder, encErr := s.Encoder(reqContentType, nil)
+		if encErr != nil {
+			t.Fatalf("could not create encoder: %v", encErr)
+		}
+		buf := bytes.NewBuffer([]byte{})
+		if encErr = encoder.Encode(initialNode, buf); encErr != nil {
+			t.Fatalf("could not encode initial node: %v", encErr)
+		}
+		prc := io.NopCloser(buf)
+		if cacheErr := yurtCM.CacheResponse(req, prc, nil); cacheErr != nil {
+			t.Fatalf("seed cache response failed: %v", cacheErr)
+		}
+	})
+	seedHandler = proxyutil.WithRequestContentType(seedHandler)
+	seedHandler = proxyutil.WithRequestClientComponent(seedHandler)
+	seedHandler = filters.WithRequestInfo(seedHandler, resolver)
+	seedHandler.ServeHTTP(httptest.NewRecorder(), seedReq)
+
+	seedKeyInfo := storage.KeyBuildInfo{
+		Component: "kubelet",
+		Resources: "nodes",
+		Group:     "",
+		Version:   "v1",
+		Name:      nodeName,
+	}
+	seedKey, err := innerWrapper.KeyFunc(seedKeyInfo)
+	if err != nil {
+		t.Fatalf("failed to build seed key: %v", err)
+	}
+	seedDiskObj, err := innerWrapper.Get(seedKey)
+	if err != nil {
+		t.Fatalf("failed to get seeded node from disk: %v", err)
+	}
+	seedDiskRV, _ := accessor.ResourceVersion(seedDiskObj)
+	if seedDiskRV != nodeInitialRV {
+		t.Fatalf("seeded disk node rv %q != expected %q", seedDiskRV, nodeInitialRV)
+	}
+
+	listDone := make(chan struct{})
+	listPath := "/api/v1/nodes?watch=false"
+	listReq, _ := http.NewRequest("GET", listPath, nil)
+	listReq.Header.Set("User-Agent", "kubelet")
+	listReq.Header.Set("Accept", "application/json")
+	listReq.RemoteAddr = "127.0.0.1"
+
+	nodeListRV := nodeInitialRV
+	listNodes := []runtime.Object{
+		&v1.Node{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "v1",
+				Kind:       "Node",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            nodeName,
+				ResourceVersion: nodeListRV,
+			},
+		},
+	}
+
+	go func() {
+		defer close(listDone)
+
+		var listHandler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			ctx := req.Context()
+			info, _ := request.RequestInfoFrom(ctx)
+			reqContentType, _ := util.ReqContentTypeFrom(ctx)
+			ctx = util.WithRespContentType(ctx, reqContentType)
+			req = req.WithContext(ctx)
+
+			gvr := schema.GroupVersionResource{
+				Group:    info.APIGroup,
+				Version:  info.APIVersion,
+				Resource: info.Resource,
+			}
+			listGVK := schema.GroupVersionKind{
+				Group:   gvr.Group,
+				Version: gvr.Version,
+				Kind:    "NodeList",
+			}
+			listObj, listErr := scheme.Scheme.New(listGVK)
+			if listErr != nil {
+				t.Errorf("could not create nodelist: %v", listErr)
+				return
+			}
+			if listErr = meta.SetList(listObj, listNodes); listErr != nil {
+				t.Errorf("could not set list items: %v", listErr)
+				return
+			}
+			if listErr = accessor.SetResourceVersion(listObj, nodeListRV); listErr != nil {
+				t.Errorf("could not set list rv: %v", listErr)
+				return
+			}
+
+			s := serializerM.CreateSerializer(reqContentType, gvr.Group, gvr.Version, gvr.Resource)
+			encoder, encErr := s.Encoder(reqContentType, nil)
+			if encErr != nil {
+				t.Errorf("could not create list encoder: %v", encErr)
+				return
+			}
+			buf := bytes.NewBuffer([]byte{})
+			if encErr = encoder.Encode(listObj, buf); encErr != nil {
+				t.Errorf("could not encode list: %v", encErr)
+				return
+			}
+			prc := io.NopCloser(buf)
+			if cacheErr := yurtCM.CacheResponse(req, prc, nil); cacheErr != nil {
+				t.Errorf("list cache response unexpected err: %v", cacheErr)
+			}
+		})
+		listHandler = proxyutil.WithListRequestSelector(listHandler)
+		listHandler = proxyutil.WithRequestContentType(listHandler)
+		listHandler = proxyutil.WithRequestClientComponent(listHandler)
+		listHandler = filters.WithRequestInfo(listHandler, resolver)
+		listHandler.ServeHTTP(httptest.NewRecorder(), listReq)
+	}()
+
+	<-conflictWrapper.replaceListStarted
+
+	modifiedNode := &v1.Node{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Node",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            nodeName,
+			ResourceVersion: nodeConflictRV,
+		},
+	}
+	watchEvents := []watch.Event{
+		{Type: watch.Modified, Object: modifiedNode},
+	}
+	watchPath := "/api/v1/nodes?watch=true"
+	watchReq, _ := http.NewRequest("GET", watchPath, nil)
+	watchReq.Header.Set("User-Agent", "kubelet")
+	watchReq.Header.Set("Accept", "application/json")
+	watchReq.RemoteAddr = "127.0.0.1"
+
+	var watchHandler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		ctx := req.Context()
+		info, _ := request.RequestInfoFrom(ctx)
+		comp, _ := util.TruncatedClientComponentFrom(ctx)
+		reqContentType, _ := util.ReqContentTypeFrom(ctx)
+		ctx = util.WithRespContentType(ctx, reqContentType)
+		req = req.WithContext(ctx)
+
+		gvr := schema.GroupVersionResource{
+			Group:    info.APIGroup,
+			Version:  info.APIVersion,
+			Resource: info.Resource,
+		}
+		_ = comp
+		s := serializerM.CreateSerializer(reqContentType, gvr.Group, gvr.Version, gvr.Resource)
+		pr, pw := io.Pipe()
+		go func(pw *io.PipeWriter) {
+			for i := range watchEvents {
+				if _, encErr := s.WatchEncode(pw, &watchEvents[i]); encErr != nil {
+					t.Errorf("watch encode err: %v", encErr)
+				}
+			}
+			pw.Close()
+		}(pw)
+		rc := io.NopCloser(pr)
+		_ = yurtCM.CacheResponse(req, rc, nil)
+	})
+	watchHandler = proxyutil.WithRequestContentType(watchHandler)
+	watchHandler = proxyutil.WithRequestClientComponent(watchHandler)
+	watchHandler = filters.WithRequestInfo(watchHandler, resolver)
+	watchHandler.ServeHTTP(httptest.NewRecorder(), watchReq)
+
+	close(conflictWrapper.replaceListCanProceed)
+	<-listDone
+
+	diskObj, err := innerWrapper.Get(seedKey)
+	if err != nil {
+		t.Fatalf("failed to get final node from disk: %v", err)
+	}
+	diskRV, _ := accessor.ResourceVersion(diskObj)
+
+	queryReq, _ := http.NewRequest("GET", "/api/v1/nodes/"+nodeName, nil)
+	queryReq.Header.Set("User-Agent", "kubelet")
+	queryReq.Header.Set("Accept", "application/json")
+	queryReq.RemoteAddr = "127.0.0.1"
+
+	var queryObj runtime.Object
+	var queryHandler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		queryObj, err = yurtCM.QueryCache(req)
+	})
+	queryHandler = proxyutil.WithRequestClientComponent(queryHandler)
+	queryHandler = filters.WithRequestInfo(queryHandler, resolver)
+	queryHandler.ServeHTTP(httptest.NewRecorder(), queryReq)
+	if err != nil {
+		t.Fatalf("QueryCache failed: %v", err)
+	}
+	if queryObj == nil {
+		t.Fatalf("QueryCache returned nil object")
+	}
+	queryRV, _ := accessor.ResourceVersion(queryObj)
+
+	if diskRV != queryRV {
+		t.Errorf("in-memory cache and disk are inconsistent: disk rv = %s, QueryCache rv = %s (in-memory cache wrongly applied rv %s)", diskRV, queryRV, nodeConflictRV)
 	}
 }
 
