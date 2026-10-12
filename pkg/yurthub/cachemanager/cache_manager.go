@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/watch"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -130,7 +131,7 @@ func (cm *cacheManager) CacheResponse(req *http.Request, prc io.ReadCloser, stop
 	}
 
 	if isList(ctx) {
-		return cm.saveListObject(ctx, info, buf.Bytes())
+		return cm.saveListObject(ctx, info, buf.Bytes(), listRequestIsIncomplete(req))
 	}
 
 	return cm.saveOneObject(ctx, info, buf.Bytes())
@@ -466,7 +467,48 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 	}
 }
 
-func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.RequestInfo, b []byte) error {
+// listRequestIsIncomplete reports whether a list request asks for something less than the
+// complete current contents of the collection, so its response must not be used to delete
+// cached objects it does not mention. Three shapes qualify:
+//
+//   - a continuation page (?continue=). This has to be read from the request, because the
+//     LAST page of a paginated list carries an empty continue token in its response — that
+//     is how a client detects the end of the sequence — so the response alone cannot tell a
+//     last page from a complete list.
+//   - a list narrowed to one object by ?fieldSelector=metadata.name=. RequestInfo.Name is
+//     not a reliable signal for this: it is only populated when the value is a valid path
+//     segment, so "..", ".", "" and any value containing "/" or "%" leave it empty. The
+//     selector is decoded directly instead, which is also what the read path
+//     (queryListObject) does, so the two agree.
+//   - a point-in-time read pinned to one exact resourceVersion, which describes the
+//     collection as it was then and says nothing about objects created since.
+func listRequestIsIncomplete(req *http.Request) bool {
+	if req == nil || req.URL == nil {
+		return false
+	}
+	if req.URL.Query().Get("continue") != "" {
+		return true
+	}
+	if isListRequestWithNameFieldSelector(req) {
+		return true
+	}
+	// An informer's relist sends resourceVersion=0 (or nothing) with no match parameter,
+	// meaning "any version, newest available" — a current view, which must keep pruning.
+	return req.URL.Query().Get("resourceVersionMatch") == string(metav1.ResourceVersionMatchExact)
+}
+
+// listResponseHasMorePages reports whether a list response carries a continue token,
+// which means it is one page of a paginated list and the remaining objects are on
+// subsequent pages.
+func listResponseHasMorePages(list runtime.Object) bool {
+	accessor, err := meta.ListAccessor(list)
+	if err != nil || accessor == nil {
+		return false
+	}
+	return accessor.GetContinue() != ""
+}
+
+func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.RequestInfo, b []byte, reqIsIncomplete bool) error {
 	comp, _ := util.TruncatedClientComponentFrom(ctx)
 	respContentType, _ := util.RespContentTypeFrom(ctx)
 	gvr := schema.GroupVersionResource{
@@ -534,34 +576,113 @@ func (cm *cacheManager) saveListObject(ctx context.Context, info *apirequest.Req
 			Version:   info.APIVersion,
 		})
 		return cm.storeObjectWithKey(key, items[0])
-	} else {
-		// list all objects or with fieldselector/labelselector
-		objs := make(map[storage.Key]runtime.Object)
-		for i := range items {
-			accessor.SetKind(items[i], kind)
-			accessor.SetAPIVersion(items[i], groupVersion)
-			name, _ := accessor.Name(items[i])
-			ns, _ := accessor.Namespace(items[i])
-			if ns == "" {
-				ns = info.Namespace
-			}
-			key, _ := cm.storage.KeyFunc(storage.KeyBuildInfo{
-				Component: comp,
-				Namespace: ns,
-				Name:      name,
-				Resources: info.Resource,
-				Group:     info.APIGroup,
-				Version:   info.APIVersion,
-			})
-			objs[key] = items[i]
-		}
-		// if no objects in cloud cluster(objs is empty), it will clean the old files in the path of rootkey
-		return cm.storage.ReplaceComponentList(comp, schema.GroupVersionResource{
-			Group:    info.APIGroup,
-			Version:  info.APIVersion,
-			Resource: info.Resource,
-		}, info.Namespace, objs)
 	}
+
+	// ReplaceComponentList deletes every object cached under the rootkey that is absent
+	// from the response, so it is only correct for a response that provably carries the
+	// COMPLETE set of objects matching the request. Two kinds of response do not:
+	//
+	//  1. a list narrowed to a single object by ?fieldSelector=metadata.name=<name>. The
+	//     rootkey deliberately excludes the name, so such a response is evidence about
+	//     that one object and never about the collection. An empty one (the object does
+	//     not exist) would otherwise delete the whole collection.
+	//
+	//     info.Name is NOT sufficient to recognise this, which is why the request is
+	//     inspected too: RequestInfo carries the name only when it is a valid path
+	//     segment, so "..", ".", "" and any value containing "/" or "%" leave it empty
+	//     while still being name-selector lists. Both terms are kept deliberately —
+	//     info.Name is a strict subset, but it costs one comparison and still holds if
+	//     the selector decode here ever diverges from the one RequestInfo did, and what
+	//     is being guarded is the deletion of a node's whole cached collection.
+	//  2. one page of a paginated list, which by construction omits the objects on the
+	//     other pages. Both ends of the sequence have to be recognised: the first page by
+	//     the continue token in its response, the last page — otherwise identical to a
+	//     complete list — only by the continue parameter on its request.
+	//
+	// For those, cache the objects the response does carry and delete nothing. Keeping a
+	// stale-but-complete cached view is always better than a fresh-but-truncated one,
+	// because the truncation only becomes visible when the node reboots while
+	// disconnected and serves the cache to kubelet.
+	if partial := info.Name != "" || reqIsIncomplete || listResponseHasMorePages(list); partial {
+		klog.V(4).Infof("%s returned an incomplete set of objects, caching its %d object(s) without deleting the rest",
+			util.ReqInfoString(info), len(items))
+		return cm.storeObjectsWithoutDeleting(comp, info, items, kind, groupVersion)
+	}
+
+	// list all objects or with fieldselector/labelselector
+	objs := make(map[storage.Key]runtime.Object)
+	for i := range items {
+		accessor.SetKind(items[i], kind)
+		accessor.SetAPIVersion(items[i], groupVersion)
+		name, _ := accessor.Name(items[i])
+		ns, _ := accessor.Namespace(items[i])
+		if ns == "" {
+			ns = info.Namespace
+		}
+		key, _ := cm.storage.KeyFunc(storage.KeyBuildInfo{
+			Component: comp,
+			Namespace: ns,
+			Name:      name,
+			Resources: info.Resource,
+			Group:     info.APIGroup,
+			Version:   info.APIVersion,
+		})
+		objs[key] = items[i]
+	}
+	// if no objects in cloud cluster(objs is empty), it will clean the old files in the path of rootkey
+	return cm.storage.ReplaceComponentList(comp, schema.GroupVersionResource{
+		Group:    info.APIGroup,
+		Version:  info.APIVersion,
+		Resource: info.Resource,
+	}, info.Namespace, objs)
+}
+
+// storeObjectsWithoutDeleting caches each object of an incomplete list response
+// individually, leaving every other object already cached for the component in place.
+//
+// Unlike ReplaceComponentList this does not create the collection's directory when the
+// response carries no objects, so a component whose cached collection does not exist yet
+// still has none afterwards. That is deliberate: the realistic case is an empty response
+// to a ?fieldSelector=metadata.name= list, and queryListObject already answers such a
+// request with an empty list rather than an error when nothing is cached. Writing any
+// object creates the directories on the way (CreateFile creates its parents), so a
+// paginated sequence that returns objects needs nothing extra here either.
+func (cm *cacheManager) storeObjectsWithoutDeleting(comp string, info *apirequest.RequestInfo, items []runtime.Object, kind, groupVersion string) error {
+	accessor := meta.NewAccessor()
+	errs := make([]error, 0, len(items))
+	for i := range items {
+		// An unassigned pod is deliberately not cached (storeObjectWithKey rejects it),
+		// which is normal for a list response and must not be reported as a failure.
+		if isNotAssignedPod(items[i]) {
+			continue
+		}
+		accessor.SetKind(items[i], kind)
+		accessor.SetAPIVersion(items[i], groupVersion)
+		name, _ := accessor.Name(items[i])
+		ns, _ := accessor.Namespace(items[i])
+		if ns == "" {
+			ns = info.Namespace
+		}
+		key, err := cm.storage.KeyFunc(storage.KeyBuildInfo{
+			Component: comp,
+			Namespace: ns,
+			Name:      name,
+			Resources: info.Resource,
+			Group:     info.APIGroup,
+			Version:   info.APIVersion,
+		})
+		if err != nil {
+			errs = append(errs, fmt.Errorf("could not get key for %s/%s, %v", ns, name, err))
+			continue
+		}
+		// A cached object that is already fresher than the incoming one is not an error:
+		// ReplaceComponentList, which this replaces, overwrote regardless of
+		// resourceVersion, so a rejected stale write must not fail the whole response.
+		if err := cm.storeObjectWithKey(key, items[i]); err != nil && !errors.Is(err, storage.ErrUpdateConflict) {
+			errs = append(errs, err)
+		}
+	}
+	return utilerrors.NewAggregate(errs)
 }
 
 func (cm *cacheManager) saveOneObject(ctx context.Context, info *apirequest.RequestInfo, b []byte) error {
@@ -687,7 +808,9 @@ func (cm *cacheManager) storeObjectWithKey(key storage.Key, obj runtime.Object) 
 		klog.V(2).Infof("skip to cache watch event because key(%s) is under processing", key.Key())
 		return nil
 	default:
-		return fmt.Errorf("could not store obj with rv %s of key: %s, %v", newRv, key.Key(), err)
+		// wrapped with %w so a caller can classify the failure; a stale-resourceVersion
+		// conflict is benign for a caller that is merging an incomplete list response.
+		return fmt.Errorf("could not store obj with rv %s of key: %s, %w", newRv, key.Key(), err)
 	}
 	return nil
 }
