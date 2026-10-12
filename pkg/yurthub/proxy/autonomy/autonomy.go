@@ -85,6 +85,7 @@ func (ap *AutonomyProxy) updateNodeStatus(req *http.Request) (runtime.Object, er
 
 	var node, retNode runtime.Object
 	var err error
+	hadError := false
 	for i := 0; i < nodeStatusUpdateRetry; i++ {
 		node, err = ap.tryUpdateNodeConditions(i, req)
 		if node != nil {
@@ -93,6 +94,7 @@ func (ap *AutonomyProxy) updateNodeStatus(req *http.Request) (runtime.Object, er
 		if errors.Is(err, ErrDirectClientMgr) {
 			break
 		} else if err != nil {
+			hadError = true
 			klog.ErrorS(err, "Error getting or updating node status, will retry")
 		} else {
 			return retNode, nil
@@ -100,6 +102,9 @@ func (ap *AutonomyProxy) updateNodeStatus(req *http.Request) (runtime.Object, er
 	}
 	if retNode == nil {
 		return nil, fmt.Errorf("failed to get node")
+	}
+	if hadError {
+		return nil, fmt.Errorf("failed to update node autonomy status after retries")
 	}
 	klog.ErrorS(err, "failed to update node autonomy status")
 	return retNode, nil
