@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -145,7 +146,7 @@ func TestGetReqScopeReturnsErrorForUnknownGVR(t *testing.T) {
 
 	sp := &multiplexerProxy{restMapperManager: restMapperManager}
 	unknownGVR := schema.GroupVersionResource{Group: "unknown.example.com", Version: "v1", Resource: "widgets"}
-	_, err = sp.getReqScope(&unknownGVR)
+	_, err = sp.getReqScope(&unknownGVR, nil)
 	assert.Error(t, err)
 }
 
@@ -619,4 +620,48 @@ func endpointSliceKey(slice discovery.EndpointSlice) string {
 	}
 	sort.Strings(keys)
 	return fmt.Sprint(keys)
+}
+
+func TestGetReqScopeTableConvertor(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "multiplexer-table-convertor")
+	if err != nil {
+		t.Fatalf("failed to make temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	restMapperManager, err := meta.NewRESTMapperManager(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create REST mapper manager: %v", err)
+	}
+
+	sp := &multiplexerProxy{restMapperManager: restMapperManager}
+	podsGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+
+	t.Run("falls back to default when storage has no TableConvertor", func(t *testing.T) {
+		scope, err := sp.getReqScope(&podsGVR, &fakeStorageNoTableConvertor{})
+		assert.NoError(t, err)
+		assert.IsType(t, rest.NewDefaultTableConvertor(podsGVR.GroupResource()), scope.TableConvertor)
+	})
+
+	t.Run("uses storage's own TableConvertor when implemented", func(t *testing.T) {
+		custom := &fakeStorageWithTableConvertor{}
+		scope, err := sp.getReqScope(&podsGVR, custom)
+		assert.NoError(t, err)
+		assert.Same(t, custom, scope.TableConvertor)
+	})
+}
+
+type fakeStorageNoTableConvertor struct{}
+
+func (f *fakeStorageNoTableConvertor) New() runtime.Object { return &corev1.Pod{} }
+func (f *fakeStorageNoTableConvertor) Destroy()            {}
+
+type fakeStorageWithTableConvertor struct {
+	fakeStorageNoTableConvertor
+}
+
+func (f *fakeStorageWithTableConvertor) ConvertToTable(
+	ctx context.Context, object runtime.Object, tableOptions runtime.Object,
+) (*metav1.Table, error) {
+	return &metav1.Table{}, nil
 }
