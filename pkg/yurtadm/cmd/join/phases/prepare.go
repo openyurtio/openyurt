@@ -72,7 +72,7 @@ func RunPrepare(data joindata.YurtJoinData) error {
 
 	if data.NodeRegistration().WorkingMode != constants.LocalNode {
 		// All non-local nodes: install yurthub binary
-		if err := yurthub.CheckAndInstallYurthub(projectinfo.Get().GitVersion); err != nil {
+		if err := yurthub.CheckAndInstallYurthub(projectinfo.Get().GitVersion, data.YurtHubBinaryURL()); err != nil {
 			return err
 		}
 
