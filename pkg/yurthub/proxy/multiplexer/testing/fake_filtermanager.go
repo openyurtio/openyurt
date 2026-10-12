@@ -37,6 +37,10 @@ func (fm *EmptyFilterManager) HasSynced() bool {
 	return true
 }
 
+func (fm *EmptyFilterManager) Reset(cmData map[string]string) error {
+	return nil
+}
+
 type FakeEndpointSliceFilter struct {
 	NodeName string
 }
@@ -53,4 +57,8 @@ func (fm *FakeEndpointSliceFilter) FindObjectFilter(req *http.Request) (filter.O
 
 func (fm *FakeEndpointSliceFilter) HasSynced() bool {
 	return true
+}
+
+func (fm *FakeEndpointSliceFilter) Reset(cmData map[string]string) error {
+	return nil
 }
