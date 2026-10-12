@@ -18,6 +18,7 @@ package servicetopology
 
 import (
 	"context"
+	"sync"
 
 	v1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
@@ -63,9 +64,12 @@ type serviceTopologyFilter struct {
 	enablePoolTopology bool
 	nodesGetter        filter.NodesInPoolGetter
 	nodesSynced        cache.InformerSynced
-	nodePoolName       string
-	nodeName           string
-	client             kubernetes.Interface
+	// nodePoolLock guards nodePoolName, because a single filter instance is shared
+	// by all of the goroutines that filter responses concurrently.
+	nodePoolLock sync.RWMutex
+	nodePoolName string
+	nodeName     string
+	client       kubernetes.Interface
 }
 
 func (stf *serviceTopologyFilter) Name() string {
@@ -105,6 +109,8 @@ func (stf *serviceTopologyFilter) SetNodeName(nodeName string) error {
 }
 
 func (stf *serviceTopologyFilter) SetNodePoolName(poolName string) error {
+	stf.nodePoolLock.Lock()
+	defer stf.nodePoolLock.Unlock()
 	stf.nodePoolName = poolName
 	return nil
 }
@@ -115,15 +121,23 @@ func (stf *serviceTopologyFilter) SetKubeClient(client kubernetes.Interface) err
 }
 
 func (stf *serviceTopologyFilter) resolveNodePoolName() string {
-	if len(stf.nodePoolName) != 0 {
-		return stf.nodePoolName
+	stf.nodePoolLock.RLock()
+	nodePoolName := stf.nodePoolName
+	stf.nodePoolLock.RUnlock()
+	if len(nodePoolName) != 0 {
+		return nodePoolName
 	}
 
+	// the node is fetched without holding the lock, so that a slow kube-apiserver
+	// can not block the other goroutines that are filtering responses.
 	node, err := stf.client.CoreV1().Nodes().Get(context.Background(), stf.nodeName, metav1.GetOptions{})
 	if err != nil {
 		klog.Warningf("could not get node(%s) in serviceTopologyFilter filter, %v", stf.nodeName, err)
-		return stf.nodePoolName
+		return ""
 	}
+
+	stf.nodePoolLock.Lock()
+	defer stf.nodePoolLock.Unlock()
 	stf.nodePoolName = node.Labels[projectinfo.GetNodePoolLabel()]
 	return stf.nodePoolName
 }

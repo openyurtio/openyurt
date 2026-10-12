@@ -18,6 +18,7 @@ package servicetopology
 
 import (
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -2742,5 +2743,122 @@ func TestReassembleEndpointSlice(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestResolveNodePoolNameConcurrently ensures that the node pool name cached on the shared
+// filter instance can be resolved from several goroutines at once. The filter manager hands
+// the same serviceTopologyFilter to every request, so Filter runs concurrently whenever more
+// than one component is listing or watching endpointslices. Run with -race to catch a
+// regression.
+func TestResolveNodePoolNameConcurrently(t *testing.T) {
+	scheme := runtime.NewScheme()
+	apis.AddToScheme(scheme)
+	nodeBucketGVRToListKind := map[schema.GroupVersionResource]string{
+		{Group: "apps.openyurt.io", Version: "v1alpha1", Resource: "nodebuckets"}: "NodeBucketList",
+	}
+	currentNodeName := "node1"
+
+	kubeClient := k8sfake.NewSimpleClientset(
+		&corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   currentNodeName,
+				Labels: map[string]string{projectinfo.GetNodePoolLabel(): "hangzhou"},
+			},
+		},
+		&corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "node2",
+				Labels: map[string]string{projectinfo.GetNodePoolLabel(): "shanghai"},
+			},
+		},
+		&corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "svc1",
+				Namespace: "default",
+				Annotations: map[string]string{
+					AnnotationServiceTopologyKey: AnnotationServiceTopologyValueNodePool,
+				},
+			},
+		},
+	)
+	yurtClient := fake.NewSimpleDynamicClientWithCustomListKinds(scheme, nodeBucketGVRToListKind,
+		&v1alpha1.NodeBucket{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "hangzhou",
+				Labels: map[string]string{LabelNodePoolName: "hangzhou"},
+			},
+			Nodes: []v1alpha1.Node{{Name: currentNodeName}},
+		},
+		&v1alpha1.NodeBucket{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "shanghai",
+				Labels: map[string]string{LabelNodePoolName: "shanghai"},
+			},
+			Nodes: []v1alpha1.Node{{Name: "node2"}},
+		},
+	)
+
+	factory := informers.NewSharedInformerFactory(kubeClient, 24*time.Hour)
+	stf := &serviceTopologyFilter{}
+	stf.SetSharedInformerFactory(factory)
+	stf.SetKubeClient(kubeClient)
+	stf.SetNodeName(currentNodeName)
+	// node pool name is deliberately left unset, so that every Filter call has to resolve it
+	// from the node object. This is the default, because --nodepool-name is optional.
+
+	stopper := make(chan struct{})
+	defer close(stopper)
+	factory.Start(stopper)
+	factory.WaitForCacheSync(stopper)
+
+	yurtFactory := dynamicinformer.NewDynamicSharedInformerFactory(yurtClient, 24*time.Hour)
+	initializer.NewNodesInitializer(false, true, yurtFactory).Initialize(stf)
+
+	stopper2 := make(chan struct{})
+	defer close(stopper2)
+	yurtFactory.Start(stopper2)
+	yurtFactory.WaitForCacheSync(stopper2)
+
+	responseObject := &discovery.EndpointSlice{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "svc1-np7sf",
+			Namespace: "default",
+			Labels:    map[string]string{discovery.LabelServiceName: "svc1"},
+		},
+		Endpoints: []discovery.Endpoint{
+			{Addresses: []string{"10.244.1.2"}, NodeName: &currentNodeName},
+			{Addresses: []string{"10.244.1.3"}, NodeName: &[]string{"node2"}[0]},
+		},
+	}
+
+	stopCh := make(<-chan struct{})
+	results := make([]*discovery.EndpointSlice, 50)
+	var wg sync.WaitGroup
+	for i := range results {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			newObj := stf.Filter(responseObject.DeepCopy(), stopCh)
+			results[i], _ = newObj.(*discovery.EndpointSlice)
+		}(i)
+	}
+	wg.Wait()
+
+	for i, got := range results {
+		if got == nil {
+			t.Fatalf("goroutine %d got a nil or unexpectedly typed object", i)
+		}
+		// only the endpoint on node1 belongs to the hangzhou node pool
+		if len(got.Endpoints) != 1 {
+			t.Fatalf("goroutine %d expect 1 endpoint left, but got %d", i, len(got.Endpoints))
+		}
+		if *got.Endpoints[0].NodeName != currentNodeName {
+			t.Errorf("goroutine %d expect endpoint on node %q, but got %q", i, currentNodeName, *got.Endpoints[0].NodeName)
+		}
+	}
+
+	if poolName := stf.resolveNodePoolName(); poolName != "hangzhou" {
+		t.Errorf("expect cached node pool name hangzhou, but got %q", poolName)
 	}
 }
