@@ -1,0 +1,46 @@
+{{- if .Values.grafanaDashboard.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "yurt-iot-dock.fullname" . }}-dashboard
+  labels:
+    grafana_dashboard: "1"
+    {{- include "yurt-iot-dock.labels" . | nindent 4 }}
+data:
+  openyurt-iot.json: |-
+    {
+      "title": "OpenYurt IoT Dashboard",
+      "panels": [
+        {
+          "type": "stat",
+          "title": "Total Devices",
+          "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+          "targets": [
+            {
+              "expr": "sum(yurt_iot_devices_total)"
+            }
+          ]
+        },
+        {
+          "type": "stat",
+          "title": "Total Device Services",
+          "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+          "targets": [
+            {
+              "expr": "sum(yurt_iot_device_services_total)"
+            }
+          ]
+        },
+        {
+          "type": "stat",
+          "title": "Total Device Profiles",
+          "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+          "targets": [
+            {
+              "expr": "sum(yurt_iot_device_profiles_total)"
+            }
+          ]
+        }
+      ]
+    }
+{{- end }}

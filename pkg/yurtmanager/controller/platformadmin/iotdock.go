@@ -73,7 +73,7 @@ func newYurtIoTDockComponent(platformAdmin *iotv1beta1.PlatformAdmin, platformAd
 						ImagePullPolicy: corev1.PullAlways,
 						Args: []string{
 							"--health-probe-bind-address=:8081",
-							"--metrics-bind-address=127.0.0.1:8080",
+							"--metrics-bind-address=0.0.0.0:8080",
 							"--leader-elect=false",
 							fmt.Sprintf("--namespace=%s", ns),
 							fmt.Sprintf("--version=%s", platformAdmin.Spec.Version),
@@ -120,8 +120,21 @@ func newYurtIoTDockComponent(platformAdmin *iotv1beta1.PlatformAdmin, platformAd
 			},
 		},
 	}
-	// YurtIoTDock doesn't need a service yet
-	yurtIotDockComponent.Service = nil
+	// Create a Service to expose metrics for Prometheus
+	yurtIotDockComponent.Service = &corev1.ServiceSpec{
+		Selector: map[string]string{
+			"app":           utils.IotDockName,
+			"control-plane": utils.IotDockControlPlane,
+		},
+		Ports: []corev1.ServicePort{
+			{
+				Name:       "metrics",
+				Port:       8080,
+				TargetPort: intstr.FromInt(8080),
+				Protocol:   corev1.ProtocolTCP,
+			},
+		},
+	}
 
 	return &yurtIotDockComponent, nil
 }

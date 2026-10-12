@@ -43,6 +43,7 @@ import (
 	edgexclients "github.com/openyurtio/openyurt/pkg/yurtiotdock/clients/edgex-foundry"
 	"github.com/openyurtio/openyurt/pkg/yurtiotdock/controllers"
 	"github.com/openyurtio/openyurt/pkg/yurtiotdock/controllers/util"
+	yurtmetrics "github.com/openyurtio/openyurt/pkg/yurtiotdock/metrics"
 )
 
 var (
@@ -105,6 +106,9 @@ func Run(opts *options.YurtIoTDockOptions, stopCh <-chan struct{}) {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
+
+	// register custom prometheus metrics
+	yurtmetrics.RegisterCustomMetrics(mgr.GetClient())
 
 	// perform preflight check
 	setupLog.Info("[preflight] Running pre-flight checks")
