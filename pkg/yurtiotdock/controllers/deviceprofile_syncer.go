@@ -71,43 +71,43 @@ func (dps *DeviceProfileSyncer) NewDeviceProfileSyncerRunnable() ctrlmgr.Runnabl
 
 func (dps *DeviceProfileSyncer) Run(stop <-chan struct{}) {
 	klog.V(1).Info("[DeviceProfile] Starting the syncer...")
-	go func() {
-		for {
-			<-time.After(dps.syncPeriod)
-			klog.V(2).Info("[DeviceProfile] Start a round of synchronization.")
-
-			// 1. get deviceProfiles on edge platform and OpenYurt
-			edgeDeviceProfiles, kubeDeviceProfiles, err := dps.getAllDeviceProfiles()
-			if err != nil {
-				klog.V(3).ErrorS(err, "could not list the deviceProfiles")
-				continue
-			}
-
-			// 2. find the deviceProfiles that need to be synchronized
-			redundantEdgeDeviceProfiles, redundantKubeDeviceProfiles, syncedDeviceProfiles :=
-				dps.findDiffDeviceProfiles(edgeDeviceProfiles, kubeDeviceProfiles)
-			klog.V(2).Infof("[DeviceProfile] The number of objects waiting for synchronization { %s:%d, %s:%d, %s:%d }",
-				"Edge deviceProfiles should be added to OpenYurt", len(redundantEdgeDeviceProfiles),
-				"OpenYurt deviceProfiles that should be deleted", len(redundantKubeDeviceProfiles),
-				"DeviceProfiles that should be synchronized", len(syncedDeviceProfiles))
-
-			// 3. create deviceProfiles on OpenYurt which are exists in edge platform but not in OpenYurt
-			if err := dps.syncEdgeToKube(redundantEdgeDeviceProfiles); err != nil {
-				klog.V(3).ErrorS(err, "could not create deviceProfiles on OpenYurt")
-			}
-
-			// 4. delete redundant deviceProfiles on OpenYurt
-			if err := dps.deleteDeviceProfiles(redundantKubeDeviceProfiles); err != nil {
-				klog.V(3).ErrorS(err, "could not delete redundant deviceProfiles on OpenYurt")
-			}
-
-			// 5. update deviceProfiles on OpenYurt
-			// TODO
+	for {
+		select {
+		case <-stop:
+			klog.V(1).Info("[DeviceProfile] Stopping the syncer")
+			return
+		case <-time.After(dps.syncPeriod):
 		}
-	}()
+		klog.V(2).Info("[DeviceProfile] Start a round of synchronization.")
 
-	<-stop
-	klog.V(1).Info("[DeviceProfile] Stopping the syncer")
+		// 1. get deviceProfiles on edge platform and OpenYurt
+		edgeDeviceProfiles, kubeDeviceProfiles, err := dps.getAllDeviceProfiles()
+		if err != nil {
+			klog.V(3).ErrorS(err, "could not list the deviceProfiles")
+			continue
+		}
+
+		// 2. find the deviceProfiles that need to be synchronized
+		redundantEdgeDeviceProfiles, redundantKubeDeviceProfiles, syncedDeviceProfiles :=
+			dps.findDiffDeviceProfiles(edgeDeviceProfiles, kubeDeviceProfiles)
+		klog.V(2).Infof("[DeviceProfile] The number of objects waiting for synchronization { %s:%d, %s:%d, %s:%d }",
+			"Edge deviceProfiles should be added to OpenYurt", len(redundantEdgeDeviceProfiles),
+			"OpenYurt deviceProfiles that should be deleted", len(redundantKubeDeviceProfiles),
+			"DeviceProfiles that should be synchronized", len(syncedDeviceProfiles))
+
+		// 3. create deviceProfiles on OpenYurt which are exists in edge platform but not in OpenYurt
+		if err := dps.syncEdgeToKube(redundantEdgeDeviceProfiles); err != nil {
+			klog.V(3).ErrorS(err, "could not create deviceProfiles on OpenYurt")
+		}
+
+		// 4. delete redundant deviceProfiles on OpenYurt
+		if err := dps.deleteDeviceProfiles(redundantKubeDeviceProfiles); err != nil {
+			klog.V(3).ErrorS(err, "could not delete redundant deviceProfiles on OpenYurt")
+		}
+
+		// 5. update deviceProfiles on OpenYurt
+		// TODO
+	}
 }
 
 // Get the existing DeviceProfile on the Edge platform, as well as OpenYurt existing DeviceProfile

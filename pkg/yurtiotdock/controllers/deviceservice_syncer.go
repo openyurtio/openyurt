@@ -67,45 +67,45 @@ func (ds *DeviceServiceSyncer) NewDeviceServiceSyncerRunnable() ctrlmgr.Runnable
 
 func (ds *DeviceServiceSyncer) Run(stop <-chan struct{}) {
 	klog.V(1).Info("[DeviceService] Starting the syncer...")
-	go func() {
-		for {
-			<-time.After(ds.syncPeriod)
-			klog.V(2).Info("[DeviceService] Start a round of synchronization.")
-			// 1. get deviceServices on edge platform and OpenYurt
-			edgeDeviceServices, kubeDeviceServices, err := ds.getAllDeviceServices()
-			if err != nil {
-				klog.V(3).ErrorS(err, "could not list the deviceServices")
-				continue
-			}
-
-			// 2. find the deviceServices that need to be synchronized
-			redundantEdgeDeviceServices, redundantKubeDeviceServices, syncedDeviceServices :=
-				ds.findDiffDeviceServices(edgeDeviceServices, kubeDeviceServices)
-			klog.V(2).Infof("[DeviceService] The number of objects waiting for synchronization { %s:%d, %s:%d, %s:%d }",
-				"Edge deviceServices should be added to OpenYurt", len(redundantEdgeDeviceServices),
-				"OpenYurt deviceServices that should be deleted", len(redundantKubeDeviceServices),
-				"DeviceServices that should be synchronized", len(syncedDeviceServices))
-
-			// 3. create deviceServices on OpenYurt which are exists in edge platform but not in OpenYurt
-			if err := ds.syncEdgeToKube(redundantEdgeDeviceServices); err != nil {
-				klog.V(3).ErrorS(err, "could not create deviceServices on OpenYurt")
-			}
-
-			// 4. delete redundant deviceServices on OpenYurt
-			if err := ds.deleteDeviceServices(redundantKubeDeviceServices); err != nil {
-				klog.V(3).ErrorS(err, "could not delete redundant deviceServices on OpenYurt")
-			}
-
-			// 5. update deviceService status on OpenYurt
-			if err := ds.updateDeviceServices(syncedDeviceServices); err != nil {
-				klog.V(3).ErrorS(err, "could not update deviceServices")
-			}
-			klog.V(2).Info("[DeviceService] One round of synchronization is complete")
+	for {
+		select {
+		case <-stop:
+			klog.V(1).Info("[DeviceService] Stopping the syncer")
+			return
+		case <-time.After(ds.syncPeriod):
 		}
-	}()
+		klog.V(2).Info("[DeviceService] Start a round of synchronization.")
+		// 1. get deviceServices on edge platform and OpenYurt
+		edgeDeviceServices, kubeDeviceServices, err := ds.getAllDeviceServices()
+		if err != nil {
+			klog.V(3).ErrorS(err, "could not list the deviceServices")
+			continue
+		}
 
-	<-stop
-	klog.V(1).Info("[DeviceService] Stopping the syncer")
+		// 2. find the deviceServices that need to be synchronized
+		redundantEdgeDeviceServices, redundantKubeDeviceServices, syncedDeviceServices :=
+			ds.findDiffDeviceServices(edgeDeviceServices, kubeDeviceServices)
+		klog.V(2).Infof("[DeviceService] The number of objects waiting for synchronization { %s:%d, %s:%d, %s:%d }",
+			"Edge deviceServices should be added to OpenYurt", len(redundantEdgeDeviceServices),
+			"OpenYurt deviceServices that should be deleted", len(redundantKubeDeviceServices),
+			"DeviceServices that should be synchronized", len(syncedDeviceServices))
+
+		// 3. create deviceServices on OpenYurt which are exists in edge platform but not in OpenYurt
+		if err := ds.syncEdgeToKube(redundantEdgeDeviceServices); err != nil {
+			klog.V(3).ErrorS(err, "could not create deviceServices on OpenYurt")
+		}
+
+		// 4. delete redundant deviceServices on OpenYurt
+		if err := ds.deleteDeviceServices(redundantKubeDeviceServices); err != nil {
+			klog.V(3).ErrorS(err, "could not delete redundant deviceServices on OpenYurt")
+		}
+
+		// 5. update deviceService status on OpenYurt
+		if err := ds.updateDeviceServices(syncedDeviceServices); err != nil {
+			klog.V(3).ErrorS(err, "could not update deviceServices")
+		}
+		klog.V(2).Info("[DeviceService] One round of synchronization is complete")
+	}
 }
 
 // Get the existing DeviceService on the Edge platform, as well as OpenYurt existing DeviceService
