@@ -210,10 +210,10 @@ func (r *ReconcilePlatformAdmin) Reconcile(ctx context.Context, request reconcil
 		if !*isDeleted {
 			// Finally check whether PlatformAdmin is Ready
 			platformAdminStatus.Ready = true
-			if cond := util.GetPlatformAdminCondition(*platformAdminStatus, iotv1beta1.ConfigmapAvailableCondition); cond.Status == corev1.ConditionFalse {
+			if cond := util.GetPlatformAdminCondition(*platformAdminStatus, iotv1beta1.ConfigmapAvailableCondition); cond == nil || cond.Status == corev1.ConditionFalse {
 				platformAdminStatus.Ready = false
 			}
-			if cond := util.GetPlatformAdminCondition(*platformAdminStatus, iotv1beta1.ComponentAvailableCondition); cond.Status == corev1.ConditionFalse {
+			if cond := util.GetPlatformAdminCondition(*platformAdminStatus, iotv1beta1.ComponentAvailableCondition); cond == nil || cond.Status == corev1.ConditionFalse {
 				platformAdminStatus.Ready = false
 			}
 			if platformAdminStatus.UnreadyComponentNum != 0 {
