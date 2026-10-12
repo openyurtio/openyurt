@@ -94,14 +94,14 @@ func (ap *AutonomyProxy) updateNodeStatus(req *http.Request) (runtime.Object, er
 			break
 		} else if err != nil {
 			klog.ErrorS(err, "Error getting or updating node status, will retry")
+			continue
 		} else {
 			return retNode, nil
 		}
 	}
 	if retNode == nil {
-		return nil, fmt.Errorf("failed to get node")
+		return nil, fmt.Errorf("failed to get node status after %d retries", nodeStatusUpdateRetry)
 	}
-	klog.ErrorS(err, "failed to update node autonomy status")
 	return retNode, nil
 }
 
