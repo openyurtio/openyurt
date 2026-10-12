@@ -20,9 +20,11 @@ import (
 	"bufio"
 	"fmt"
 	"go/token"
+	"net"
 	"net/http"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -177,4 +179,67 @@ func diffBytes(a, b []byte) bool {
 	}
 
 	return true
+}
+
+type fakeHijacker struct {
+	conn net.Conn
+}
+
+func (f *fakeHijacker) Header() http.Header {
+	return http.Header{}
+}
+
+func (f *fakeHijacker) Write(b []byte) (int, error) {
+	return len(b), nil
+}
+
+func (f *fakeHijacker) WriteHeader(statusCode int) {}
+
+func (f *fakeHijacker) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return f.conn, bufio.NewReadWriter(bufio.NewReader(f.conn), bufio.NewWriter(f.conn)), nil
+}
+
+func TestServeUpgradeRequest_ConcurrentRace(t *testing.T) {
+	var wg sync.WaitGroup
+	concurrentCount := 50
+
+	for i := 0; i < concurrentCount; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			tunnelServer, tunnelClient := net.Pipe()
+			hijackServer, hijackClient := net.Pipe()
+
+			go func() {
+				defer hijackServer.Close()
+				buf := make([]byte, 1024)
+				for {
+					_, err := hijackServer.Read(buf)
+					if err != nil {
+						return
+					}
+				}
+			}()
+
+			go func() {
+				defer tunnelServer.Close()
+				_, _ = tunnelServer.Write([]byte("HTTP/1.1 400 Bad Request\r\nContent-Length: 11\r\n\r\nBad Request"))
+			}()
+
+			req, err := http.NewRequest("GET", "http://example.com/upgrade", nil)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			req.Header.Set("Connection", "Upgrade")
+			req.Header.Set("Upgrade", "websocket")
+
+			fakeWriter := &fakeHijacker{conn: hijackClient}
+			serveUpgradeRequest(tunnelClient, fakeWriter, req)
+			tunnelClient.Close()
+			hijackClient.Close()
+		}()
+	}
+
+	wg.Wait()
 }
