@@ -122,6 +122,9 @@ func (rp *RemoteProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	rp.reverseProxy.ServeHTTP(rw, req)
+	if flusher, ok := rw.(http.Flusher); ok {
+		flusher.Flush()
+	}
 }
 
 // RoundTrip is used to implement http.RoundTripper for RemoteProxy.
