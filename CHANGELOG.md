@@ -170,7 +170,7 @@ In an OpenYurt cluster, control components are deployed in the cloud, and edge n
 - fix(iot): the mount type of hostpath for localtime in napa by @LavenderQAQ in https://github.com/openyurtio/openyurt/pull/2110
 - fix: create abspath dir in case that contents is empty by @vie-serendipity in https://github.com/openyurtio/openyurt/pull/2164
 - fix: masterservice missing clusterIPs field. by @fungaren in https://github.com/openyurtio/openyurt/pull/2173
-- fix: support cache response for partial object metedata watch request by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/2209
+- fix: support cache response for partial object metadata watch request by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/2209
 - fix: bug of yurtappset always the last tweaks make effect by @vie-serendipity in https://github.com/openyurtio/openyurt/pull/2229
 - fix: CRD WebhookConversion respect WEBHOOK_HOST env by @fungaren in https://github.com/openyurtio/openyurt/pull/2217
 - fix: go lint errors by @luc99hen in https://github.com/openyurtio/openyurt/pull/2235
@@ -261,7 +261,7 @@ New autonomy condition have been added to node conditions so that yurthub can re
 - feat: improve hostNetwork mode of NodePool by adding NodeAffinity to pods with specified annotation (#1935) by @huangchenzhao in https://github.com/openyurtio/openyurt/pull/1959
 - move list object handling from ObjectFilter into ResponseFilter by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/1991
 - The gateway can forward traffic from extra source cidrs by @River-sh in https://github.com/openyurtio/openyurt/pull/1993
-- return back watch.Deleted event to clients when watch object is removed in OjbectFilters by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/1995
+- return back watch.Deleted event to clients when watch object is removed in ObjectFilters by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/1995
 - add pool service controller. by @zyjhtangtang in https://github.com/openyurtio/openyurt/pull/2010
 - aggregated annotations and labels. by @zyjhtangtang in https://github.com/openyurtio/openyurt/pull/2027
 - improve pod webhook for adapting hostnetwork mode nodepool by @rambohe-ch in https://github.com/openyurtio/openyurt/pull/2050
