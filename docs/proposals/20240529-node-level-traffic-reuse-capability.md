@@ -63,7 +63,7 @@ type Interface interface {
 	Watch(ctx context.Context, key string, opts ListOptions) (watch.Interface, error)
 
 
-	// GetList unmarshalls objects found at key into a *List api object (an object
+	// GetList unmarshals objects found at key into a *List api object (an object
 	// that satisfies runtime.IsList definition).
 	// If 'opts.Recursive' is false, 'key' is used as an exact match. If `opts.Recursive'
 	// is true, 'key' is used as a prefix.
