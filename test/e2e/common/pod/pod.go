@@ -24,6 +24,7 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
@@ -46,6 +47,25 @@ func CreatePod(c clientset.Interface, ns string, objectMeta metav1.ObjectMeta, s
 
 func GetPod(c clientset.Interface, ns, podName string) (pod *apiv1.Pod, err error) {
 	return c.CoreV1().Pods(ns).Get(context.Background(), podName, metav1.GetOptions{})
+}
+
+func GetPodBySelectorOnNode(c clientset.Interface, ns string, label labels.Selector, nodeName string) (*apiv1.Pod, error) {
+	options := metav1.ListOptions{LabelSelector: label.String()}
+	if nodeName != "" {
+		options.FieldSelector = fields.OneTermEqualSelector("spec.nodeName", nodeName).String()
+	}
+	pods, err := c.CoreV1().Pods(ns).List(context.Background(), options)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range pods.Items {
+		if pods.Items[i].DeletionTimestamp == nil && (nodeName == "" || pods.Items[i].Spec.NodeName == nodeName) {
+			return &pods.Items[i], nil
+		}
+	}
+
+	return nil, fmt.Errorf("no active pod found in namespace %s for selector %q on node %q", ns, label.String(), nodeName)
 }
 
 func DeletePod(c clientset.Interface, ns, podName string) (err error) {
