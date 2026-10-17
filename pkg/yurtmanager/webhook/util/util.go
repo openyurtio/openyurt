@@ -115,6 +115,7 @@ func RegisterWebhook(mgr ctrl.Manager, obj runtime.Object, webhook interface{}) 
 		return mutatePath, validatorPath, err
 	}
 
+	//nolint:staticcheck // SA1019: CustomDefaulter is deprecated in controller-runtime v0.24 but still supported
 	if defaulter, ok := webhook.(admission.CustomDefaulter); ok {
 		mutateWebhook := admission.WithCustomDefaulter(mgr.GetScheme(), obj, defaulter).WithRecoverPanic(true)
 		mutatePath = generateMutatePath(gvk)
@@ -124,7 +125,9 @@ func RegisterWebhook(mgr ctrl.Manager, obj runtime.Object, webhook interface{}) 
 		}
 	}
 
+	//nolint:staticcheck // SA1019: CustomValidator is deprecated in controller-runtime v0.24 but still supported
 	if validator, ok := webhook.(admission.CustomValidator); ok {
+		//nolint:staticcheck // SA1019: WithCustomValidator is deprecated in controller-runtime v0.24 but still supported
 		validatorWebhook := admission.WithCustomValidator(mgr.GetScheme(), obj, validator).WithRecoverPanic(true)
 		validatorPath = generateValidatePath(gvk)
 		if !isAlreadyHandled(mgr, validatorPath) {
@@ -141,7 +144,7 @@ func RegisterWebhook(mgr ctrl.Manager, obj runtime.Object, webhook interface{}) 
 
 	if ok {
 		if !isAlreadyHandled(mgr, "/convert") {
-			mgr.GetWebhookServer().Register("/convert", conversion.NewWebhookHandler(mgr.GetScheme()))
+			mgr.GetWebhookServer().Register("/convert", conversion.NewWebhookHandler(mgr.GetScheme(), mgr.GetConverterRegistry()))
 		}
 		klog.InfoS("Conversion webhook enabled", "GVK", gvk)
 	}

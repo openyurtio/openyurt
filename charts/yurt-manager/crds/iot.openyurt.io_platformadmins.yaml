@@ -2097,8 +2097,9 @@ spec:
                                             type: integer
                                         type: object
                                       resizePolicy:
-                                        description: Resources resize policy for the
-                                          container.
+                                        description: |-
+                                          Resources resize policy for the container.
+                                          This field cannot be set on ephemeral containers.
                                         items:
                                           description: ContainerResizePolicy represents
                                             resource resize policy for the container.
@@ -2328,7 +2329,6 @@ spec:
                                               procMount denotes the type of proc mount to use for the containers.
                                               The default value is Default which uses the container runtime defaults for
                                               readonly paths and masked paths.
-                                              This requires the ProcMountType feature flag to be enabled.
                                               Note that this field cannot be set when spec.os.name is windows.
                                             type: string
                                           readOnlyRootFilesystem:
@@ -3941,7 +3941,6 @@ spec:
                                               procMount denotes the type of proc mount to use for the containers.
                                               The default value is Default which uses the container runtime defaults for
                                               readonly paths and masked paths.
-                                              This requires the ProcMountType feature flag to be enabled.
                                               Note that this field cannot be set when spec.os.name is windows.
                                             type: string
                                           readOnlyRootFilesystem:
@@ -4435,7 +4434,6 @@ spec:
                                     When set to false, a new userns is created for the pod. Setting false is useful for
                                     mitigating container breakout vulnerabilities even allowing users to run their
                                     containers as root without actually having root privileges on the host.
-                                    This field is alpha-level and is only honored by servers that enable the UserNamespacesSupport feature.
                                   type: boolean
                                 hostname:
                                   description: |-
@@ -5402,8 +5400,9 @@ spec:
                                             type: integer
                                         type: object
                                       resizePolicy:
-                                        description: Resources resize policy for the
-                                          container.
+                                        description: |-
+                                          Resources resize policy for the container.
+                                          This field cannot be set on ephemeral containers.
                                         items:
                                           description: ContainerResizePolicy represents
                                             resource resize policy for the container.
@@ -5633,7 +5632,6 @@ spec:
                                               procMount denotes the type of proc mount to use for the containers.
                                               The default value is Default which uses the container runtime defaults for
                                               readonly paths and masked paths.
-                                              This requires the ProcMountType feature flag to be enabled.
                                               Note that this field cannot be set when spec.os.name is windows.
                                             type: string
                                           readOnlyRootFilesystem:
@@ -6195,8 +6193,8 @@ spec:
                                     will be made available to those containers which consume them
                                     by name.
 
-                                    This is an alpha field and requires enabling the
-                                    DynamicResourceAllocation feature gate.
+                                    This is a stable field but requires that the
+                                    DynamicResourceAllocation feature gate is enabled.
 
                                     This field is immutable.
                                   items:
@@ -6207,6 +6205,14 @@ spec:
 
                                       It adds a name to it that uniquely identifies the ResourceClaim inside the Pod.
                                       Containers that need access to the ResourceClaim reference it with this name.
+
+                                      When the DRAWorkloadResourceClaims feature gate is enabled and this Pod
+                                      belongs to a PodGroup, a PodResourceClaim is matched to a
+                                      PodGroupResourceClaim if all of their fields are equal (Name,
+                                      ResourceClaimName, and ResourceClaimTemplateName). A matched claim references
+                                      a single ResourceClaim shared across all Pods in the PodGroup, reserved for
+                                      the PodGroup in ResourceClaimStatus.ReservedFor rather than for individual
+                                      Pods.
                                     properties:
                                       name:
                                         description: |-
@@ -6232,12 +6238,13 @@ spec:
                                           generated component, will be used to form a unique name for the
                                           ResourceClaim, which will be recorded in pod.status.resourceClaimStatuses.
 
-                                          This field is immutable and no changes will be made to the
-                                          corresponding ResourceClaim by the control plane after creating the
-                                          ResourceClaim.
-
-                                          Exactly one of ResourceClaimName and ResourceClaimTemplateName must
-                                          be set.
+                                          When the DRAWorkloadResourceClaims feature gate is enabled and the pod
+                                          belongs to a PodGroup that defines a PodGroupResourceClaim with the same
+                                          Name and ResourceClaimTemplateName, this PodResourceClaim resolves to the
+                                          ResourceClaim generated for the PodGroup. All pods in the group that
+                                          define an equivalent PodResourceClaim matching the
+                                          PodGroupResourceClaim's Name and ResourceClaimTemplateName share the same
+                                          generated ResourceClaim.
                                         type: string
                                     required:
                                     - name
@@ -6358,6 +6365,28 @@ spec:
                                   x-kubernetes-list-map-keys:
                                   - name
                                   x-kubernetes-list-type: map
+                                schedulingGroup:
+                                  description: |-
+                                    SchedulingGroup provides a reference to the immediate scheduling runtime
+                                    grouping object that this Pod belongs to.
+                                    This field is used by the scheduler to identify the group and apply the
+                                    correct group scheduling policies. The association with a group also
+                                    impacts other lifecycle aspects of a Pod that are relevant in a wider context
+                                    of scheduling like preemption, resource attachment, etc. If not specified,
+                                    the Pod is treated as a single unit in all of these aspects.
+                                    The group object referenced by this field may not exist at the time the
+                                    Pod is created.
+                                    This field is immutable, but a group object with the same name may be
+                                    recreated with different policies. Doing this during pod scheduling
+                                    may result in the placement not conforming to the expected policies.
+                                  properties:
+                                    podGroupName:
+                                      description: |-
+                                        PodGroupName specifies the name of the standalone PodGroup object
+                                        that represents the runtime instance of this group.
+                                        Must be a DNS subdomain.
+                                      type: string
+                                  type: object
                                 securityContext:
                                   description: |-
                                     SecurityContext holds pod-level security attributes and common container settings.
@@ -6646,9 +6675,10 @@ spec:
                                       operator:
                                         description: |-
                                           Operator represents a key's relationship to the value.
-                                          Valid operators are Exists and Equal. Defaults to Equal.
+                                          Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
                                           Exists is equivalent to wildcard for value, so that a pod can
                                           tolerate all taints of a particular category.
+                                          Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                                         type: string
                                       tolerationSeconds:
                                         description: |-
@@ -7438,7 +7468,7 @@ spec:
                                                   resources:
                                                     description: |-
                                                       resources represents the minimum resources the volume should have.
-                                                      If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements
+                                                      Users are allowed to specify resource requirements
                                                       that are lower than previous value but must still be higher than capacity recorded in the
                                                       status field of the claim.
                                                       More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
@@ -7948,8 +7978,7 @@ spec:
                                         description: |-
                                           portworxVolume represents a portworx volume attached and mounted on kubelets host machine.
                                           Deprecated: PortworxVolume is deprecated. All operations for the in-tree portworxVolume type
-                                          are redirected to the pxd.portworx.com CSI driver when the CSIMigrationPortworx feature-gate
-                                          is on.
+                                          are redirected to the pxd.portworx.com CSI driver.
                                         properties:
                                           fsType:
                                             description: |-
@@ -8332,6 +8361,24 @@ spec:
                                                         CSRs will be addressed to
                                                         this signer.
                                                       type: string
+                                                    userAnnotations:
+                                                      additionalProperties:
+                                                        type: string
+                                                      description: |-
+                                                        userAnnotations allow pod authors to pass additional information to
+                                                        the signer implementation.  Kubernetes does not restrict or validate this
+                                                        metadata in any way.
+
+                                                        These values are copied verbatim into the `spec.unverifiedUserAnnotations` field of
+                                                        the PodCertificateRequest objects that Kubelet creates.
+
+                                                        Entries are subject to the same validation as object metadata annotations,
+                                                        with the addition that all keys must be domain-prefixed. No restrictions
+                                                        are placed on values, except an overall size limitation on the entire field.
+
+                                                        Signers should document the keys and values they support. Signers should
+                                                        deny requests that contain keys they do not recognize.
+                                                      type: object
                                                   required:
                                                   - keyType
                                                   - signerName

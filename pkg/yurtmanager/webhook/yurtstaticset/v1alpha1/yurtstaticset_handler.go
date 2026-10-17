@@ -36,5 +36,8 @@ func (webhook *YurtStaticSetHandler) SetupWebhookWithManager(mgr ctrl.Manager) (
 type YurtStaticSetHandler struct {
 }
 
+//nolint:staticcheck // SA1019: CustomDefaulter is deprecated in controller-runtime v0.24 but still supported
 var _ webhook.CustomDefaulter = &YurtStaticSetHandler{}
+
+//nolint:staticcheck // SA1019: CustomValidator is deprecated in controller-runtime v0.24 but still supported
 var _ webhook.CustomValidator = &YurtStaticSetHandler{}

@@ -47,5 +47,8 @@ type NodeHandler struct {
 	Client client.Client
 }
 
+//nolint:staticcheck // SA1019: CustomDefaulter is deprecated in controller-runtime v0.24 but still supported
 var _ webhook.CustomDefaulter = &NodeHandler{}
+
+//nolint:staticcheck // SA1019: CustomValidator is deprecated in controller-runtime v0.24 but still supported
 var _ webhook.CustomValidator = &NodeHandler{}

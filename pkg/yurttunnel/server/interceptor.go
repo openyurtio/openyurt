@@ -28,10 +28,10 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/httpstream"
-	"k8s.io/apimachinery/pkg/util/httpstream/wsstream"
 	"k8s.io/apiserver/pkg/util/flushwriter"
 	"k8s.io/klog/v2"
+	"k8s.io/streaming/pkg/httpstream"
+	"k8s.io/streaming/pkg/httpstream/wsstream"
 
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 )

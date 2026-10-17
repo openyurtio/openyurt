@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -270,9 +271,14 @@ type mockFactory struct {
 	core coreinformers.Interface
 }
 
-func (m *mockFactory) Core() coreinformers.Interface { return m.core }
-func (m *mockFactory) Start(stopCh <-chan struct{})  {}
-func (m *mockFactory) Shutdown()                     {}
+func (m *mockFactory) Core() coreinformers.Interface        { return m.core }
+func (m *mockFactory) Start(stopCh <-chan struct{})         {}
+func (m *mockFactory) Shutdown()                            {}
+func (m *mockFactory) StartWithContext(ctx context.Context) {}
+func (m *mockFactory) WaitForCacheSyncWithContext(ctx context.Context) cache.SyncResult {
+	return cache.SyncResult{}
+}
+func (m *mockFactory) InformerName() *cache.InformerName { return nil }
 func (m *mockFactory) WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool {
 	return nil
 }

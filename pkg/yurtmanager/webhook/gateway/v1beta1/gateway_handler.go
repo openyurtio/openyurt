@@ -36,5 +36,8 @@ func (webhook *GatewayHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string
 type GatewayHandler struct {
 }
 
+//nolint:staticcheck // SA1019: CustomDefaulter is deprecated in controller-runtime v0.24 but still supported
 var _ webhook.CustomDefaulter = &GatewayHandler{}
+
+//nolint:staticcheck // SA1019: CustomValidator is deprecated in controller-runtime v0.24 but still supported
 var _ webhook.CustomValidator = &GatewayHandler{}

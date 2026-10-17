@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 env:
-  GO_VERSION: '1.25.0'
+  GO_VERSION: '1.26.9'
   GOLANGCI_VERSION: 'v2.11.4'
 
   # Common users. We can't run a step 'if secrets.AWS_USR != ""' but we can run
@@ -97,8 +97,8 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
       - name: Install Required Commands
         run: |
-          go install sigs.k8s.io/kind@v0.31.0
-          curl -LO https://dl.k8s.io/release/v1.34.3/bin/linux/amd64/kubectl && sudo install kubectl /usr/local/bin/kubectl
+          go install sigs.k8s.io/kind@v0.33.0
+          curl -LO https://dl.k8s.io/release/v1.36.4/bin/linux/amd64/kubectl && sudo install kubectl /usr/local/bin/kubectl
       - name: Build Images
         run: make docker-build
       - name: Local Up Openyurt Cluster With Kind

@@ -68,5 +68,8 @@ type PlatformAdminHandler struct {
 	Manifests *config.Manifest
 }
 
+//nolint:staticcheck // SA1019: CustomDefaulter is deprecated in controller-runtime v0.24 but still supported
 var _ webhook.CustomDefaulter = &PlatformAdminHandler{}
+
+//nolint:staticcheck // SA1019: CustomValidator is deprecated in controller-runtime v0.24 but still supported
 var _ webhook.CustomValidator = &PlatformAdminHandler{}
