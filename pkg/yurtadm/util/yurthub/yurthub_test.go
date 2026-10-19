@@ -538,6 +538,21 @@ func TestResolveYurthubReleaseVersion(t *testing.T) {
 			want:    "v1.7.0",
 		},
 		{
+			name:    "pre-release tag",
+			version: "v1.7.0-rc.0",
+			want:    "v1.7.0",
+		},
+		{
+			name:    "pre-release tag with commit suffix",
+			version: "v1.8.0-beta.1-6fc029d",
+			want:    "v1.8.0",
+		},
+		{
+			name:    "default build version with pre-release suffix",
+			version: "v0.0.0-rc.0",
+			wantErr: true,
+		},
+		{
 			name:    "empty version",
 			version: "",
 			wantErr: true,
