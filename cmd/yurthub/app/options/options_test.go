@@ -124,6 +124,20 @@ func TestValidate(t *testing.T) {
 			}(),
 			isErr: false,
 		},
+		"unknown bootstrap mode still requires ca cert hashes": {
+			options: func() *YurtHubOptions {
+				o := NewYurtHubOptions()
+				o.NodeName = "foo"
+				o.ServerAddr = "1.2.3.4:56"
+				o.JoinToken = "xxxx"
+				o.BootstrapMode = "unknown"
+				o.LBMode = "rr"
+				o.WorkingMode = "cloud"
+				o.NodePoolName = "foo"
+				return o
+			}(),
+			isErr: true,
+		},
 		"invalid lb mode": {
 			options: &YurtHubOptions{
 				NodeName:   "foo",
