@@ -34,7 +34,7 @@ func (webhook *EndpointsHandler) Default(ctx context.Context, obj runtime.Object
 	//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated but still supported for backward compatibility
 	endpoints, ok := obj.(*corev1.Endpoints)
 	if !ok {
-		apierrors.NewBadRequest(fmt.Sprintf("expected an Endpoints object but got %T", obj))
+		return apierrors.NewBadRequest(fmt.Sprintf("expected an Endpoints object but got %T", obj))
 	}
 
 	return remapAutonomyEndpoints(ctx, webhook.Client, endpoints)
