@@ -17,8 +17,11 @@ limitations under the License.
 package options
 
 import (
+	"errors"
+	"net"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -276,6 +279,109 @@ func TestValidate(t *testing.T) {
 				t.Errorf("expect return err, but got nil")
 			} else if !tc.isErr && err != nil {
 				t.Errorf("expect return nil, but got %v", err)
+			}
+		})
+	}
+}
+
+func testIPNet(ip string) *net.IPNet {
+	parsed := net.ParseIP(ip)
+	if parsed.To4() != nil {
+		return &net.IPNet{IP: parsed, Mask: net.CIDRMask(24, 32)}
+	}
+	return &net.IPNet{IP: parsed, Mask: net.CIDRMask(64, 128)}
+}
+
+func TestNodeIPFromAddrs(t *testing.T) {
+	testcases := map[string]struct {
+		addrs []net.Addr
+		want  string
+	}{
+		"prefers IPv4 over IPv6": {
+			addrs: []net.Addr{testIPNet("fd00::5"), testIPNet("10.0.0.5")},
+			want:  "10.0.0.5",
+		},
+		"skips loopback and link-local": {
+			addrs: []net.Addr{testIPNet("127.0.0.1"), testIPNet("169.254.1.1"), testIPNet("fe80::1"), testIPNet("192.168.1.10")},
+			want:  "192.168.1.10",
+		},
+		"falls back to IPv6": {
+			addrs: []net.Addr{testIPNet("fd00::5")},
+			want:  "fd00::5",
+		},
+		"ignores non-IPNet addresses": {
+			addrs: []net.Addr{&net.IPAddr{IP: net.ParseIP("10.0.0.9")}, testIPNet("10.0.0.5")},
+			want:  "10.0.0.5",
+		},
+		"no usable address": {
+			addrs: []net.Addr{testIPNet("127.0.0.1"), testIPNet("169.254.1.1")},
+		},
+	}
+
+	for name, tc := range testcases {
+		t.Run(name, func(t *testing.T) {
+			got := nodeIPFromAddrs(tc.addrs)
+			if tc.want == "" {
+				if got != nil {
+					t.Fatalf("expected nil, got %v", got)
+				}
+				return
+			}
+			if got == nil || got.String() != tc.want {
+				t.Fatalf("expected %s, got %v", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestResolveNodeIPWith(t *testing.T) {
+	defaultRouteErr := errors.New("no default routes found in /proc/net/route")
+
+	testcases := map[string]struct {
+		resolveBindAddress func(net.IP) (net.IP, error)
+		interfaceAddrs     func() ([]net.Addr, error)
+		want               string
+		wantErr            string
+	}{
+		"uses default route address when available": {
+			resolveBindAddress: func(net.IP) (net.IP, error) { return net.ParseIP("10.0.0.1"), nil },
+			interfaceAddrs: func() ([]net.Addr, error) {
+				t.Fatal("interface addresses should not be consulted")
+				return nil, nil
+			},
+			want: "10.0.0.1",
+		},
+		"falls back to interface address without default route": {
+			resolveBindAddress: func(net.IP) (net.IP, error) { return nil, defaultRouteErr },
+			interfaceAddrs:     func() ([]net.Addr, error) { return []net.Addr{testIPNet("10.0.0.2")}, nil },
+			want:               "10.0.0.2",
+		},
+		"reports interface address failure": {
+			resolveBindAddress: func(net.IP) (net.IP, error) { return nil, defaultRouteErr },
+			interfaceAddrs:     func() ([]net.Addr, error) { return nil, errors.New("list failed") },
+			wantErr:            "list failed",
+		},
+		"returns default route error when no usable address exists": {
+			resolveBindAddress: func(net.IP) (net.IP, error) { return nil, defaultRouteErr },
+			interfaceAddrs:     func() ([]net.Addr, error) { return []net.Addr{testIPNet("127.0.0.1")}, nil },
+			wantErr:            defaultRouteErr.Error(),
+		},
+	}
+
+	for name, tc := range testcases {
+		t.Run(name, func(t *testing.T) {
+			got, err := resolveNodeIPWith(tc.resolveBindAddress, tc.interfaceAddrs)
+			if tc.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("expected error containing %q, got %v", tc.wantErr, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("expected nil error, got %v", err)
+			}
+			if got == nil || got.String() != tc.want {
+				t.Fatalf("expected %s, got %v", tc.want, got)
 			}
 		})
 	}

@@ -178,7 +178,7 @@ func (o *YurtHubOptions) Validate() error {
 		}
 
 		if len(o.NodeIP) == 0 {
-			ipAddr, err := apinet.ResolveBindAddress(nil)
+			ipAddr, err := resolveNodeIP()
 			if err != nil {
 				return fmt.Errorf("couldn't get the node ip, %v", err)
 			}
@@ -187,6 +187,42 @@ func (o *YurtHubOptions) Validate() error {
 		}
 	}
 
+	return nil
+}
+
+func resolveNodeIP() (net.IP, error) {
+	return resolveNodeIPWith(apinet.ResolveBindAddress, net.InterfaceAddrs)
+}
+
+func resolveNodeIPWith(resolveBindAddress func(net.IP) (net.IP, error), interfaceAddrs func() ([]net.Addr, error)) (net.IP, error) {
+	ipAddr, err := resolveBindAddress(nil)
+	if err == nil {
+		return ipAddr, nil
+	}
+
+	klog.V(2).Infof("failed to determine node ip from default route: %v, falling back to interface addresses", err)
+	addrs, addrsErr := interfaceAddrs()
+	if addrsErr != nil {
+		return nil, fmt.Errorf("%v; failed to list interface addresses: %w", err, addrsErr)
+	}
+	if ipAddr = nodeIPFromAddrs(addrs); ipAddr != nil {
+		klog.Warningf("no default route found, using interface address %s as node ip", ipAddr)
+		return ipAddr, nil
+	}
+	return nil, err
+}
+
+func nodeIPFromAddrs(addrs []net.Addr) net.IP {
+	// Prefer IPv4 to match the previous ResolveBindAddress behavior.
+	for _, wantIPv4 := range []bool{true, false} {
+		for _, addr := range addrs {
+			ipNet, ok := addr.(*net.IPNet)
+			if !ok || ipNet.IP.IsLoopback() || !ipNet.IP.IsGlobalUnicast() || (ipNet.IP.To4() != nil) != wantIPv4 {
+				continue
+			}
+			return ipNet.IP
+		}
+	}
 	return nil
 }
 
