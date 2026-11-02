@@ -213,10 +213,13 @@ func GetAPIServerAddress(kubeadmConfPaths []string) (string, error) {
 		return "", err
 	}
 
-	addrArr := strings.Split(apiserverAddr, " ")
-	if len(addrArr) != 2 {
-		return "", fmt.Errorf("get apiserverAddr format err:%s", apiserverAddr)
+	// Trim any leading/trailing whitespace from the parsed line before
+	// extracting the address value. A strict two-token split rejects
+	// common multi-space layouts produced by kubeadm config files.
+	fields := strings.Fields(strings.TrimSpace(apiserverAddr))
+	if len(fields) < 1 {
+		return "", fmt.Errorf("get apiserverAddr: empty address in %s", apiserverAddr)
 	}
-	apiserverAddr = addrArr[1]
+	apiserverAddr = fields[len(fields)-1]
 	return apiserverAddr, nil
 }
