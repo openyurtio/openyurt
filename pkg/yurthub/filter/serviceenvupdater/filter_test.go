@@ -248,6 +248,55 @@ func TestFilterServiceEnvUpdater(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "service host and service port updates correctly in init containers",
+			requestObj: &corev1.Pod{
+				Spec: corev1.PodSpec{
+					InitContainers: []corev1.Container{
+						{
+							Name: "test-init-container",
+							Env: []corev1.EnvVar{
+								{Name: "KUBERNETES_SERVICE_HOST", Value: "some-host"},
+								{Name: "KUBERNETES_SERVICE_PORT", Value: "1234"},
+								{Name: "OTHER_ENV_VAR", Value: "some-value"},
+							},
+						},
+					},
+					Containers: []corev1.Container{
+						{
+							Name: "test-container",
+							Env: []corev1.EnvVar{
+								{Name: "KUBERNETES_SERVICE_HOST", Value: "some-host"},
+								{Name: "KUBERNETES_SERVICE_PORT", Value: "1234"},
+							},
+						},
+					},
+				},
+			},
+			expectedObj: &corev1.Pod{
+				Spec: corev1.PodSpec{
+					InitContainers: []corev1.Container{
+						{
+							Name: "test-init-container",
+							Env: []corev1.EnvVar{
+								{Name: "KUBERNETES_SERVICE_HOST", Value: masterHost},
+								{Name: "KUBERNETES_SERVICE_PORT", Value: masterPort},
+								{Name: "OTHER_ENV_VAR", Value: "some-value"},
+							},
+						},
+					},
+					Containers: []corev1.Container{
+						{
+							Name: "test-container",
+							Env: []corev1.EnvVar{
+								{Name: "KUBERNETES_SERVICE_HOST", Value: masterHost},
+								{Name: "KUBERNETES_SERVICE_PORT", Value: masterPort},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	stopCh := make(<-chan struct{})
 
