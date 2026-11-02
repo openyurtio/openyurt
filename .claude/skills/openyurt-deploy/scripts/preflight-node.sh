@@ -42,7 +42,7 @@ EOF
 NODE=""
 TIMEOUT=120
 IMAGE="busybox:1.36.1"
-while [ $# -gt 0 ]; do
+while [[ $# -gt 0 ]]; do
   case "$1" in
     --context) NY_CTX="${2:-}"; shift 2 ;;
     --timeout) TIMEOUT="${2:-}"; shift 2 ;;
@@ -52,8 +52,11 @@ while [ $# -gt 0 ]; do
     *) NODE="$1"; shift ;;
   esac
 done
-[ -n "$NODE" ] || { usage >&2; ny_die 2 USAGE_ERROR "node name is required"; }
-case "$TIMEOUT" in '' | *[!0-9]*) ny_die 2 USAGE_ERROR "--timeout must be an integer" ;; esac
+[[ -n "$NODE" ]] || { usage >&2; ny_die 2 USAGE_ERROR "node name is required"; }
+case "$TIMEOUT" in
+  '' | *[!0-9]*) ny_die 2 USAGE_ERROR "--timeout must be an integer" ;;
+  *) ;;
+esac
 ny_require_tools kubectl
 ny_require_context
 k get node "$NODE" >/dev/null || ny_die 2 ENV_ERROR "node not found: $NODE"
@@ -229,8 +232,11 @@ print_pod_events() {
 deadline=$((SECONDS + TIMEOUT + 15))
 while :; do
   ny_job_snapshot "$JOB" || true
-  case "${JOB_STATE}" in succeeded | failed) break ;; esac
-  if [ "$SECONDS" -ge "$deadline" ]; then
+  case "${JOB_STATE}" in
+    succeeded | failed) break ;;
+    *) ;;
+  esac
+  if [[ "$SECONDS" -ge "$deadline" ]]; then
     print_pod_events
     ny_kv RESULT TIMEOUT
     exit 3
@@ -243,7 +249,7 @@ if ! printf '%s\n' "$LOGS" | grep -q '^PREFLIGHT_DONE$'; then
   printf '%s\n' "$LOGS"
   print_pod_events
   reason=$(k -n "${NY_NS}" get job "$JOB" -o jsonpath='{.status.conditions[?(@.type=="Failed")].reason}' 2>/dev/null || true)
-  if [ "$reason" = "DeadlineExceeded" ]; then
+  if [[ "$reason" = "DeadlineExceeded" ]]; then
     ny_kv RESULT TIMEOUT
     exit 3
   fi

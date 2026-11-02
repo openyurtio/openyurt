@@ -35,6 +35,8 @@ MUTATING_CFG="yurt-manager-mutating-webhook-configuration"
 VALIDATING_CFG="yurt-manager-validating-webhook-configuration"
 MUTATING_NODE_HOOK="mutate.core.v1.node.openyurt.io"
 VALIDATING_NODE_HOOK="validate.core.v1.node.openyurt.io"
+# slice_flag_value prints UNSET when the flag was never passed
+UNSET="__UNSET__"
 
 usage() {
   cat <<'EOF'
@@ -53,7 +55,8 @@ EOF
 # canonical controller name; mirrors YurtManagerControllerAliases() in
 # cmd/yurt-manager/names/controller_names.go (v1.7.0)
 canonical_controller() {
-  case "$1" in
+  local name="$1"
+  case "$name" in
     csrapprover) echo csr-approver-controller ;;
     daemonpodupdater) echo daemon-pod-updater-controller ;;
     nodepool) echo nodepool-controller ;;
@@ -92,13 +95,13 @@ controller_enabled() {
     case "$item" in
       '') ;;
       '*') has_star=yes ;;
-      -*) c=$(canonical_controller "${item#-}"); [ "$c" = "$name" ] && return 1 ;;
-      *) c=$(canonical_controller "$item"); [ "$c" = "$name" ] && return 0 ;;
+      -*) c=$(canonical_controller "${item#-}"); [[ "$c" = "$name" ]] && return 1 ;;
+      *) c=$(canonical_controller "$item"); [[ "$c" = "$name" ]] && return 0 ;;
     esac
   done <<EOF
 $(printf '%s' "$csv" | tr ',' '\n')
 EOF
-  [ "$has_star" = yes ]
+  [[ "$has_star" = yes ]]
 }
 
 # webhook_disabled NAME CSV -> 0 if disabled. Mirrors IsWebhookDisabled in
@@ -107,7 +110,7 @@ webhook_disabled() {
   local name="$1" csv="$2" item
   while IFS= read -r item; do
     item=$(printf '%s' "$item" | tr -d '[:space:]')
-    if [ "$item" = "$name" ] || [ "$item" = '*' ]; then return 0; fi
+    if [[ "$item" = "$name" ]] || [[ "$item" = '*' ]]; then return 0; fi
   done <<EOF
 $(printf '%s' "$csv" | tr ',' '\n')
 EOF
@@ -116,21 +119,22 @@ EOF
 
 # slice_flag_value FLAG ARGS... -> CSV value with pflag StringSlice semantics
 # (the first occurrence replaces the default, later occurrences append).
-# Prints "__UNSET__" when the flag is absent.
+# Prints "$UNSET" when the flag is absent.
 slice_flag_value() {
-  local flag="$1" value="__UNSET__" expect_value=no a
+  local flag="$1" value="$UNSET" expect_value=no a
   shift
   for a in "$@"; do
-    if [ "$expect_value" = yes ]; then
-      if [ "$value" = "__UNSET__" ]; then value="$a"; else value="$value,$a"; fi
+    if [[ "$expect_value" = yes ]]; then
+      if [[ "$value" = "$UNSET" ]]; then value="$a"; else value="$value,$a"; fi
       expect_value=no
       continue
     fi
     case "$a" in
       "--$flag="*)
-        if [ "$value" = "__UNSET__" ]; then value="${a#--"$flag"=}"; else value="$value,${a#--"$flag"=}"; fi
+        if [[ "$value" = "$UNSET" ]]; then value="${a#--"$flag"=}"; else value="$value,${a#--"$flag"=}"; fi
         ;;
       "--$flag") expect_value=yes ;;
+      *) ;;
     esac
   done
   printf '%s' "$value"
@@ -139,14 +143,14 @@ slice_flag_value() {
 self_test() {
   local fails=0
   t() { # t EXPECT(on|off) NAME CSV
-    local got=off
-    if controller_enabled "$2" "$3"; then got=on; fi
-    if [ "$got" = "$1" ]; then echo "ok   controllers=[$3] $2 -> $got"; else echo "FAIL controllers=[$3] $2 -> $got (want $1)"; fails=$((fails + 1)); fi
+    local want="$1" name="$2" csv="$3" got=off
+    if controller_enabled "$name" "$csv"; then got=on; fi
+    if [[ "$got" = "$want" ]]; then echo "ok   controllers=[$csv] $name -> $got"; else echo "FAIL controllers=[$csv] $name -> $got (want $want)"; fails=$((fails + 1)); fi
   }
   w() { # w EXPECT(disabled|enabled) CSV
-    local got=enabled
-    if webhook_disabled node "$2"; then got=disabled; fi
-    if [ "$got" = "$1" ]; then echo "ok   disable-independent-webhooks=[$2] node -> $got"; else echo "FAIL disable-independent-webhooks=[$2] node -> $got (want $1)"; fails=$((fails + 1)); fi
+    local want="$1" csv="$2" got=enabled
+    if webhook_disabled node "$csv"; then got=disabled; fi
+    if [[ "$got" = "$want" ]]; then echo "ok   disable-independent-webhooks=[$csv] node -> $got"; else echo "FAIL disable-independent-webhooks=[$csv] node -> $got (want $want)"; fails=$((fails + 1)); fi
   }
   t on yurt-node-conversion-controller '-nodelifecycle,*'
   t off yurt-node-conversion-controller 'nodepool'
@@ -164,10 +168,10 @@ self_test() {
   w enabled 'pod,endpoints'
   local v
   v=$(slice_flag_value controllers --v=4 --controllers=a,b --x --controllers c)
-  if [ "$v" = "a,b,c" ]; then echo "ok   slice_flag_value -> $v"; else echo "FAIL slice_flag_value -> $v (want a,b,c)"; fails=$((fails + 1)); fi
+  if [[ "$v" = "a,b,c" ]]; then echo "ok   slice_flag_value -> $v"; else echo "FAIL slice_flag_value -> $v (want a,b,c)"; fails=$((fails + 1)); fi
   v=$(slice_flag_value controllers --v=4)
-  if [ "$v" = "__UNSET__" ]; then echo "ok   slice_flag_value unset"; else echo "FAIL slice_flag_value unset -> $v"; fails=$((fails + 1)); fi
-  [ "$fails" -eq 0 ]
+  if [[ "$v" = "$UNSET" ]]; then echo "ok   slice_flag_value unset"; else echo "FAIL slice_flag_value unset -> $v"; fails=$((fails + 1)); fi
+  [[ "$fails" -eq 0 ]]
 }
 
 # --- argument parsing ------------------------------------------------------
@@ -175,7 +179,7 @@ self_test() {
 REQUIRE_AUTONOMY=no
 PROBE_NODE=""
 PROBE_POOL=""
-while [ $# -gt 0 ]; do
+while [[ $# -gt 0 ]]; do
   case "$1" in
     --context) NY_CTX="${2:-}"; shift 2 ;;
     --require-autonomy) REQUIRE_AUTONOMY=yes; shift ;;
@@ -203,7 +207,10 @@ ny_kv CONTEXT "$NY_CTX"
 # Helm v3 lists only deployed/failed releases unless --all is given; Helm v4
 # lists every status by default and no longer accepts --all.
 helm_all=()
-case "$(helm version --short 2>/dev/null)" in v3.*) helm_all=(--all) ;; esac
+case "$(helm version --short 2>/dev/null)" in
+  v3.*) helm_all=(--all) ;;
+  *) ;;
+esac
 release_yaml=$(helm --kube-context "$NY_CTX" --namespace "$NY_NS" list ${helm_all[@]+"${helm_all[@]}"} --filter "^${RELEASE}\$" -o yaml) ||
   ny_die 2 ENV_ERROR "helm list failed"
 other_ns=$(helm --kube-context "$NY_CTX" list --all-namespaces ${helm_all[@]+"${helm_all[@]}"} --filter "^${RELEASE}\$" -o yaml 2>/dev/null |
@@ -213,12 +220,12 @@ deploy_found=$(k -n "$NY_NS" get deployment yurt-manager --ignore-not-found -o n
 if printf '%s\n' "$release_yaml" | grep -q "name: ${RELEASE}\$"; then
   chart=$(printf '%s\n' "$release_yaml" | sed -n 's/^  chart: //p' | head -n1)
   status=$(printf '%s\n' "$release_yaml" | sed -n 's/^  status: //p' | head -n1)
-  if [ "$chart" = "$EXPECTED_CHART" ]; then pass helm_chart "$chart"; else incompatible helm_chart "release ${NY_NS}/${RELEASE} uses chart '$chart', want $EXPECTED_CHART"; fi
-  if [ "$status" = "deployed" ]; then pass helm_status "$status"; else incompatible helm_status "release status is '$status', want deployed"; fi
+  if [[ "$chart" = "$EXPECTED_CHART" ]]; then pass helm_chart "$chart"; else incompatible helm_chart "release ${NY_NS}/${RELEASE} uses chart '$chart', want $EXPECTED_CHART"; fi
+  if [[ "$status" = "deployed" ]]; then pass helm_status "$status"; else incompatible helm_status "release status is '$status', want deployed"; fi
 else
-  if [ -n "$other_ns" ]; then
+  if [[ -n "$other_ns" ]]; then
     incompatible helm_namespace "release ${RELEASE} found in namespace(s) $(echo "$other_ns" | tr '\n' ' ')- this skill requires it in ${NY_NS}"
-  elif [ -n "$deploy_found" ]; then
+  elif [[ -n "$deploy_found" ]]; then
     incompatible helm_release "deployment ${NY_NS}/yurt-manager exists but is not managed by a helm release in ${NY_NS}"
   else
     echo "CHECK yurt_manager=ABSENT no helm release or deployment in ${NY_NS}"
@@ -227,7 +234,7 @@ else
   fi
 fi
 
-if [ -n "$deploy_found" ]; then
+if [[ -n "$deploy_found" ]]; then
   image=$(k -n "$NY_NS" get deployment yurt-manager -o jsonpath='{.spec.template.spec.containers[?(@.name=="yurt-manager")].image}')
   available=$(k -n "$NY_NS" get deployment yurt-manager -o jsonpath='{.status.availableReplicas}')
   args=()
@@ -238,33 +245,33 @@ if [ -n "$deploy_found" ]; then
     *":${EXPECTED_TAG}") pass yurt_manager_image "$image" ;;
     *) incompatible yurt_manager_image "image '$image', want tag ${EXPECTED_TAG}" ;;
   esac
-  if [ -n "$available" ] && [ "$available" -ge 1 ]; then pass yurt_manager_available "$available"; else incompatible yurt_manager_available "no available replicas"; fi
+  if [[ -n "$available" ]] && [[ "$available" -ge 1 ]]; then pass yurt_manager_available "$available"; else incompatible yurt_manager_available "no available replicas"; fi
 
   servant=$(slice_flag_value node-servant-image ${args[@]+"${args[@]}"})
   case "$servant" in
     *":${EXPECTED_TAG}") pass node_servant_image "$servant" ;;
-    __UNSET__) incompatible node_servant_image "--node-servant-image is not set" ;;
+    "$UNSET") incompatible node_servant_image "--node-servant-image is not set" ;;
     *) incompatible node_servant_image "'$servant' (pin nodeServant.image.tag=${EXPECTED_TAG}; 'latest' drifts from the controller version)" ;;
   esac
 
   ns_arg=$(slice_flag_value working-namespace ${args[@]+"${args[@]}"})
-  if [ "$ns_arg" = "__UNSET__" ] || [ "$ns_arg" = "$NY_NS" ]; then pass working_namespace "$NY_NS"; else incompatible working_namespace "--working-namespace=$ns_arg, want $NY_NS"; fi
+  if [[ "$ns_arg" = "$UNSET" ]] || [[ "$ns_arg" = "$NY_NS" ]]; then pass working_namespace "$NY_NS"; else incompatible working_namespace "--working-namespace=$ns_arg, want $NY_NS"; fi
 
   controllers=$(slice_flag_value controllers ${args[@]+"${args[@]}"})
-  [ "$controllers" = "__UNSET__" ] && controllers=""
+  [[ "$controllers" = "$UNSET" ]] && controllers=""
   for c in yurt-node-conversion-controller nodepool-controller; do
     if controller_enabled "$c" "$controllers"; then pass "controller_$c" "enabled by --controllers=$controllers"; else incompatible "controller_$c" "disabled by --controllers=$controllers"; fi
   done
   if controller_enabled pod-binding-controller "$controllers"; then
     pass controller_pod-binding-controller "enabled"
-  elif [ "$REQUIRE_AUTONOMY" = yes ]; then
+  elif [[ "$REQUIRE_AUTONOMY" = yes ]]; then
     incompatible controller_pod-binding-controller "disabled by --controllers=$controllers; node.openyurt.io/autonomy-duration has no effect"
   else
     warn controller_pod-binding-controller "disabled; only matters if node autonomy is enabled later"
   fi
 
   disabled_hooks=$(slice_flag_value disable-independent-webhooks ${args[@]+"${args[@]}"})
-  [ "$disabled_hooks" = "__UNSET__" ] && disabled_hooks=""
+  [[ "$disabled_hooks" = "$UNSET" ]] && disabled_hooks=""
   if webhook_disabled node "$disabled_hooks"; then
     incompatible node_webhook_flag "disabled by --disable-independent-webhooks=$disabled_hooks"
   else
@@ -275,8 +282,9 @@ fi
 # --- webhook configuration, CRD, shared yurthub resources -----------------
 
 hook_rules() { # hook_rules KIND CONFIG HOOK
-  k get "$1" "$2" --ignore-not-found \
-    -o jsonpath="{range .webhooks[?(@.name==\"$3\")]}{.rules[*].resources}{\" \"}{.rules[*].operations}{end}" 2>/dev/null || true
+  local kind="$1" config="$2" hook_name="$3"
+  k get "$kind" "$config" --ignore-not-found \
+    -o jsonpath="{range .webhooks[?(@.name==\"$hook_name\")]}{.rules[*].resources}{\" \"}{.rules[*].operations}{end}" 2>/dev/null || true
 }
 for spec in "mutatingwebhookconfiguration ${MUTATING_CFG} ${MUTATING_NODE_HOOK}" \
   "validatingwebhookconfiguration ${VALIDATING_CFG} ${VALIDATING_NODE_HOOK}"; do
@@ -289,39 +297,39 @@ for spec in "mutatingwebhookconfiguration ${MUTATING_CFG} ${MUTATING_NODE_HOOK}"
   fi
 done
 endpoints=$(k -n "$NY_NS" get endpoints yurt-manager-webhook-service --ignore-not-found -o jsonpath='{.subsets[*].addresses[*].ip}')
-if [ -n "$endpoints" ]; then pass webhook_endpoints "$endpoints"; else incompatible webhook_endpoints "service ${NY_NS}/yurt-manager-webhook-service has no ready endpoints"; fi
+if [[ -n "$endpoints" ]]; then pass webhook_endpoints "$endpoints"; else incompatible webhook_endpoints "service ${NY_NS}/yurt-manager-webhook-service has no ready endpoints"; fi
 
 served=$(k get crd nodepools.apps.openyurt.io --ignore-not-found -o jsonpath='{.spec.versions[?(@.name=="v1beta2")].served}')
-if [ "$served" = "true" ]; then pass crd_nodepool_v1beta2 "served"; else incompatible crd_nodepool_v1beta2 "nodepools.apps.openyurt.io does not serve v1beta2"; fi
+if [[ "$served" = "true" ]]; then pass crd_nodepool_v1beta2 "served"; else incompatible crd_nodepool_v1beta2 "nodepools.apps.openyurt.io does not serve v1beta2"; fi
 
 for obj in "configmap -n ${NY_NS} yurt-hub-cfg" "clusterrole yurt-hub" "clusterrolebinding yurt-hub"; do
   # shellcheck disable=SC2086
-  if [ -n "$(k get $obj --ignore-not-found -o name)" ]; then pass "shared_$(echo "$obj" | awk '{print $NF}')_$(echo "$obj" | awk '{print $1}')" "present"; else missing "shared_$(echo "$obj" | awk '{print $NF}')_$(echo "$obj" | awk '{print $1}')" "not found (render charts/yurthub templates/yurthub-cfg.yaml from v1.7.0)"; fi
+  if [[ -n "$(k get $obj --ignore-not-found -o name)" ]]; then pass "shared_$(echo "$obj" | awk '{print $NF}')_$(echo "$obj" | awk '{print $1}')" "present"; else missing "shared_$(echo "$obj" | awk '{print $NF}')_$(echo "$obj" | awk '{print $1}')" "not found (render charts/yurthub templates/yurthub-cfg.yaml from v1.7.0)"; fi
 done
 
-if [ -n "$INCOMPATIBLE" ]; then
+if [[ -n "$INCOMPATIBLE" ]]; then
   ny_kv RESULT INCOMPATIBLE
   exit 12
 fi
-if [ -n "$MISSING" ]; then
+if [[ -n "$MISSING" ]]; then
   ny_kv RESULT MISSING_SHARED
   exit 11
 fi
 
 # --- functional webhook probe (server-side dry-run, nothing persisted) ---
 
-if [ -n "$PROBE_NODE" ]; then
+if [[ -n "$PROBE_NODE" ]]; then
   ny_node_snapshot "$PROBE_NODE" || ny_die 2 ENV_ERROR "node not found: $PROBE_NODE"
   pool="${NODE_NP:-$PROBE_POOL}"
-  if [ -z "$pool" ]; then
+  if [[ -z "$pool" ]]; then
     echo "CHECK webhook_probe=UNAVAILABLE node $PROBE_NODE is not in a pool and --probe-pool was not given"
     ny_kv RESULT PROBE_UNAVAILABLE
     exit 13
   fi
-  if [ -n "$NODE_NP" ] && [ -n "$PROBE_POOL" ] && [ "$PROBE_POOL" != "$NODE_NP" ]; then
+  if [[ -n "$NODE_NP" ]] && [[ -n "$PROBE_POOL" ]] && [[ "$PROBE_POOL" != "$NODE_NP" ]]; then
     echo "CHECK webhook_probe=INFO node is in pool $NODE_NP; probing with its current pool instead of $PROBE_POOL"
   fi
-  if [ -z "$(k get nodepools.apps.openyurt.io "$pool" --ignore-not-found -o name)" ]; then
+  if [[ -z "$(k get nodepools.apps.openyurt.io "$pool" --ignore-not-found -o name)" ]]; then
     echo "CHECK webhook_probe=UNAVAILABLE NodePool $pool does not exist (the defaulting webhook needs it)"
     ny_kv RESULT PROBE_UNAVAILABLE
     exit 13
@@ -330,14 +338,14 @@ if [ -n "$PROBE_NODE" ]; then
   # (a) mutating: drop nodepool and set desired-nodepool in one patch; the
   # defaulting webhook (node_default.go) must put nodepool back.
   probe_args=("${NY_LABEL_DESIRED}=${pool}")
-  [ -n "$NODE_NP" ] && probe_args=("${NY_LABEL_NODEPOOL}-" "${probe_args[@]}")
+  [[ -n "$NODE_NP" ]] && probe_args=("${NY_LABEL_NODEPOOL}-" "${probe_args[@]}")
   errfile=$(mktemp)
   if got=$(k label node "$PROBE_NODE" "${probe_args[@]}" --overwrite --dry-run=server \
     -o jsonpath='{.metadata.labels.apps\.openyurt\.io/nodepool}' 2>"$errfile"); then :; else
     got="error: $(tr '\n' ' ' <"$errfile")"
   fi
   rm -f "$errfile"
-  if [ "$got" = "$pool" ]; then
+  if [[ "$got" = "$pool" ]]; then
     pass webhook_probe_mutating "desired-nodepool=$pool was defaulted to nodepool=$pool"
     mutating_ok=yes
   else
@@ -348,7 +356,7 @@ if [ -n "$PROBE_NODE" ]; then
   # (b) validating: changing is-edge-worker as a regular user must be denied by
   # node_validation.go. The webhook returns apierrors.NewInvalid, so the API
   # reports Invalid (422); match the webhook name and the field, not Forbidden.
-  if [ "$NODE_EDGE" = "true" ]; then flip="false"; else flip="true"; fi
+  if [[ "$NODE_EDGE" = "true" ]]; then flip="false"; else flip="true"; fi
   if out=$(k label node "$PROBE_NODE" "${NY_LABEL_EDGE}=${flip}" --overwrite --dry-run=server 2>&1); then
     echo "CHECK webhook_probe_validating=FAIL dry-run change of ${NY_LABEL_EDGE} was accepted"
     validating_ok=no
@@ -360,7 +368,7 @@ if [ -n "$PROBE_NODE" ]; then
     validating_ok=no
   fi
 
-  if [ "$mutating_ok" != yes ] || [ "$validating_ok" != yes ]; then
+  if [[ "$mutating_ok" != yes ]] || [[ "$validating_ok" != yes ]]; then
     ny_kv RESULT WEBHOOK_UNHEALTHY
     exit 14
   fi

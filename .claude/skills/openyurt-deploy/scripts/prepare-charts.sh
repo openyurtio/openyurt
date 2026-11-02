@@ -42,7 +42,7 @@ EOF
 }
 
 DEST=""; REPO=""
-while [ $# -gt 0 ]; do
+while [[ $# -gt 0 ]]; do
   case "$1" in
     --dest) DEST="${2:-}"; shift 2 ;;
     --repo) REPO="${2:-}"; shift 2 ;;
@@ -50,13 +50,13 @@ while [ $# -gt 0 ]; do
     *) usage >&2; ny_die 2 USAGE_ERROR "unknown argument: $1" ;;
   esac
 done
-[ -n "$DEST" ] || ny_die 2 USAGE_ERROR "--dest is required"
+[[ -n "$DEST" ]] || ny_die 2 USAGE_ERROR "--dest is required"
 ny_require_tools helm tar
 mkdir -p "$DEST"
-[ -z "$(ls -A "$DEST")" ] || ny_die 2 USAGE_ERROR "--dest must be an empty directory: $DEST"
+[[ -z "$(ls -A "$DEST")" ]] || ny_die 2 USAGE_ERROR "--dest must be an empty directory: $DEST"
 DEST="$(cd "$DEST" && pwd)"
 
-if [ -n "$REPO" ]; then
+if [[ -n "$REPO" ]]; then
   ny_require_tools git
   git -C "$REPO" rev-parse -q --verify "refs/tags/${TAG}^{commit}" >/dev/null ||
     ny_die 2 ENV_ERROR "tag ${TAG} not found in ${REPO} (git fetch --tags first)"
@@ -66,7 +66,7 @@ else
   ny_require_tools curl
   tmp="$DEST/.download"
   mkdir -p "$tmp"
-  curl -fsSL "$TARBALL_URL" -o "$tmp/src.tar.gz" || ny_die 2 ENV_ERROR "download failed: $TARBALL_URL"
+  curl -fsSL --proto '=https' --proto-redir '=https' "$TARBALL_URL" -o "$tmp/src.tar.gz" || ny_die 2 ENV_ERROR "download failed: $TARBALL_URL"
   tar -xzf "$tmp/src.tar.gz" -C "$tmp"
   src=$(find "$tmp" -mindepth 1 -maxdepth 1 -type d | head -n1)
   mkdir -p "$DEST/charts"
@@ -77,7 +77,7 @@ fi
 
 for c in yurt-manager yurthub; do
   f="$DEST/charts/$c/Chart.yaml"
-  [ -f "$f" ] || ny_die 2 ENV_ERROR "missing $f"
+  [[ -f "$f" ]] || ny_die 2 ENV_ERROR "missing $f"
   grep -qx "version: ${CHART_VERSION}" "$f" || ny_die 2 ENV_ERROR "$f is not version ${CHART_VERSION}"
   grep -qx "appVersion: \"${TAG}\"" "$f" || ny_die 2 ENV_ERROR "$f is not appVersion ${TAG}"
 done

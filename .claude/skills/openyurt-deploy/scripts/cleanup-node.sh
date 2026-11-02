@@ -47,7 +47,7 @@ EOF
 }
 
 NODE=""; IMAGE=""; TIMEOUT=600; DIAG_DIR="./openyurt-diag"
-while [ $# -gt 0 ]; do
+while [[ $# -gt 0 ]]; do
   case "$1" in
     --context) NY_CTX="${2:-}"; shift 2 ;;
     --image) IMAGE="${2:-}"; shift 2 ;;
@@ -58,12 +58,18 @@ while [ $# -gt 0 ]; do
     *) NODE="$1"; shift ;;
   esac
 done
-[ -n "$NODE" ] || ny_die 2 USAGE_ERROR "node name is required"
-case "$TIMEOUT" in '' | *[!0-9]*) ny_die 2 USAGE_ERROR "--timeout must be an integer" ;; esac
+[[ -n "$NODE" ]] || ny_die 2 USAGE_ERROR "node name is required"
+case "$TIMEOUT" in
+  '' | *[!0-9]*) ny_die 2 USAGE_ERROR "--timeout must be an integer" ;;
+  *) ;;
+esac
 ny_require_tools kubectl
 ny_require_context
 
-refuse() { ny_die 2 REFUSED "$1"; }
+refuse() {
+  local reason="$1"
+  ny_die 2 REFUSED "$reason"
+}
 
 # --- preconditions ---------------------------------------------------------
 
@@ -72,35 +78,41 @@ CLEANUP_JOB="${PREFIX}-${NY_CLEANUP_INFIX}-$(ny_rand 4)"
 # Job names are limited to 63 characters; the generated Pod name keeps only the
 # first 58 characters of "<job>-" (MaxGeneratedNameLength), so the prefix must
 # fit in 58 characters for the self-exclusion to match.
-[ "${#CLEANUP_JOB}" -le 63 ] || refuse "cleanup Job name ${CLEANUP_JOB} exceeds 63 characters; clean the host manually"
-[ "${#PREFIX}" -le 58 ] || refuse "prefix ${PREFIX} exceeds 58 characters; node-servant self-exclusion would not match"
+[[ "${#CLEANUP_JOB}" -le 63 ]] || refuse "cleanup Job name ${CLEANUP_JOB} exceeds 63 characters; clean the host manually"
+[[ "${#PREFIX}" -le 58 ]] || refuse "prefix ${PREFIX} exceeds 58 characters; node-servant self-exclusion would not match"
 
 ny_node_snapshot "$NODE" || refuse "node not found: $NODE"
-[ -z "${NODE_NP}" ] || refuse "node still has ${NY_LABEL_NODEPOOL}=${NODE_NP}; remove both pool labels first (conversion not stopped)"
-[ -z "${NODE_DESIRED}" ] || refuse "node still has ${NY_LABEL_DESIRED}=${NODE_DESIRED}; remove both pool labels first"
-[ "${NODE_EDGE}" != "true" ] || refuse "node has ${NY_LABEL_EDGE}=true; this is a converted node, use the normal revert or the RevertFailed flow"
-[ "${NODE_UNSCHED}" = "true" ] || refuse "node is not cordoned; cordon it before cleaning the host"
+[[ -z "${NODE_NP}" ]] || refuse "node still has ${NY_LABEL_NODEPOOL}=${NODE_NP}; remove both pool labels first (conversion not stopped)"
+[[ -z "${NODE_DESIRED}" ]] || refuse "node still has ${NY_LABEL_DESIRED}=${NODE_DESIRED}; remove both pool labels first"
+[[ "${NODE_EDGE}" != "true" ]] || refuse "node has ${NY_LABEL_EDGE}=true; this is a converted node, use the normal revert or the RevertFailed flow"
+[[ "${NODE_UNSCHED}" = "true" ]] || refuse "node is not cordoned; cordon it before cleaning the host"
 
 ny_job_snapshot "$PREFIX" || refuse "cannot read Job ${NY_NS}/${PREFIX}"
-if [ "${JOB_EXISTS}" = "yes" ]; then
+if [[ "${JOB_EXISTS}" = "yes" ]]; then
   case "${JOB_STATE}" in succeeded | failed) ;; *) refuse "conversion Job ${PREFIX} is still ${JOB_STATE}" ;; esac
 fi
 active=$(ny_job_active_pods "$PREFIX")
-[ "${active:-0}" -eq 0 ] || refuse "conversion Job ${PREFIX} still has ${active} active pod(s)"
+[[ "${active:-0}" -eq 0 ]] || refuse "conversion Job ${PREFIX} still has ${active} active pod(s)"
 if ny_cleanup_jobs "$NODE" | grep -qE ' (active|pending)$'; then
   refuse "another cleanup Job is running for ${NODE}"
 fi
 
-if [ -z "$IMAGE" ]; then
+if [[ -z "$IMAGE" ]]; then
   while IFS= read -r a; do
-    case "$a" in --node-servant-image=*) IMAGE="${a#--node-servant-image=}" ;; esac
+    case "$a" in
+      --node-servant-image=*) IMAGE="${a#--node-servant-image=}" ;;
+      *) ;;
+    esac
   done < <(k -n "$NY_NS" get deployment yurt-manager --ignore-not-found \
     -o jsonpath='{range .spec.template.spec.containers[?(@.name=="yurt-manager")].args[*]}{@}{"\n"}{end}')
 fi
-[ -n "$IMAGE" ] || refuse "cannot determine the node-servant image; pass --image"
+[[ -n "$IMAGE" ]] || refuse "cannot determine the node-servant image; pass --image"
 image_ref="${IMAGE##*/}"
 case "$image_ref" in *:* | *@*) ;; *) refuse "image $IMAGE has no tag; pass a pinned --image" ;; esac
-case "$IMAGE" in *:latest) refuse "image $IMAGE uses 'latest'; pass a pinned --image (e.g. openyurt/node-servant:v1.7.0)" ;; esac
+case "$IMAGE" in
+  *:latest) refuse "image $IMAGE uses 'latest'; pass a pinned --image (e.g. openyurt/node-servant:v1.7.0)" ;;
+  *) ;;
+esac
 
 ny_kv CONTEXT "$NY_CTX"
 ny_kv NODE "$NODE"
@@ -182,8 +194,11 @@ write_diag() {
 deadline=$((SECONDS + TIMEOUT + 60))
 while :; do
   ny_job_snapshot "$CLEANUP_JOB" || true
-  case "${JOB_STATE}" in succeeded | failed) break ;; esac
-  if [ "$SECONDS" -ge "$deadline" ]; then
+  case "${JOB_STATE}" in
+    succeeded | failed) break ;;
+    *) ;;
+  esac
+  if [[ "$SECONDS" -ge "$deadline" ]]; then
     write_diag
     ny_kv NODE_LEFT_CORDONED true
     ny_kv BLOCKS_UNINSTALL true
@@ -193,9 +208,9 @@ while :; do
   sleep 5
 done
 
-if [ "${JOB_STATE}" = "succeeded" ]; then
+if [[ "${JOB_STATE}" = "succeeded" ]]; then
   excluded=$(k -n "$NY_NS" logs "job/${CLEANUP_JOB}" 2>/dev/null | sed -n 's/.*skippedExcluded=\([0-9][0-9]*\).*/\1/p' | tail -n1)
-  if [ -n "$excluded" ] && [ "$excluded" -ge 1 ]; then ny_kv SELF_EXCLUDED yes; else ny_kv SELF_EXCLUDED unknown; fi
+  if [[ -n "$excluded" ]] && [[ "$excluded" -ge 1 ]]; then ny_kv SELF_EXCLUDED yes; else ny_kv SELF_EXCLUDED unknown; fi
   ny_kv NEXT "delete Jobs ${PREFIX} and ${CLEANUP_JOB}, then uncordon ${NODE} after user confirmation"
   ny_kv RESULT CLEANED
   exit 0
@@ -206,7 +221,7 @@ write_diag
 ny_kv NODE_LEFT_CORDONED true
 ny_kv BLOCKS_UNINSTALL true
 ny_kv POSSIBLE_HOST_LEFTOVERS "/etc/systemd/system/yurthub.service* /usr/local/bin/yurthub /var/lib/openyurt/kubelet.conf kubeadm-flags.env redirect"
-if [ "$reason" = "DeadlineExceeded" ]; then
+if [[ "$reason" = "DeadlineExceeded" ]]; then
   ny_kv RESULT CLEANUP_TIMEOUT
   exit 3
 fi

@@ -40,9 +40,10 @@ ny_kv() {
 
 ny_die() {
   # ny_die EXIT_CODE RESULT MESSAGE
+  local code="$1" result="$2"
   printf 'ERROR=%s\n' "$3" >&2
-  ny_kv RESULT "$2"
-  exit "$1"
+  ny_kv RESULT "$result"
+  exit "$code"
 }
 
 k() {
@@ -57,7 +58,7 @@ ny_require_tools() {
 }
 
 ny_require_context() {
-  [ -n "${NY_CTX}" ] || ny_die 2 USAGE_ERROR "--context is required"
+  [[ -n "${NY_CTX}" ]] || ny_die 2 USAGE_ERROR "--context is required"
   kubectl config get-contexts "${NY_CTX}" >/dev/null 2>&1 ||
     ny_die 2 ENV_ERROR "kube context not found: ${NY_CTX}"
 }
@@ -69,12 +70,14 @@ ny_job_name() {
 ny_rand() {
   # ny_rand LEN -> lowercase hex string (LEN <= 16). Reads a fixed number of
   # bytes so that no pipeline stage is killed by SIGPIPE under pipefail.
-  od -An -N8 -tx1 /dev/urandom | tr -d ' \n' | cut -c "1-$1"
+  local len="$1"
+  od -An -N8 -tx1 /dev/urandom | tr -d ' \n' | cut -c "1-$len"
 }
 
 ny_dns_label() {
   # lowercase, replace characters invalid in a DNS label, trim to $2 chars
-  printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | cut -c "1-$2" | sed 's/-*$//'
+  local value="$1" max_len="$2"
+  printf '%s' "$value" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | cut -c "1-$max_len" | sed 's/-*$//'
 }
 
 # ny_node_snapshot NODE
@@ -94,7 +97,7 @@ ny_node_snapshot() {
   } <<EOF
 $out
 EOF
-  [ -n "${NODE_UNSCHED}" ] || NODE_UNSCHED="false"
+  [[ -n "${NODE_UNSCHED}" ]] || NODE_UNSCHED="false"
   return 0
 }
 
@@ -105,7 +108,7 @@ ny_job_snapshot() {
   JOB_EXISTS="no"; JOB_UID="none"; JOB_ACTION=""; JOB_STATE=""
   out=$(k -n "${NY_NS}" get job "$1" --ignore-not-found -o jsonpath='{.metadata.uid}{"\n"}{.spec.template.spec.containers[0].args[0]}{"\n"}{.status.active}{"\n"}{range .status.conditions[?(@.status=="True")]}{.type}{","}{end}') ||
     return 1
-  [ -n "$out" ] || return 0
+  [[ -n "$out" ]] || return 0
   {
     IFS= read -r JOB_UID
     IFS= read -r args
@@ -125,7 +128,7 @@ EOF
     *,Failed,*) JOB_STATE="failed" ;;
     *,Complete,*) JOB_STATE="succeeded" ;;
     *)
-      if [ -n "$active" ] && [ "$active" != "0" ]; then JOB_STATE="active"; else JOB_STATE="pending"; fi
+      if [[ -n "$active" ]] && [[ "$active" != "0" ]]; then JOB_STATE="active"; else JOB_STATE="pending"; fi
       ;;
   esac
   return 0
@@ -133,21 +136,22 @@ EOF
 
 # ny_job_active_pods JOB_NAME -> prints number of Pending/Running pods of the Job
 ny_job_active_pods() {
-  k -n "${NY_NS}" get pods -l "job-name=$1" \
+  local job="$1"
+  k -n "${NY_NS}" get pods -l "job-name=$job" \
     -o jsonpath='{range .items[*]}{.status.phase}{"\n"}{end}' 2>/dev/null |
     grep -cE '^(Pending|Running)$' || true
 }
 
 # isConvertedStable() in yurt_node_conversion_controller.go; needs ny_node_snapshot
 ny_is_converted_stable() {
-  [ -n "${NODE_NP}" ] && [ "${NODE_EDGE}" = "true" ] && [ "${NODE_UNSCHED}" != "true" ] &&
-    [ "${COND_STATUS}" = "False" ] && [ "${COND_REASON}" = "Converted" ]
+  [[ -n "${NODE_NP}" ]] && [[ "${NODE_EDGE}" = "true" ]] && [[ "${NODE_UNSCHED}" != "true" ]] &&
+    [[ "${COND_STATUS}" = "False" ]] && [[ "${COND_REASON}" = "Converted" ]]
 }
 
 # isRevertedStable() in yurt_node_conversion_controller.go; needs ny_node_snapshot
 ny_is_reverted_stable() {
-  [ -z "${NODE_NP}" ] && [ "${NODE_EDGE}" != "true" ] && [ "${NODE_UNSCHED}" != "true" ] &&
-    [ "${COND_STATUS}" = "False" ] && [ "${COND_REASON}" = "Reverted" ]
+  [[ -z "${NODE_NP}" ]] && [[ "${NODE_EDGE}" != "true" ]] && [[ "${NODE_UNSCHED}" != "true" ]] &&
+    [[ "${COND_STATUS}" = "False" ]] && [[ "${COND_REASON}" = "Reverted" ]]
 }
 
 # ny_cleanup_jobs NODE -> prints "<name> <state>" for cleanup Jobs created by cleanup-node.sh
@@ -161,6 +165,7 @@ ny_cleanup_jobs() {
           ny_job_snapshot "$name" >/dev/null 2>&1 || continue
           printf '%s %s\n' "$name" "${JOB_STATE}"
           ;;
+        *) ;;
       esac
     done
 }
@@ -182,44 +187,44 @@ ny_classify_node() {
   if printf '%s\n' "$cleanups" | grep -qE ' (active|pending)$'; then
     NODE_STATE="CLEANING"; return 0
   fi
-  if [ "${JOB_STATE}" = "active" ] || [ "${JOB_STATE}" = "pending" ]; then
-    if [ "${JOB_ACTION}" = "revert" ]; then NODE_STATE="REVERTING"; else NODE_STATE="CONVERTING"; fi
+  if [[ "${JOB_STATE}" = "active" ]] || [[ "${JOB_STATE}" = "pending" ]]; then
+    if [[ "${JOB_ACTION}" = "revert" ]]; then NODE_STATE="REVERTING"; else NODE_STATE="CONVERTING"; fi
     return 0
   fi
   if ny_is_converted_stable; then NODE_STATE="CONVERTED"; return 0; fi
   if ny_is_reverted_stable; then NODE_STATE="REVERTED"; return 0; fi
 
-  if [ "${COND_STATUS}" = "True" ] && [ "${COND_REASON}" = "RevertFailed" ]; then
+  if [[ "${COND_STATUS}" = "True" ]] && [[ "${COND_REASON}" = "RevertFailed" ]]; then
     NODE_STATE="REVERT_FAILED"; NODE_STATE_NOTE="failed revert Job is retried automatically after its TTL expires"; return 0
   fi
-  if [ "${COND_STATUS}" = "True" ] && [ "${COND_REASON}" = "ConvertFailed" ]; then
-    if [ -n "${NODE_NP}" ] || [ -n "${NODE_DESIRED}" ]; then
+  if [[ "${COND_STATUS}" = "True" ]] && [[ "${COND_REASON}" = "ConvertFailed" ]]; then
+    if [[ -n "${NODE_NP}" ]] || [[ -n "${NODE_DESIRED}" ]]; then
       NODE_STATE="CONVERT_FAILED"; NODE_STATE_NOTE="labels still request conversion; controller retries after the failed Job's TTL expires"
-    elif [ "${NODE_UNSCHED}" = "true" ]; then
+    elif [[ "${NODE_UNSCHED}" = "true" ]]; then
       NODE_STATE="CLEANUP_PENDING"; NODE_STATE_NOTE="conversion stopped but host cleanup not done"
     else
       NODE_STATE="CLEANUP_UNVERIFIED"; NODE_STATE_NOTE="conversion stopped and node uncordoned; verify host artifacts with preflight-node.sh"
     fi
     return 0
   fi
-  if [ -n "${NODE_NP}" ] && [ "${NODE_EDGE}" != "true" ]; then
+  if [[ -n "${NODE_NP}" ]] && [[ "${NODE_EDGE}" != "true" ]]; then
     NODE_STATE="CONVERT_NOT_STARTED"; NODE_STATE_NOTE="nodepool label set but no conversion round; check NodePool type and yurt-manager"; return 0
   fi
-  if [ -z "${NODE_NP}" ] && [ "${NODE_EDGE}" = "true" ]; then
-    if [ -z "${COND_REASON}" ]; then
+  if [[ -z "${NODE_NP}" ]] && [[ "${NODE_EDGE}" = "true" ]]; then
+    if [[ -z "${COND_REASON}" ]]; then
       NODE_STATE="EDGE_WITHOUT_RECORD"; NODE_STATE_NOTE="edge node without conversion record (e.g. joined by yurtadm); removing labels triggers a revert Job"
     else
       NODE_STATE="REVERT_NOT_STARTED"; NODE_STATE_NOTE="revert requested but no revert round observed"
     fi
     return 0
   fi
-  if [ -z "${NODE_NP}" ] && [ -n "${NODE_DESIRED}" ]; then
+  if [[ -z "${NODE_NP}" ]] && [[ -n "${NODE_DESIRED}" ]]; then
     NODE_STATE="DESIRED_ONLY"; NODE_STATE_NOTE="desired-nodepool set but nodepool label missing (node webhook was not applied)"; return 0
   fi
-  if [ -n "${NODE_NP}" ] && [ "${NODE_EDGE}" = "true" ] && [ -z "${COND_REASON}" ]; then
+  if [[ -n "${NODE_NP}" ]] && [[ "${NODE_EDGE}" = "true" ]] && [[ -z "${COND_REASON}" ]]; then
     NODE_STATE="EDGE_WITHOUT_RECORD"; NODE_STATE_NOTE="edge node without conversion record (e.g. joined by yurtadm)"; return 0
   fi
-  if [ -z "${NODE_NP}" ] && [ -z "${NODE_DESIRED}" ] && [ "${NODE_EDGE}" != "true" ] && [ -z "${COND_REASON}" ]; then
+  if [[ -z "${NODE_NP}" ]] && [[ -z "${NODE_DESIRED}" ]] && [[ "${NODE_EDGE}" != "true" ]] && [[ -z "${COND_REASON}" ]]; then
     NODE_STATE="NONE"; return 0
   fi
   NODE_STATE_NOTE="nodepool=${NODE_NP} edge=${NODE_EDGE} unschedulable=${NODE_UNSCHED} condition=${COND_STATUS}/${COND_REASON}"

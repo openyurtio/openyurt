@@ -35,7 +35,7 @@ EOF
 }
 
 NODE=""; SUMMARY=no; TAIL=200
-while [ $# -gt 0 ]; do
+while [[ $# -gt 0 ]]; do
   case "$1" in
     --context) NY_CTX="${2:-}"; shift 2 ;;
     --summary) SUMMARY=yes; shift ;;
@@ -47,12 +47,12 @@ while [ $# -gt 0 ]; do
 done
 ny_require_tools kubectl
 ny_require_context
-if [ "$SUMMARY" = no ] && [ -z "$NODE" ]; then usage >&2; ny_die 2 USAGE_ERROR "node name or --summary is required"; fi
+if [[ "$SUMMARY" = no ]] && [[ -z "$NODE" ]]; then usage >&2; ny_die 2 USAGE_ERROR "node name or --summary is required"; fi
 
-if [ "$SUMMARY" = yes ]; then
+if [[ "$SUMMARY" = yes ]]; then
   blocks=no
   while IFS= read -r n; do
-    [ -n "$n" ] || continue
+    [[ -n "$n" ]] || continue
     ny_node_snapshot "$n" || continue
     ny_classify_node "$n" || continue
     echo "NODE name=$n state=${NODE_STATE} nodepool=${NODE_NP:-} desired=${NODE_DESIRED:-} edge=${NODE_EDGE:-} unschedulable=${NODE_UNSCHED} condition=${COND_STATUS:-}/${COND_REASON:-} job=${JOB_STATE:-none}:${JOB_ACTION:-}${NODE_STATE_NOTE:+ note=\"${NODE_STATE_NOTE}\"}"
@@ -70,7 +70,7 @@ ny_classify_node "$NODE"
 section "summary"
 ny_kv NODE "$NODE"
 ny_kv STATE "${NODE_STATE}"
-[ -z "${NODE_STATE_NOTE}" ] || ny_kv NOTE "${NODE_STATE_NOTE}"
+[[ -z "${NODE_STATE_NOTE}" ]] || ny_kv NOTE "${NODE_STATE_NOTE}"
 ny_kv NODEPOOL "${NODE_NP:-}"
 ny_kv DESIRED_NODEPOOL "${NODE_DESIRED:-}"
 ny_kv EDGE_WORKER "${NODE_EDGE:-}"
@@ -82,13 +82,13 @@ ny_kv CONVERSION_JOB "${JOB_EXISTS}:${JOB_STATE:-}:${JOB_ACTION:-}:${JOB_UID}"
 section "node conditions"
 k get node "$NODE" -o jsonpath='{range .status.conditions[*]}{.type}{"\t"}{.status}{"\t"}{.reason}{"\t"}{.message}{"\n"}{end}' || true
 
-if [ -n "${NODE_NP}" ]; then
+if [[ -n "${NODE_NP}" ]]; then
   section "nodepool ${NODE_NP}"
   k get nodepools.apps.openyurt.io "${NODE_NP}" -o jsonpath='{.metadata.name}{" type="}{.spec.type}{" hostNetwork="}{.spec.hostNetwork}{"\n"}' 2>&1 || true
 fi
 
 section "conversion job ${NY_NS}/${JOB}"
-if [ "${JOB_EXISTS}" = "yes" ]; then
+if [[ "${JOB_EXISTS}" = "yes" ]]; then
   k -n "$NY_NS" describe job "$JOB" 2>&1 | tail -n 40 || true
   section "conversion job logs (tail ${TAIL})"
   k -n "$NY_NS" logs "job/${JOB}" --tail="$TAIL" 2>&1 || true
@@ -98,7 +98,7 @@ fi
 
 section "cleanup jobs"
 cleanups=$(ny_cleanup_jobs "$NODE")
-if [ -n "$cleanups" ]; then
+if [[ -n "$cleanups" ]]; then
   printf '%s\n' "$cleanups"
   printf '%s\n' "$cleanups" | while read -r name _; do
     section "cleanup job logs ${name} (tail ${TAIL})"
