@@ -79,7 +79,7 @@ func (fs *FileSystemOperator) Write(path string, content []byte) error {
 	return err
 }
 
-// list will list names of entries under the rootDir(except the root dir). If isRecurisive is set, it will
+// list will list names of entries under the rootDir(except the root dir). If isRecursive is set, it will
 // walk the path including all subdirs. The returned file names are absolute paths and
 // in lexicographical order.
 // There're two modes:
