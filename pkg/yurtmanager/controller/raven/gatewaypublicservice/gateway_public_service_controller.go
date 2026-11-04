@@ -280,8 +280,9 @@ func (r *ReconcileService) manageService(ctx context.Context, gateway *ravenv1be
 	for i := 0; i < len(addSvc); i++ {
 		if err := r.Create(ctx, addSvc[i]); err != nil {
 			if apierrs.IsAlreadyExists(err) {
-				klog.V(2).Info(Format("service %s/%s has already exist, ignore creating it", addSvc[i].GetNamespace(), addSvc[i].GetName()))
-				return nil
+				klog.V(2).Info(Format("service %s/%s has already exist, reconcile it as update", addSvc[i].GetNamespace(), addSvc[i].GetName()))
+				updateSvc = append(updateSvc, addSvc[i])
+				continue
 			}
 			return fmt.Errorf("failed create service for gateway %s type %s , error %s", gateway.GetName(), gatewayType, err.Error())
 		}
@@ -309,8 +310,9 @@ func (r *ReconcileService) manageEndpoints(ctx context.Context, gateway *ravenv1
 	for i := 0; i < len(addEps); i++ {
 		if err := r.Create(ctx, addEps[i]); err != nil {
 			if apierrs.IsAlreadyExists(err) {
-				klog.V(2).Info(Format("endpoints %s/%s has already exist, ignore creating it", addEps[i].GetNamespace(), addEps[i].GetName()))
-				return nil
+				klog.V(2).Info(Format("endpoints %s/%s has already exist, reconcile it as update", addEps[i].GetNamespace(), addEps[i].GetName()))
+				updateEps = append(updateEps, addEps[i])
+				continue
 			}
 			return fmt.Errorf("failed create endpoints for gateway %s type %s , error %s", gateway.GetName(), gatewayType, err.Error())
 		}
@@ -486,7 +488,7 @@ func acquiredSpecService(gateway *ravenv1beta1.Gateway, gatewayType string, prox
 		case ravenv1beta1.Proxy:
 			services = append(services, corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      util.FormatName(fmt.Sprintf("%s-%s", util.GatewayProxyServiceNamePrefix, gateway.GetName())),
+					Name:      util.FormatName(fmt.Sprintf("%s-%s-%s", util.GatewayProxyServiceNamePrefix, gateway.GetName(), aep.NodeName)),
 					Namespace: util.WorkingNamespace,
 					Labels: map[string]string{
 						raven.LabelCurrentGateway:         gateway.GetName(),
@@ -513,7 +515,7 @@ func acquiredSpecService(gateway *ravenv1beta1.Gateway, gatewayType string, prox
 		case ravenv1beta1.Tunnel:
 			services = append(services, corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      util.FormatName(fmt.Sprintf("%s-%s", util.GatewayTunnelServiceNamePrefix, gateway.GetName())),
+					Name:      util.FormatName(fmt.Sprintf("%s-%s-%s", util.GatewayTunnelServiceNamePrefix, gateway.GetName(), aep.NodeName)),
 					Namespace: util.WorkingNamespace,
 					Labels: map[string]string{
 						raven.LabelCurrentGateway:         gateway.GetName(),
