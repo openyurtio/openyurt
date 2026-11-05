@@ -171,8 +171,7 @@ func (ri *RequestInterceptor) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 func getResponse(r io.Reader) (*http.Response, []byte, error) {
 	rawResponse := bytes.NewBuffer(make([]byte, 0, 256))
 	// Save the bytes read while reading the response headers into the rawResponse buffer
-	br := newBufioReader(io.TeeReader(r, rawResponse))
-	defer putBufioReader(br)
+	br := bufio.NewReader(io.TeeReader(r, rawResponse))
 	resp, err := http.ReadResponse(br, nil)
 	if err != nil {
 		return nil, nil, err
