@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -178,7 +179,7 @@ func (o *YurtHubOptions) Validate() error {
 		}
 
 		if len(o.NodeIP) == 0 {
-			ipAddr, err := resolveNodeIP()
+			ipAddr, err := resolveNodeIP(o.HubAgentDummyIfName)
 			if err != nil {
 				return fmt.Errorf("couldn't get the node ip, %v", err)
 			}
@@ -190,34 +191,103 @@ func (o *YurtHubOptions) Validate() error {
 	return nil
 }
 
-func resolveNodeIP() (net.IP, error) {
-	return resolveNodeIPWith(apinet.ResolveBindAddress, net.InterfaceAddrs)
+func resolveNodeIP(dummyIfName string) (net.IP, error) {
+	return resolveNodeIPWith(apinet.ResolveBindAddress, listInterfaceAddrs, dummyIfName)
 }
 
-func resolveNodeIPWith(resolveBindAddress func(net.IP) (net.IP, error), interfaceAddrs func() ([]net.Addr, error)) (net.IP, error) {
+// namedInterfaceAddr couples an interface-local address with the interface it
+// was assigned to, so the fallback resolver can compare interface identity
+// before selecting a node IP.
+type namedInterfaceAddr struct {
+	Name string
+	Addr net.Addr
+}
+
+func listInterfaceAddrs() ([]namedInterfaceAddr, error) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return nil, err
+	}
+	var out []namedInterfaceAddr
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 {
+			klog.V(4).Infof("skipping down interface %s", iface.Name)
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			klog.V(4).Infof("failed to list addresses for interface %s: %v", iface.Name, err)
+			continue
+		}
+		for _, a := range addrs {
+			out = append(out, namedInterfaceAddr{Name: iface.Name, Addr: a})
+		}
+	}
+	return out, nil
+}
+
+// nonNodeInterfacePrefixes lists the conventional names of interfaces that
+// carry container/pod networks instead of the node's own address (CNI
+// bridges, CNI tunnels, the pod-network plumbing interfaces, and the YurtHub
+// dummy interface). Matching is case-insensitive.
+var nonNodeInterfacePrefixes = []string{
+	"cni",       // cni0 and variants used by Calico/Weave/...
+	"flannel",   // flannel.1
+	"cali",      // Calico
+	"cilium",    // Cilium
+	"lxc",       // LXD/LXC
+	"veth",      // pods on the host
+	"docker",    // docker0
+	"kube-ipvs", // kube-ipvs0
+	"ipvs",      // ipvs0
+	"ip6tnl",    // IPv6 tunnels
+	"sit",       // SIT tunnels
+	"ip_vti",    // VTI tunnels
+	"hub-dummy", // YurtHub dummy interfaces (default naming)
+}
+
+// isNonNodeInterface reports whether the interface is unsuitable as a node
+// IP source rather than the configured or defaulted YurtHub dummy interface.
+func isNonNodeInterface(name, configuredDummyName string) bool {
+	lower := strings.ToLower(name)
+	if configuredDummyName != "" && lower == strings.ToLower(configuredDummyName) {
+		return true
+	}
+	for _, prefix := range nonNodeInterfacePrefixes {
+		if strings.HasPrefix(lower, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func resolveNodeIPWith(resolveBindAddress func(net.IP) (net.IP, error), listAddrs func() ([]namedInterfaceAddr, error), dummyIfName string) (net.IP, error) {
 	ipAddr, err := resolveBindAddress(nil)
 	if err == nil {
 		return ipAddr, nil
 	}
 
 	klog.V(2).Infof("failed to determine node ip from default route: %v, falling back to interface addresses", err)
-	addrs, addrsErr := interfaceAddrs()
+	addrs, addrsErr := listAddrs()
 	if addrsErr != nil {
 		return nil, fmt.Errorf("%v; failed to list interface addresses: %w", err, addrsErr)
 	}
-	if ipAddr = nodeIPFromAddrs(addrs); ipAddr != nil {
+	if ipAddr = nodeIPFromAddrs(addrs, dummyIfName); ipAddr != nil {
 		klog.Warningf("no default route found, using interface address %s as node ip", ipAddr)
 		return ipAddr, nil
 	}
 	return nil, err
 }
 
-func nodeIPFromAddrs(addrs []net.Addr) net.IP {
+func nodeIPFromAddrs(addrs []namedInterfaceAddr, dummyIfName string) net.IP {
 	// Prefer IPv4 to match the previous ResolveBindAddress behavior.
 	for _, wantIPv4 := range []bool{true, false} {
-		for _, addr := range addrs {
-			ipNet, ok := addr.(*net.IPNet)
+		for _, named := range addrs {
+			ipNet, ok := named.Addr.(*net.IPNet)
 			if !ok || ipNet.IP.IsLoopback() || !ipNet.IP.IsGlobalUnicast() || (ipNet.IP.To4() != nil) != wantIPv4 {
+				continue
+			}
+			if isNonNodeInterface(named.Name, dummyIfName) {
 				continue
 			}
 			return ipNet.IP

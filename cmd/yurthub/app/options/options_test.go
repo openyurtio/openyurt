@@ -292,35 +292,86 @@ func testIPNet(ip string) *net.IPNet {
 	return &net.IPNet{IP: parsed, Mask: net.CIDRMask(64, 128)}
 }
 
+func testNamedAddr(name string, ip string) namedInterfaceAddr {
+	return namedInterfaceAddr{Name: name, Addr: testIPNet(ip)}
+}
+
 func TestNodeIPFromAddrs(t *testing.T) {
 	testcases := map[string]struct {
-		addrs []net.Addr
-		want  string
+		addrs     []namedInterfaceAddr
+		dummyName string
+		want      string
 	}{
 		"prefers IPv4 over IPv6": {
-			addrs: []net.Addr{testIPNet("fd00::5"), testIPNet("10.0.0.5")},
+			addrs: []namedInterfaceAddr{testNamedAddr("eth0", "fd00::5"), testNamedAddr("eth0", "10.0.0.5")},
 			want:  "10.0.0.5",
 		},
 		"skips loopback and link-local": {
-			addrs: []net.Addr{testIPNet("127.0.0.1"), testIPNet("169.254.1.1"), testIPNet("fe80::1"), testIPNet("192.168.1.10")},
-			want:  "192.168.1.10",
+			addrs: []namedInterfaceAddr{
+				testNamedAddr("lo", "127.0.0.1"),
+				testNamedAddr("yurt-tunnel", "169.254.1.1"),
+				testNamedAddr("eth0", "fe80::1"),
+				testNamedAddr("eth0", "192.168.1.10"),
+			},
+			want: "192.168.1.10",
 		},
-		"falls back to IPv6": {
-			addrs: []net.Addr{testIPNet("fd00::5")},
+		"falls back to IPv6 on a real interface": {
+			addrs: []namedInterfaceAddr{testNamedAddr("eth0", "fd00::5")},
 			want:  "fd00::5",
 		},
 		"ignores non-IPNet addresses": {
-			addrs: []net.Addr{&net.IPAddr{IP: net.ParseIP("10.0.0.9")}, testIPNet("10.0.0.5")},
-			want:  "10.0.0.5",
+			addrs: []namedInterfaceAddr{
+				{Name: "eth0", Addr: &net.IPAddr{IP: net.ParseIP("10.0.0.9")}},
+				testNamedAddr("eth0", "10.0.0.5"),
+			},
+			want: "10.0.0.5",
 		},
-		"no usable address": {
-			addrs: []net.Addr{testIPNet("127.0.0.1"), testIPNet("169.254.1.1")},
+		"skips yurt dummy interface by default name": {
+			addrs: []namedInterfaceAddr{
+				testNamedAddr("hub-dummy0", "fd00::2:1"),
+				testNamedAddr("eth0", "10.0.0.7"),
+			},
+			want: "10.0.0.7",
+		},
+		"skips CNI bridge addresses": {
+			addrs: []namedInterfaceAddr{
+				testNamedAddr("cni0", "10.244.0.1"),
+				testNamedAddr("flannel.1", "10.244.1.0"),
+				testNamedAddr("docker0", "10.0.0.5"),
+				testNamedAddr("cali123456", "10.244.2.0"),
+				testNamedAddr("cilium_host", "10.244.3.0"),
+				testNamedAddr("veth0123", "10.244.4.0"),
+				testNamedAddr("eth0", "192.168.1.10"),
+			},
+			want: "192.168.1.10",
+		},
+		"skips a renamed configured dummy interface": {
+			addrs: []namedInterfaceAddr{
+				{Name: "my-edge-if", Addr: testIPNet("10.0.0.77")},
+				testNamedAddr("eth0", "192.168.1.10"),
+			},
+			dummyName: "my-edge-if",
+			want:      "192.168.1.10",
+		},
+		"prefers IPv4 over a CNI bridge address": {
+			addrs: []namedInterfaceAddr{
+				testNamedAddr("cni0", "10.244.0.1"),
+				testNamedAddr("eth0", "192.168.1.10"),
+				testNamedAddr("eth0", "fd00::5"),
+			},
+			want: "192.168.1.10",
+		},
+		"no usable address exists": {
+			addrs: []namedInterfaceAddr{
+				testNamedAddr("cni0", "10.244.0.1"),
+				testNamedAddr("hub-dummy0", "fd00::2:1"),
+			},
 		},
 	}
 
 	for name, tc := range testcases {
 		t.Run(name, func(t *testing.T) {
-			got := nodeIPFromAddrs(tc.addrs)
+			got := nodeIPFromAddrs(tc.addrs, tc.dummyName)
 			if tc.want == "" {
 				if got != nil {
 					t.Fatalf("expected nil, got %v", got)
@@ -339,13 +390,13 @@ func TestResolveNodeIPWith(t *testing.T) {
 
 	testcases := map[string]struct {
 		resolveBindAddress func(net.IP) (net.IP, error)
-		interfaceAddrs     func() ([]net.Addr, error)
+		listAddrs          func() ([]namedInterfaceAddr, error)
 		want               string
 		wantErr            string
 	}{
 		"uses default route address when available": {
 			resolveBindAddress: func(net.IP) (net.IP, error) { return net.ParseIP("10.0.0.1"), nil },
-			interfaceAddrs: func() ([]net.Addr, error) {
+			listAddrs: func() ([]namedInterfaceAddr, error) {
 				t.Fatal("interface addresses should not be consulted")
 				return nil, nil
 			},
@@ -353,24 +404,44 @@ func TestResolveNodeIPWith(t *testing.T) {
 		},
 		"falls back to interface address without default route": {
 			resolveBindAddress: func(net.IP) (net.IP, error) { return nil, defaultRouteErr },
-			interfaceAddrs:     func() ([]net.Addr, error) { return []net.Addr{testIPNet("10.0.0.2")}, nil },
-			want:               "10.0.0.2",
+			listAddrs: func() ([]namedInterfaceAddr, error) {
+				return []namedInterfaceAddr{testNamedAddr("eth0", "10.0.0.2")}, nil
+			},
+			want: "10.0.0.2",
+		},
+		"skips CNI interfaces when falling back": {
+			resolveBindAddress: func(net.IP) (net.IP, error) { return nil, defaultRouteErr },
+			listAddrs: func() ([]namedInterfaceAddr, error) {
+				return []namedInterfaceAddr{
+					testNamedAddr("cni0", "10.244.0.1"),
+					testNamedAddr("hub-dummy0", "fd00::2:1"),
+					testNamedAddr("eth0", "192.168.1.10"),
+				}, nil
+			},
+			want: "192.168.1.10",
 		},
 		"reports interface address failure": {
 			resolveBindAddress: func(net.IP) (net.IP, error) { return nil, defaultRouteErr },
-			interfaceAddrs:     func() ([]net.Addr, error) { return nil, errors.New("list failed") },
-			wantErr:            "list failed",
+			listAddrs: func() ([]namedInterfaceAddr, error) {
+				return nil, errors.New("list failed")
+			},
+			wantErr: "list failed",
 		},
 		"returns default route error when no usable address exists": {
 			resolveBindAddress: func(net.IP) (net.IP, error) { return nil, defaultRouteErr },
-			interfaceAddrs:     func() ([]net.Addr, error) { return []net.Addr{testIPNet("127.0.0.1")}, nil },
-			wantErr:            defaultRouteErr.Error(),
+			listAddrs: func() ([]namedInterfaceAddr, error) {
+				return []namedInterfaceAddr{
+					testNamedAddr("lo", "127.0.0.1"),
+					testNamedAddr("cni0", "10.244.0.1"),
+				}, nil
+			},
+			wantErr: defaultRouteErr.Error(),
 		},
 	}
 
 	for name, tc := range testcases {
 		t.Run(name, func(t *testing.T) {
-			got, err := resolveNodeIPWith(tc.resolveBindAddress, tc.interfaceAddrs)
+			got, err := resolveNodeIPWith(tc.resolveBindAddress, tc.listAddrs, "hub-dummy0")
 			if tc.wantErr != "" {
 				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
 					t.Fatalf("expected error containing %q, got %v", tc.wantErr, err)
