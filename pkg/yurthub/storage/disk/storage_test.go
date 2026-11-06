@@ -346,7 +346,7 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 		})
 		It("should return ErrKeyIsEmpty on Get when key type is unrecognized", func() {
 			_, err = store.Get(unrecognized)
-			Expect(err).To(Equal(storage.ErrKeyIsEmpty))
+			Expect(err).To(Equal(storage.ErrUnrecognizedKey))
 		})
 		It("should return ErrUnrecognizedKey on List", func() {
 			_, err = store.List(unrecognized)
@@ -408,7 +408,7 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 		})
 		It("should return ErrKeyIsEmpty if key is empty", func() {
 			err = store.Create(storageKey{}, podBytes)
-			Expect(err).To(Equal(storage.ErrKeyIsEmpty))
+			Expect(err).To(Equal(storage.ErrUnrecognizedKey))
 		})
 		It("should return ErrKeyExists if key exists", func() {
 			err = writeFileAt(filepath.Join(baseDir, podKey.Key()), podBytes)
@@ -473,7 +473,7 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 		})
 		It("should return ErrKeyIsEmpty if key is empty", func() {
 			err = store.Delete(storageKey{})
-			Expect(err).To(Equal(storage.ErrKeyIsEmpty))
+			Expect(err).To(Equal(storage.ErrUnrecognizedKey))
 		})
 	})
 
@@ -503,7 +503,7 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 		})
 		It("should return ErrKeyIsEmpty if key is empty", func() {
 			_, err = store.Get(storageKey{})
-			Expect(err).To(Equal(storage.ErrKeyIsEmpty))
+			Expect(err).To(Equal(storage.ErrUnrecognizedKey))
 		})
 		It("should return ErrStorageNotFound if key does not exist", func() {
 			newPodKey, err := store.KeyFunc(storage.KeyBuildInfo{
@@ -615,7 +615,7 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 		})
 		It("should return ErrKeyIsEmpty if key is empty", func() {
 			_, err = store.List(storageKey{})
-			Expect(err).To(Equal(storage.ErrKeyIsEmpty))
+			Expect(err).To(Equal(storage.ErrUnrecognizedKey))
 		})
 		It("should return ErrStorageNotFound if the rootKey does no exist", func() {
 			rootKeyInfo.Resources = "services"
@@ -707,7 +707,7 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 		})
 		It("should return ErrKeyIsEmpty if key is empty", func() {
 			_, err = store.Update(storageKey{}, comingPodBytes, comingPodRvUint64)
-			Expect(err).To(Equal(storage.ErrKeyIsEmpty))
+			Expect(err).To(Equal(storage.ErrUnrecognizedKey))
 		})
 		It("should return ErrStorageNotFound if key does not exist", func() {
 			newPodKey, err := store.KeyFunc(storage.KeyBuildInfo{
