@@ -51,6 +51,8 @@ func appendKeys(keys []string, obj interface{}) []string {
 }
 
 func getUpdateTriggerPatch() []byte {
-	patch := fmt.Sprintf(`{"metadata":{"annotations": {"openyurt.io/update-trigger": "%d"}}}`, time.Now().Unix())
-	return []byte(patch)
+    // Changed Unix() to UnixNano() to prevent patch collisions if multiple 
+    // service annotations are updated within the same second.
+    patch := fmt.Sprintf(`{"metadata":{"annotations": {"openyurt.io/update-trigger": "%d"}}}`, time.Now().UnixNano())
+    return []byte(patch)
 }
