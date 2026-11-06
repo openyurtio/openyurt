@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/conversion"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/klog/v2"
 )
 
 // Semantic can do semantic deep equality checks for core objects.
@@ -61,7 +62,10 @@ func GetMatchingTolerations(taints []v1.Taint, tolerations []v1.Toleration) (boo
 	for i := range taints {
 		tolerated := false
 		for j := range tolerations {
-			if tolerations[j].ToleratesTaint(&taints[i]) {
+			// Lt/Gt operators sit behind the alpha TaintTolerationComparisonOperators
+			// gate upstream (off by default), and yurt-manager doesn't expose kube
+			// feature gates, so keep them disabled like before.
+			if tolerations[j].ToleratesTaint(klog.Background(), &taints[i], false) {
 				result = append(result, tolerations[j])
 				tolerated = true
 				break

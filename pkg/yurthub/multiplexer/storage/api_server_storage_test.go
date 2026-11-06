@@ -236,11 +236,18 @@ func TestRestStore_GuaranteedUpdate(t *testing.T) {
 	assert.Equal(t, ErrNoSupport, err)
 }
 
-func TestRestStore_Count(t *testing.T) {
+func TestRestStore_IsWatchListSemanticsUnSupported(t *testing.T) {
 	rs := &apiServerStorage{}
-	_, err := rs.Count("")
+	// Watch doesn't support streaming lists, so the cacher must not ask for them
+	assert.True(t, rs.IsWatchListSemanticsUnSupported())
+}
 
-	assert.Equal(t, ErrNoSupport, err)
+func TestRestStore_EnableResourceSizeEstimation(t *testing.T) {
+	rs := &apiServerStorage{}
+	// the cacher fails to start if this returns an error, so it has to stay nil
+	err := rs.EnableResourceSizeEstimation(nil)
+
+	assert.Nil(t, err)
 }
 
 func TestRestStore_RequestWatchProgress(t *testing.T) {

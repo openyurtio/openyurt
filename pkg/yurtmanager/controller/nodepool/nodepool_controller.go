@@ -64,7 +64,7 @@ func Add(ctx context.Context, c *config.CompletedConfig, mgr manager.Manager) er
 	klog.Infof("nodepool-controller add controller %s", controllerResource.String())
 	r := &ReconcileNodePool{
 		cfg:      c.ComponentConfig.NodePoolController,
-		recorder: mgr.GetEventRecorderFor(names.NodePoolController),
+		recorder: mgr.GetEventRecorderFor(names.NodePoolController), //nolint:staticcheck // SA1019: GetEventRecorderFor (core/v1 events) is deprecated in controller-runtime v0.24 but still supported
 		Client:   yurtClient.GetClientByControllerNameOrDie(mgr, names.NodePoolController),
 	}
 

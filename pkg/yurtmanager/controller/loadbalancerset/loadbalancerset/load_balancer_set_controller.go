@@ -99,7 +99,7 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) *Reconcile
 		Client:        yurtClient.GetClientByControllerNameOrDie(mgr, names.LoadBalancerSetController),
 		scheme:        mgr.GetScheme(),
 		mapper:        mgr.GetRESTMapper(),
-		recorder:      mgr.GetEventRecorderFor(names.LoadBalancerSetController),
+		recorder:      mgr.GetEventRecorderFor(names.LoadBalancerSetController), //nolint:staticcheck // SA1019: GetEventRecorderFor (core/v1 events) is deprecated in controller-runtime v0.24 but still supported
 		configuration: c.ComponentConfig.LoadBalancerSetController,
 	}
 }
@@ -380,6 +380,9 @@ func filterDeletionNodePools(allItems []v1beta2.NodePool) []v1beta2.NodePool {
 
 func buildPoolService(svc *corev1.Service, np *v1beta2.NodePool) netv1alpha1.PoolService {
 	isController, isBlockOwnerDeletion := true, true
+	// don't take apiVersion/kind from TypeMeta, typed objects aren't guaranteed to carry it
+	svcGVK := corev1.SchemeGroupVersion.WithKind("Service")
+	npGVK := v1beta2.SchemeGroupVersion.WithKind("NodePool")
 	return netv1alpha1.PoolService{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "PoolService",
@@ -395,17 +398,17 @@ func buildPoolService(svc *corev1.Service, np *v1beta2.NodePool) netv1alpha1.Poo
 			},
 			OwnerReferences: []v1.OwnerReference{
 				{
-					APIVersion:         svc.APIVersion,
+					APIVersion:         svcGVK.GroupVersion().String(),
 					Name:               svc.Name,
-					Kind:               svc.Kind,
+					Kind:               svcGVK.Kind,
 					UID:                svc.UID,
 					Controller:         &isController,
 					BlockOwnerDeletion: &isBlockOwnerDeletion,
 				},
 				{
-					APIVersion:         np.APIVersion,
+					APIVersion:         npGVK.GroupVersion().String(),
 					Name:               np.Name,
-					Kind:               np.Kind,
+					Kind:               npGVK.Kind,
 					UID:                np.UID,
 					BlockOwnerDeletion: &isBlockOwnerDeletion,
 				},

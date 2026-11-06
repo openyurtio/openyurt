@@ -19,6 +19,7 @@ package platformadmin
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/pkg/errors"
@@ -34,7 +35,6 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/kubectl/pkg/scheme"
 	"k8s.io/utils/ptr"
-	"k8s.io/utils/strings/slices"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -127,7 +127,7 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 	return &ReconcilePlatformAdmin{
 		Client:         yurtClient.GetClientByControllerNameOrDie(mgr, names.PlatformAdminController),
 		scheme:         mgr.GetScheme(),
-		recorder:       mgr.GetEventRecorderFor(names.PlatformAdminController),
+		recorder:       mgr.GetEventRecorderFor(names.PlatformAdminController), //nolint:staticcheck // SA1019: GetEventRecorderFor (core/v1 events) is deprecated in controller-runtime v0.24 but still supported
 		yamlSerializer: kjson.NewSerializerWithOptions(kjson.DefaultMetaFactory, scheme.Scheme, scheme.Scheme, kjson.SerializerOptions{Yaml: true, Pretty: true}),
 		Configuration:  c.ComponentConfig.PlatformAdminController,
 	}

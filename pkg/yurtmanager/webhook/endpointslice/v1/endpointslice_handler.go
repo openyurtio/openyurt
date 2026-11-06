@@ -46,4 +46,5 @@ func (webhook *EndpointSliceHandler) SetupWebhookWithManager(mgr ctrl.Manager) (
 
 // +kubebuilder:webhook:path=/mutate-discovery-k8s-io-v1-endpointslice,mutating=true,failurePolicy=ignore,sideEffects=None,admissionReviewVersions=v1,groups="discovery.k8s.io",resources=endpointslices,verbs=update,versions=v1,name=mutate.discovery.v1.endpointslice.k8s.io
 
+//nolint:staticcheck // SA1019: CustomDefaulter is deprecated in controller-runtime v0.24 but still supported
 var _ webhook.CustomDefaulter = &EndpointSliceHandler{}

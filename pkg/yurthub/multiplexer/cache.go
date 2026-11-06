@@ -50,6 +50,7 @@ func newResourceCache(
 
 	cacheConfig := cacher.Config{
 		Storage:             s,
+		ResourcePrefix:      resourcePrefix(resource),
 		Versioner:           kstorage.APIObjectVersioner{},
 		GroupResource:       resource.GroupResource(),
 		KeyFunc:             config.KeyFunc,

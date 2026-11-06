@@ -91,7 +91,7 @@ func newReconciler(c *appconfig.CompletedConfig, mgr manager.Manager) reconcile.
 	return &ReconcileGateway{
 		Client:        yurtClient.GetClientByControllerNameOrDie(mgr, names.GatewayPickupController),
 		scheme:        mgr.GetScheme(),
-		recorder:      mgr.GetEventRecorderFor(names.GatewayPickupController),
+		recorder:      mgr.GetEventRecorderFor(names.GatewayPickupController), //nolint:staticcheck // SA1019: GetEventRecorderFor (core/v1 events) is deprecated in controller-runtime v0.24 but still supported
 		Configuration: c.ComponentConfig.GatewayPickupController,
 	}
 }

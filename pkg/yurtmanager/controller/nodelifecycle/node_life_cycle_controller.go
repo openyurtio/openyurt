@@ -381,7 +381,7 @@ func GenGetPodsAssignedToNode(c client.Client) func(string) ([]*v1.Pod, error) {
 func newReconciler(cfg *appconfig.CompletedConfig, mgr manager.Manager) (*ReconcileNodeLifeCycle, error) {
 	nc := &ReconcileNodeLifeCycle{
 		controllerRuntimeClient:     yurtClient.GetClientByControllerNameOrDie(mgr, controllerName),
-		recorder:                    mgr.GetEventRecorderFor(controllerName),
+		recorder:                    mgr.GetEventRecorderFor(controllerName), //nolint:staticcheck // SA1019: GetEventRecorderFor (core/v1 events) is deprecated in controller-runtime v0.24 but still supported
 		now:                         metav1.Now,
 		knownNodeSet:                make(map[string]*v1.Node),
 		nodeHealthMap:               newNodeHealthMap(),

@@ -18,8 +18,6 @@ package storage
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	v1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
@@ -56,10 +54,6 @@ func (fs *CommonFakeStorage) GuaranteedUpdate(
 	return nil
 }
 
-func (fs *CommonFakeStorage) Count(key string) (int64, error) {
-	return 0, nil
-}
-
 func (fs *CommonFakeStorage) ReadinessCheck() error {
 	return nil
 }
@@ -80,10 +74,14 @@ func (fs *CommonFakeStorage) GetCurrentResourceVersion(ctx context.Context) (uin
 	return 0, nil
 }
 
-// SetKeysFunc allows to override the function used to get keys from storage.
-// Required by storage.Interface in k8s v1.34+
-func (fs *CommonFakeStorage) SetKeysFunc(storage.KeysFunc) {
-	// No-op for fake storage
+// IsWatchListSemanticsUnSupported makes the cacher use list+watch, same as apiServerStorage.
+func (fs *CommonFakeStorage) IsWatchListSemanticsUnSupported() bool {
+	return true
+}
+
+// EnableResourceSizeEstimation is a no-op for fake storage.
+func (fs *CommonFakeStorage) EnableResourceSizeEstimation(storage.KeysFunc) error {
+	return nil
 }
 
 // Stats returns storage statistics.
@@ -144,12 +142,9 @@ func (fs *FakeEndpointSliceStorage) GetList(ctx context.Context, key string, opt
 		ResourceVersion: "100",
 	}
 
-	for _, item := range fs.items {
-		itemKey := fmt.Sprintf("/%s/%s", item.Namespace, item.Name)
-		if strings.HasPrefix(itemKey, key) {
-			epsList.Items = append(epsList.Items, item)
-		}
-	}
+	// like the real apiServerStorage, the key is ignored: the cacher always lists the
+	// whole resource (under its resource prefix) and filters on its own
+	epsList.Items = fs.items
 	return nil
 }
 

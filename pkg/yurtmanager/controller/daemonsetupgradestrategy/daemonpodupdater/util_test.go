@@ -36,8 +36,12 @@ func TestGetDaemonsetPods(t *testing.T) {
 	pod1 := newPod("pod1", "", simpleDaemonSetLabel, ds1)
 	pod2 := newPod("pod2", "", simpleDaemonSetLabel, nil)
 
-	expectPods := []*corev1.Pod{pod1}
 	client := fakeclient.NewClientBuilder().WithObjects(ds1, pod1, pod2).Build()
+
+	// typed objects come back without TypeMeta, same as from a real apiserver
+	expectPod := pod1.DeepCopy()
+	expectPod.TypeMeta = metav1.TypeMeta{}
+	expectPods := []*corev1.Pod{expectPod}
 
 	gotPods, err := GetDaemonsetPods(client, ds1)
 

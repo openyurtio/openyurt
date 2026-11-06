@@ -60,7 +60,7 @@ func TestResourceCache_GetList(t *testing.T) {
 		storage,
 		serviceGVR,
 		&resourceCacheConfig{
-			keyFunc,
+			newKeyFunc(resourcePrefix(serviceGVR)),
 			newServiceFunc,
 			newServiceListFunc,
 			GetAttrsFunc(serviceGVR),
@@ -78,7 +78,7 @@ func TestResourceCache_GetList(t *testing.T) {
 		expectedServiceList *v1.ServiceList
 	}{
 		"all namespace": {
-			"",
+			"/services",
 			&v1.ServiceList{
 				ListMeta: metav1.ListMeta{
 					ResourceVersion: "100",
@@ -90,7 +90,7 @@ func TestResourceCache_GetList(t *testing.T) {
 			},
 		},
 		"default namespace": {
-			"/default",
+			"/services/default",
 			&v1.ServiceList{
 				ListMeta: metav1.ListMeta{
 					ResourceVersion: "100",
@@ -129,7 +129,7 @@ func TestResourceCache_Watch(t *testing.T) {
 		fakeStorage,
 		serviceGVR,
 		&resourceCacheConfig{
-			keyFunc,
+			newKeyFunc(resourcePrefix(serviceGVR)),
 			newServiceFunc,
 			newServiceListFunc,
 			GetAttrsFunc(serviceGVR),
@@ -161,7 +161,7 @@ func mockWatchOptions() storage.ListOptions {
 }
 
 func assertCacheWatch(t testing.TB, cache Interface, fs *ystorage.FakeServiceStorage) {
-	receive, err := cache.Watch(context.TODO(), "/kube-system", mockWatchOptions())
+	receive, err := cache.Watch(context.TODO(), "/services/kube-system", mockWatchOptions())
 
 	go func() {
 		fs.AddWatchObject(newService(metav1.NamespaceSystem, "coredns2"))

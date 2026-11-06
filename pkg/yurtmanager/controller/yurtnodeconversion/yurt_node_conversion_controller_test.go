@@ -272,6 +272,7 @@ func TestReconcileDeleteStaleFinishedJob(t *testing.T) {
 
 	result, err := r.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Name: "node-a"}})
 	require.NoError(t, err)
+	//nolint:staticcheck // SA1019: Requeue is deprecated in controller-runtime v0.24 but the controller still returns it
 	assert.True(t, result.Requeue)
 
 	deletedJob := &batchv1.Job{}
@@ -300,6 +301,7 @@ func TestReconcileIgnoreDeletingStaleJob(t *testing.T) {
 
 	result, err := r.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Name: "node-a"}})
 	require.NoError(t, err)
+	//nolint:staticcheck // SA1019: Requeue is deprecated in controller-runtime v0.24 but the controller still returns it
 	assert.False(t, result.Requeue)
 
 	ignoredJob := &batchv1.Job{}

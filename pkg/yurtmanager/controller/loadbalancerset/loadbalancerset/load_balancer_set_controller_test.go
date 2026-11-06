@@ -550,7 +550,7 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 				Controller:         &controller,
 			},
 			{
-				APIVersion:         "apps.openyurt.io/v1beta1",
+				APIVersion:         "apps.openyurt.io/v1beta2",
 				Kind:               "NodePool",
 				Name:               "np123",
 				UID:                mockNodePoolUID,
@@ -694,7 +694,7 @@ func TestReconcilePoolService_Reconcile(t *testing.T) {
 				Controller:         &controller,
 			},
 			{
-				APIVersion:         "apps.openyurt.io/v1beta1",
+				APIVersion:         "apps.openyurt.io/v1beta2",
 				Kind:               "NodePool",
 				Name:               "np123",
 				UID:                mockNodePoolUID,

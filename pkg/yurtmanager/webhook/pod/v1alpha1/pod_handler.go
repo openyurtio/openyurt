@@ -39,4 +39,5 @@ func (webhook *PodHandler) SetupWebhookWithManager(mgr ctrl.Manager) (string, st
 type PodHandler struct {
 }
 
+//nolint:staticcheck // SA1019: CustomDefaulter is deprecated in controller-runtime v0.24 but still supported
 var _ webhook.CustomDefaulter = &PodHandler{}
