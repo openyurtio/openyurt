@@ -147,6 +147,61 @@ func TestKeyFunc(t *testing.T) {
 			key:    "cilium-agent/partialobjectmetadata/customresourcedefinitions.v1.apiextensions.k8s.io",
 			isRoot: true,
 		},
+		"component is parent dir": {
+			info: storage.KeyBuildInfo{
+				Component: "..",
+				Resources: "configmaps",
+				Version:   "v1",
+				Namespace: "default",
+				Name:      "foo",
+			},
+			err: storage.ErrUnrecognizedKey,
+		},
+		"component is current dir": {
+			info: storage.KeyBuildInfo{
+				Component: ".",
+				Resources: "configmaps",
+				Version:   "v1",
+				Namespace: "default",
+			},
+			err: storage.ErrUnrecognizedKey,
+		},
+		"partial object metadata of parent dir component": {
+			info: storage.KeyBuildInfo{
+				Component: "../partialobjectmetadatas.v1.meta.k8s.io",
+				Resources: "configmaps",
+				Version:   "v1",
+			},
+			err: storage.ErrUnrecognizedKey,
+		},
+		"resource is parent dir": {
+			info: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "..",
+				Version:   "v1",
+				Name:      "foo",
+			},
+			err: storage.ErrUnrecognizedKey,
+		},
+		"namespace is parent dir": {
+			info: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "configmaps",
+				Version:   "v1",
+				Namespace: "..",
+				Name:      "foo",
+			},
+			err: storage.ErrUnrecognizedKey,
+		},
+		"name is parent dir": {
+			info: storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "nodes",
+				Version:   "v1",
+				Name:      "..",
+			},
+			err: storage.ErrUnrecognizedKey,
+		},
 	}
 
 	disk, err := NewDiskStorage(keyFuncTestDir)
