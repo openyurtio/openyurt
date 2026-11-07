@@ -833,3 +833,106 @@ func TestReconcile(t *testing.T) {
 		})
 	}
 }
+
+func TestNodePoolRequestForNode(t *testing.T) {
+	testcases := map[string]struct {
+		labels   map[string]string
+		expected []reconcile.Request
+	}{
+		"node in nodepool": {
+			labels: map[string]string{projectinfo.GetNodePoolLabel(): "shanghai"},
+			expected: []reconcile.Request{
+				{NamespacedName: types.NamespacedName{Name: "shanghai"}},
+			},
+		},
+		"node without labels": {
+			labels:   nil,
+			expected: nil,
+		},
+		"node without nodepool label": {
+			labels:   map[string]string{"region": "shanghai"},
+			expected: nil,
+		},
+		"node with empty nodepool label": {
+			labels:   map[string]string{projectinfo.GetNodePoolLabel(): ""},
+			expected: nil,
+		},
+	}
+
+	for k, tc := range testcases {
+		t.Run(k, func(t *testing.T) {
+			node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node", Labels: tc.labels}}
+			require.Equal(t, tc.expected, nodePoolRequestForNode(context.Background(), node))
+		})
+	}
+}
+
+func TestIsLeaderCandidacyChanged(t *testing.T) {
+	newNode := func(labels map[string]string, ready corev1.ConditionStatus, internalIP string) *corev1.Node {
+		node := &corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: "node", Labels: labels},
+			Status: corev1.NodeStatus{
+				Conditions: []corev1.NodeCondition{{Type: corev1.NodeReady, Status: ready}},
+			},
+		}
+		if len(internalIP) != 0 {
+			node.Status.Addresses = []corev1.NodeAddress{{Type: corev1.NodeInternalIP, Address: internalIP}}
+		}
+		return node
+	}
+	unmarked := map[string]string{projectinfo.GetNodePoolLabel(): "shanghai"}
+	marked := map[string]string{projectinfo.GetNodePoolLabel(): "shanghai", "apps.openyurt.io/leader": "true"}
+
+	testcases := map[string]struct {
+		oldNode  *corev1.Node
+		newNode  *corev1.Node
+		expected bool
+	}{
+		"nothing related is changed": {
+			oldNode:  newNode(marked, corev1.ConditionTrue, "10.0.0.1"),
+			newNode:  newNode(marked, corev1.ConditionTrue, "10.0.0.1"),
+			expected: false,
+		},
+		"node is marked as leader candidate": {
+			oldNode:  newNode(unmarked, corev1.ConditionTrue, "10.0.0.1"),
+			newNode:  newNode(marked, corev1.ConditionTrue, "10.0.0.1"),
+			expected: true,
+		},
+		"leader candidate mark is removed": {
+			oldNode:  newNode(marked, corev1.ConditionTrue, "10.0.0.1"),
+			newNode:  newNode(unmarked, corev1.ConditionTrue, "10.0.0.1"),
+			expected: true,
+		},
+		"node turns not ready": {
+			oldNode:  newNode(marked, corev1.ConditionTrue, "10.0.0.1"),
+			newNode:  newNode(marked, corev1.ConditionFalse, "10.0.0.1"),
+			expected: true,
+		},
+		"node turns ready": {
+			oldNode:  newNode(marked, corev1.ConditionUnknown, "10.0.0.1"),
+			newNode:  newNode(marked, corev1.ConditionTrue, "10.0.0.1"),
+			expected: true,
+		},
+		"node stays not ready with a different reason": {
+			oldNode:  newNode(marked, corev1.ConditionUnknown, "10.0.0.1"),
+			newNode:  newNode(marked, corev1.ConditionFalse, "10.0.0.1"),
+			expected: false,
+		},
+		"internal ip is changed": {
+			oldNode:  newNode(marked, corev1.ConditionTrue, "10.0.0.1"),
+			newNode:  newNode(marked, corev1.ConditionTrue, "10.0.0.2"),
+			expected: true,
+		},
+		"internal ip is assigned": {
+			oldNode:  newNode(marked, corev1.ConditionTrue, ""),
+			newNode:  newNode(marked, corev1.ConditionTrue, "10.0.0.1"),
+			expected: true,
+		},
+	}
+
+	for k, tc := range testcases {
+		t.Run(k, func(t *testing.T) {
+			require.Equal(t, tc.expected, isLeaderCandidacyChanged(tc.oldNode, tc.newNode))
+		})
+	}
+}
