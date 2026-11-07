@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apiserver/pkg/storage/names"
+	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -1482,6 +1483,67 @@ func TestReconcileDaemonpodupdater_deletePod(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestReconcileDaemonpodupdater_podEventHandlers(t *testing.T) {
+	ds := newDaemonSet("test-ds", "test-image")
+	setOnDelete(ds)
+	metav1.SetMetaDataAnnotation(&ds.ObjectMeta, daemonsetupgradestrategy.UpdateAnnotation, daemonsetupgradestrategy.AdvancedRollingUpdate)
+
+	pod := newPod("test-pod", "node-1", simpleDaemonSetLabel, ds)
+	pod.ResourceVersion = "1"
+
+	c := fakeclient.NewClientBuilder().WithObjects(ds, pod).Build()
+	r := &ReconcileDaemonpodupdater{
+		Client:       c,
+		expectations: k8sutil.NewControllerExpectations(),
+		podControl:   &k8sutil.FakePodControl{},
+	}
+
+	t.Run("addPod enqueues parent DaemonSet", func(t *testing.T) {
+		q := workqueue.NewTypedRateLimitingQueue[reconcile.Request](workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
+		defer q.ShutDown()
+
+		r.addPod(context.TODO(), event.CreateEvent{Object: pod}, q)
+		assert.Equal(t, 1, q.Len())
+		req, _ := q.Get()
+		assert.Equal(t, reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-ds", Namespace: metav1.NamespaceDefault}}, req)
+	})
+
+	t.Run("updatePod enqueues parent DaemonSet on resourceVersion change", func(t *testing.T) {
+		q := workqueue.NewTypedRateLimitingQueue[reconcile.Request](workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
+		defer q.ShutDown()
+
+		updatedPod := pod.DeepCopy()
+		updatedPod.ResourceVersion = "2"
+		r.updatePod(context.TODO(), event.UpdateEvent{ObjectOld: pod, ObjectNew: updatedPod}, q)
+		assert.Equal(t, 1, q.Len())
+		req, _ := q.Get()
+		assert.Equal(t, reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-ds", Namespace: metav1.NamespaceDefault}}, req)
+	})
+
+	t.Run("updatePod skips when resourceVersion unchanged", func(t *testing.T) {
+		q := workqueue.NewTypedRateLimitingQueue[reconcile.Request](workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
+		defer q.ShutDown()
+
+		r.updatePod(context.TODO(), event.UpdateEvent{ObjectOld: pod, ObjectNew: pod}, q)
+		assert.Equal(t, 0, q.Len())
+	})
+
+	t.Run("deletePod enqueues parent DaemonSet and decrements expectation", func(t *testing.T) {
+		q := workqueue.NewTypedRateLimitingQueue[reconcile.Request](workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
+		defer q.ShutDown()
+
+		dsKey := "default/test-ds"
+		r.expectations.SetExpectations(dsKey, 0, 1)
+		assert.False(t, r.expectations.SatisfiedExpectations(dsKey))
+
+		r.deletePod(context.TODO(), event.DeleteEvent{Object: pod}, q)
+		assert.True(t, r.expectations.SatisfiedExpectations(dsKey))
+		assert.Equal(t, 1, q.Len())
+		req, _ := q.Get()
+		assert.Equal(t, reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-ds", Namespace: metav1.NamespaceDefault}}, req)
+	})
 }
 
 // TestReconcileDaemonpodupdater_otaUpdate tests the otaUpdate method
