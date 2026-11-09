@@ -45,6 +45,12 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 )
 
+const (
+	yurtCoordinatorClientCommonName = "openyurt:yurt-coordinator:node-lease-proxy-client"
+	yurtCoordinatorClientUsername   = "system:serviceaccount:kube-system:yurt-manager-yurt-coordinator-cert-controller"
+	yurtCoordinatorClientOrg        = "openyurt:yurt-coordinator"
+)
+
 var (
 	csrV1Resource = certificatesv1.SchemeGroupVersion.WithResource("certificatesigningrequests")
 
@@ -64,6 +70,10 @@ var (
 		{
 			recognize:  isYurtHubNodeCert,
 			successMsg: "Auto approving yurthub node client certificate",
+		},
+		{
+			recognize:  isYurtCoordinatorClientCert,
+			successMsg: "Auto approving yurt-coordinator client certificate",
 		},
 		{
 			recognize:  isYurtTLSServerCert,
@@ -252,6 +262,7 @@ func v1Csr2v1beta1Csr(csr *certificatesv1.CertificateSigningRequest) *certificat
 			Request:    csr.Spec.Request,
 			SignerName: &csr.Spec.SignerName,
 			Usages:     make([]certificatesv1beta1.KeyUsage, 0),
+			Username:   csr.Spec.Username,
 		},
 		Status: certificatesv1beta1.CertificateSigningRequestStatus{
 			Conditions: make([]certificatesv1beta1.CertificateSigningRequestCondition, 0),
@@ -283,8 +294,9 @@ func v1beta1Csr2v1Csr(csr *certificatesv1beta1.CertificateSigningRequest) *certi
 	v1Csr := &certificatesv1.CertificateSigningRequest{
 		ObjectMeta: csr.ObjectMeta,
 		Spec: certificatesv1.CertificateSigningRequestSpec{
-			Request: csr.Spec.Request,
-			Usages:  make([]certificatesv1.KeyUsage, 0),
+			Request:  csr.Spec.Request,
+			Usages:   make([]certificatesv1.KeyUsage, 0),
+			Username: csr.Spec.Username,
 		},
 		Status: certificatesv1.CertificateSigningRequestStatus{
 			Conditions: make([]certificatesv1.CertificateSigningRequestCondition, 0),
@@ -313,10 +325,27 @@ func v1beta1Csr2v1Csr(csr *certificatesv1beta1.CertificateSigningRequest) *certi
 	return v1Csr
 }
 
+// isYurtCoordinatorClientCert recognizes the yurt-coordinator client certificate request.
+func isYurtCoordinatorClientCert(csr *certificatesv1.CertificateSigningRequest, x509cr *x509.CertificateRequest) bool {
+	if csr.Spec.Username != yurtCoordinatorClientUsername ||
+		csr.Spec.SignerName != certificatesv1.KubeAPIServerClientSignerName ||
+		x509cr.Subject.CommonName != yurtCoordinatorClientCommonName ||
+		len(x509cr.Subject.Organization) != 1 ||
+		x509cr.Subject.Organization[0] != yurtCoordinatorClientOrg {
+		return false
+	}
+
+	return clientRequiredUsages.Equal(usagesToSet(csr.Spec.Usages))
+}
+
 // isYurtTLSServerCert is used to recognize csr from yurthub https server that listens requests from edge clients like kubelet/kube-proxy.
 // or from yurt-tunnel-server that listens requests from cloud components like kube-apiserver and prometheus or from yurt-tunnel-agent
 func isYurtTLSServerCert(csr *certificatesv1.CertificateSigningRequest, x509cr *x509.CertificateRequest) bool {
 	if csr.Spec.SignerName != certificatesv1.KubeletServingSignerName {
+		return false
+	}
+
+	if csr.Spec.Username != x509cr.Subject.CommonName {
 		return false
 	}
 

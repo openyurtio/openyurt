@@ -63,6 +63,7 @@ func TestReconcile(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: certificatesv1.CertificateSigningRequestSpec{
+					Username:   "system:node:xxx",
 					SignerName: certificatesv1.KubeletServingSignerName,
 					Usages: []certificatesv1.KeyUsage{
 						certificatesv1.UsageDigitalSignature,
@@ -81,6 +82,7 @@ func TestReconcile(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: certificatesv1.CertificateSigningRequestSpec{
+					Username:   "system:node:xxx",
 					SignerName: certificatesv1.KubeletServingSignerName,
 					Usages: []certificatesv1.KeyUsage{
 						certificatesv1.UsageDigitalSignature,
@@ -171,6 +173,7 @@ func TestReconcile(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: certificatesv1.CertificateSigningRequestSpec{
+					Username:   "system:node:xxx",
 					SignerName: certificatesv1.KubeletServingSignerName,
 					Usages: []certificatesv1.KeyUsage{
 						certificatesv1.UsageDigitalSignature,
@@ -189,6 +192,7 @@ func TestReconcile(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: certificatesv1.CertificateSigningRequestSpec{
+					Username:   "system:node:xxx",
 					SignerName: certificatesv1.KubeletServingSignerName,
 					Usages: []certificatesv1.KeyUsage{
 						certificatesv1.UsageDigitalSignature,
@@ -596,4 +600,91 @@ func newCSRData(commonName string, organizations, dnsNames []string, ipAddresses
 		return []byte{}
 	}
 	return csr
+}
+
+func TestIsYurtCSRRequesterAuthorization(t *testing.T) {
+	testcases := []struct {
+		name         string
+		commonName   string
+		organization []string
+		signerName   string
+		username     string
+		usage        certificatesv1.KeyUsage
+		wantApproved bool
+	}{
+		{
+			name:         "coordinator client",
+			commonName:   yurtCoordinatorClientCommonName,
+			organization: []string{yurtCoordinatorClientOrg},
+			signerName:   certificatesv1.KubeAPIServerClientSignerName,
+			username:     yurtCoordinatorClientUsername,
+			usage:        certificatesv1.UsageClientAuth,
+			wantApproved: true,
+		},
+		{
+			name:         "coordinator client with an unauthorized requester",
+			commonName:   yurtCoordinatorClientCommonName,
+			organization: []string{yurtCoordinatorClientOrg},
+			signerName:   certificatesv1.KubeAPIServerClientSignerName,
+			username:     "kubernetes-admin",
+			usage:        certificatesv1.UsageClientAuth,
+		},
+		{
+			name:         "node serving certificate",
+			commonName:   "system:node:worker",
+			organization: []string{user.NodesGroup},
+			signerName:   certificatesv1.KubeletServingSignerName,
+			username:     "system:node:worker",
+			usage:        certificatesv1.UsageServerAuth,
+			wantApproved: true,
+		},
+		{
+			name:         "virtual node certificate requested by an administrator",
+			commonName:   "system:node:virtual-worker",
+			organization: []string{user.NodesGroup},
+			signerName:   certificatesv1.KubeletServingSignerName,
+			username:     "kubernetes-admin",
+			usage:        certificatesv1.UsageServerAuth,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			csr := &certificatesv1.CertificateSigningRequest{
+				Spec: certificatesv1.CertificateSigningRequestSpec{
+					Username:   tc.username,
+					SignerName: tc.signerName,
+					Usages: []certificatesv1.KeyUsage{
+						certificatesv1.UsageDigitalSignature,
+						certificatesv1.UsageKeyEncipherment,
+						tc.usage,
+					},
+					Request: newCSRData(tc.commonName, tc.organization, []string{"worker"}, []net.IP{net.ParseIP("127.0.0.1")}),
+				},
+			}
+
+			approved, _ := isYurtCSR(csr)
+			if approved != tc.wantApproved {
+				t.Errorf("isYurtCSR() approved = %t, want %t", approved, tc.wantApproved)
+			}
+
+			signerName := tc.signerName
+			betaCSR := &certificatesv1beta1.CertificateSigningRequest{
+				Spec: certificatesv1beta1.CertificateSigningRequestSpec{
+					Username:   tc.username,
+					SignerName: &signerName,
+					Request:    csr.Spec.Request,
+					Usages: []certificatesv1beta1.KeyUsage{
+						certificatesv1beta1.UsageDigitalSignature,
+						certificatesv1beta1.UsageKeyEncipherment,
+						certificatesv1beta1.KeyUsage(tc.usage),
+					},
+				},
+			}
+			approved, _ = isYurtCSR(v1beta1Csr2v1Csr(betaCSR))
+			if approved != tc.wantApproved {
+				t.Errorf("isYurtCSR() for v1beta1 CSR approved = %t, want %t", approved, tc.wantApproved)
+			}
+		})
+	}
 }
