@@ -233,3 +233,14 @@ func mockGatewayWithReplicas(Replicas int) *v1beta1.Gateway {
 	g.Spec.TunnelConfig.Replicas = Replicas
 	return g
 }
+
+func TestGatewayHandler_ValidateCreate_ReplicasBadValue(t *testing.T) {
+	handler := &GatewayHandler{}
+	g := mockGatewayWithReplicas(2)
+	g.Spec.ExposeType = v1beta1.ExposeTypeLoadBalancer
+	_, err := handler.ValidateCreate(context.Background(), g)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "spec.tunnelConfig.Replicas: Invalid value: 2")
+	assert.Contains(t, err.Error(), "spec.endpoints: Invalid value: 2")
+	assert.NotContains(t, err.Error(), "Invalid value: \"LoadBalancer\"")
+}

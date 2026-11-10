@@ -26,7 +26,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -260,17 +259,14 @@ func (r *ReconcileYurtAppSet) Reconcile(
 	// this may infect yas appdispatched/appupdated/appdeleted condition
 	expectedNps, curWorkloads, nErr := r.conciliateWorkloads(yas, expectedRevision, yasStatus)
 	if nErr != nil {
-		res.RequeueAfter = 1 * time.Second
 		klog.Warningf("YurtAppSet[%s/%s] conciliate workloads error: %v", yas.Namespace, yas.Name, nErr)
-		return
+		return reconcile.Result{}, nErr
 	}
 
 	// Concilaiate yas, update yas status and clean yas related revisions
 	if nErr := r.conciliateYurtAppSet(yas, curWorkloads, allRevisions, expectedRevision, expectedNps, yasStatus); nErr != nil {
-		// if err, retry after 1s to wait for latest updates synced
-		res.RequeueAfter = 1 * time.Second
 		klog.Warningf("YurtAppSet[%s/%s] conciliate yurtappset error: %v", yas.GetNamespace(), yas.GetName(), nErr)
-		return
+		return reconcile.Result{}, nErr
 	}
 
 	return
@@ -627,12 +623,22 @@ func (r *ReconcileYurtAppSet) conciliateYurtAppSetStatus(
 	// calculate yas current status
 	readyWorkloads, updatedWorkloads := 0, 0
 	for _, workload := range curWorkloads {
-		workloadObj := workload.(*appsv1.Deployment)
-		if workloadObj.Status.Replicas > 0 && workloadObj.Status.ReadyReplicas == workloadObj.Status.Replicas {
+		var replicas, readyReplicas, updatedReplicas int32
+		var workloadHash string
+
+		switch w := workload.(type) {
+		case *appsv1.Deployment:
+			replicas, readyReplicas, updatedReplicas = w.Status.Replicas, w.Status.ReadyReplicas, w.Status.UpdatedReplicas
+			workloadHash = workloadmanager.GetWorkloadHash(w)
+		case *appsv1.StatefulSet:
+			replicas, readyReplicas, updatedReplicas = w.Status.Replicas, w.Status.ReadyReplicas, w.Status.UpdatedReplicas
+			workloadHash = workloadmanager.GetWorkloadHash(w)
+		}
+
+		if isWorkloadReady(replicas, readyReplicas) {
 			readyWorkloads++
 		}
-		if workloadmanager.GetWorkloadHash(workloadObj) == expectedRevision.GetName() &&
-			workloadObj.Status.UpdatedReplicas == workloadObj.Status.Replicas {
+		if isWorkloadUpdated(workloadHash, expectedRevision.GetName(), updatedReplicas, replicas) {
 			updatedWorkloads++
 		}
 	}
@@ -682,4 +688,12 @@ func (r *ReconcileYurtAppSet) conciliateYurtAppSetStatus(
 	klog.Infof("YurtAppSet[%s/%s] update status success.", yas.Namespace, yas.Name)
 
 	return nil
+}
+
+func isWorkloadReady(replicas, readyReplicas int32) bool {
+	return replicas > 0 && readyReplicas == replicas
+}
+
+func isWorkloadUpdated(workloadHash string, expectedRevisionName string, updatedReplicas, replicas int32) bool {
+	return workloadHash == expectedRevisionName && updatedReplicas == replicas
 }

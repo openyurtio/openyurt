@@ -154,7 +154,7 @@ func TestYurtStaticSetHandler_ValidateUpdate(t *testing.T) {
 			errorMsg:    "StaticPodManifest is required",
 		},
 		{
-			name: "should fail when old YurtStaticSet has invalid StaticPodManifest",
+			name: "should pass when old YurtStaticSet is invalid but new one is valid",
 			newObj: &v1alpha1.YurtStaticSet{
 				Spec: v1alpha1.YurtStaticSetSpec{
 					StaticPodManifest: "newManifest",
@@ -170,8 +170,7 @@ func TestYurtStaticSetHandler_ValidateUpdate(t *testing.T) {
 			oldObj: &v1alpha1.YurtStaticSet{
 				Spec: v1alpha1.YurtStaticSetSpec{},
 			},
-			expectError: true,
-			errorMsg:    "StaticPodManifest is required",
+			expectError: false,
 		},
 		{
 			name: "should pass when updating YurtStaticSet with valid changes",

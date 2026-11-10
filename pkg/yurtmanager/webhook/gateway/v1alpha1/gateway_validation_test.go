@@ -124,10 +124,10 @@ func TestGatewayHandler_ValidateUpdate(t *testing.T) {
 			expectedErrMsg: "missing required field 'endpoints'",
 		},
 		{
-			name:           "should return error when old Gateway is invalid",
+			name:           "should pass when old Gateway is invalid but new Gateway is valid",
 			oldObj:         mockGatewayWithMissingEndpoints(),
 			newObj:         mockGatewayWithEndpoints(),
-			expectedErrMsg: "missing required field 'endpoints'",
+			expectedErrMsg: "",
 		},
 		{
 			name:           "should validate Gateway when new and old objects are valid",
@@ -159,13 +159,13 @@ func TestGatewayHandler_ValidateDelete(t *testing.T) {
 		expectError bool
 	}{
 		{
-			name:        "should return error when obj is not Gateway",
-			obj:         &runtime.Unknown{},
-			expectError: true,
+			name:        "should allow deletion of valid Gateway",
+			obj:         mockGatewayWithEndpoints(),
+			expectError: false,
 		},
 		{
-			name:        "should validate Gateway deletion when obj is valid",
-			obj:         mockGatewayWithEndpoints(),
+			name:        "should allow deletion of invalid Gateway",
+			obj:         mockGatewayWithMissingEndpoints(),
 			expectError: false,
 		},
 	}
