@@ -45,6 +45,11 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurttunnel/constants"
 )
 
+const (
+	ravenAgentUsername        = "system:serviceaccount:kube-system:raven-agent-account"
+	ravenServerCertCommonName = "system:node:tunnel-proxy-server"
+)
+
 var (
 	csrV1Resource = certificatesv1.SchemeGroupVersion.WithResource("certificatesigningrequests")
 
@@ -59,6 +64,21 @@ var (
 		string(certificatesv1.UsageDigitalSignature),
 		string(certificatesv1.UsageKeyEncipherment),
 		string(certificatesv1.UsageServerAuth))
+
+	ravenRecognizers = map[string]csrRecognizer{
+		constants.YurtTunnelProxyClientCSRCN: {
+			recognize:  isYurtTunnelProxyClientCert,
+			successMsg: "Auto approving tunnel-server proxy client certificate",
+		},
+		constants.YurtTunnelAgentCSRCN: {
+			recognize:  isYurtTunnelAgentCert,
+			successMsg: "Auto approving tunnel-agent client certificate",
+		},
+		ravenServerCertCommonName: {
+			recognize:  isYurtTLSServerCert,
+			successMsg: "Auto approving openyurt tls server certificate",
+		},
+	}
 
 	recognizers = []csrRecognizer{
 		{
@@ -221,6 +241,21 @@ func isYurtCSR(csr *certificatesv1.CertificateSigningRequest) (bool, string) {
 		return false, successMsg
 	}
 
+	// Reserve Raven identities before generic recognizers to prevent approval through another template.
+	if r, protected := ravenRecognizers[x509cr.Subject.CommonName]; protected {
+		if csr.Spec.Username != ravenAgentUsername {
+			klog.InfoS("Leaving Raven CSR pending: unauthorized requester",
+				"csr", csr.Name, "commonName", x509cr.Subject.CommonName, "username", csr.Spec.Username)
+			return false, ""
+		}
+		if !r.recognize(csr, x509cr) {
+			klog.InfoS("Leaving Raven CSR pending: certificate template mismatch",
+				"csr", csr.Name, "commonName", x509cr.Subject.CommonName, "username", csr.Spec.Username)
+			return false, ""
+		}
+		return true, r.successMsg
+	}
+
 	for _, r := range recognizers {
 		if r.recognize(csr, x509cr) {
 			successMsg = r.successMsg
@@ -252,10 +287,20 @@ func v1Csr2v1beta1Csr(csr *certificatesv1.CertificateSigningRequest) *certificat
 			Request:    csr.Spec.Request,
 			SignerName: &csr.Spec.SignerName,
 			Usages:     make([]certificatesv1beta1.KeyUsage, 0),
+			Username:   csr.Spec.Username,
+			UID:        csr.Spec.UID,
+			Groups:     csr.Spec.Groups,
 		},
 		Status: certificatesv1beta1.CertificateSigningRequestStatus{
 			Conditions: make([]certificatesv1beta1.CertificateSigningRequestCondition, 0),
 		},
+	}
+
+	if csr.Spec.Extra != nil {
+		v1beata1Csr.Spec.Extra = make(map[string]certificatesv1beta1.ExtraValue, len(csr.Spec.Extra))
+		for key, value := range csr.Spec.Extra {
+			v1beata1Csr.Spec.Extra[key] = certificatesv1beta1.ExtraValue(value)
+		}
 	}
 
 	for _, usage := range csr.Spec.Usages {
@@ -283,12 +328,22 @@ func v1beta1Csr2v1Csr(csr *certificatesv1beta1.CertificateSigningRequest) *certi
 	v1Csr := &certificatesv1.CertificateSigningRequest{
 		ObjectMeta: csr.ObjectMeta,
 		Spec: certificatesv1.CertificateSigningRequestSpec{
-			Request: csr.Spec.Request,
-			Usages:  make([]certificatesv1.KeyUsage, 0),
+			Request:  csr.Spec.Request,
+			Usages:   make([]certificatesv1.KeyUsage, 0),
+			Username: csr.Spec.Username,
+			UID:      csr.Spec.UID,
+			Groups:   csr.Spec.Groups,
 		},
 		Status: certificatesv1.CertificateSigningRequestStatus{
 			Conditions: make([]certificatesv1.CertificateSigningRequestCondition, 0),
 		},
+	}
+
+	if csr.Spec.Extra != nil {
+		v1Csr.Spec.Extra = make(map[string]certificatesv1.ExtraValue, len(csr.Spec.Extra))
+		for key, value := range csr.Spec.Extra {
+			v1Csr.Spec.Extra[key] = certificatesv1.ExtraValue(value)
+		}
 	}
 
 	if csr.Spec.SignerName != nil {

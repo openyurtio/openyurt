@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/google/uuid"
@@ -739,6 +740,76 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 		})
 	})
 
+	Context("Test Concurrent Key Locking", func() {
+		It("should block and allow concurrent operations without ErrStorageAccessConflict", func() {
+			podKeyInfo := storage.KeyBuildInfo{
+				Component: "kubelet",
+				Resources: "pods",
+				Namespace: "default",
+				Group:     "",
+				Version:   "v1",
+				Name:      "concurrent-pod",
+			}
+			podKey, err := store.KeyFunc(podKeyInfo)
+			Expect(err).To(BeNil())
+			pod, _, err := generatePod(store.KeyFunc, &podObj, podKeyInfo)
+			Expect(err).To(BeNil())
+			podBytes, err := marshalObj(pod)
+			Expect(err).To(BeNil())
+
+			// We will launch multiple concurrent reads and writes on the same key.
+			// With blocking locks, they should block and eventually execute without errors.
+			errCh := make(chan error, 5)
+			startCh := make(chan struct{})
+			var wg sync.WaitGroup
+			wg.Add(3)
+
+			// 1. First Create
+			go func() {
+				defer wg.Done()
+				<-startCh
+				err := store.Create(podKey, podBytes)
+				if err != nil && err != storage.ErrKeyExists {
+					errCh <- err
+				} else {
+					errCh <- nil
+				}
+			}()
+
+			// 2. Concurrent Get
+			go func() {
+				defer wg.Done()
+				<-startCh
+				_, err := store.Get(podKey)
+				if err != nil && err != storage.ErrStorageNotFound {
+					errCh <- err
+				} else {
+					errCh <- nil
+				}
+			}()
+
+			// 3. Concurrent Update
+			go func() {
+				defer wg.Done()
+				<-startCh
+				_, err := store.Update(podKey, podBytes, 200)
+				if err != nil && err != storage.ErrStorageNotFound && err != storage.ErrUpdateConflict {
+					errCh <- err
+				} else {
+					errCh <- nil
+				}
+			}()
+
+			close(startCh)
+			wg.Wait()
+			close(errCh)
+
+			for e := range errCh {
+				Expect(e).To(BeNil())
+			}
+		})
+	})
+
 	Context("Test ListResourceKeysOfComponent", func() {
 		var podNamespace1Num, podNamespace2Num, nodeNum int
 		var namespace1, namespace2 string
@@ -871,6 +942,27 @@ var _ = Describe("Test DiskStorage Exposed Functions", func() {
 		It("should return ErrEmptyResource if gvr is empty", func() {
 			_, err = store.ListResourceKeysOfComponent("kubelet", schema.GroupVersionResource{})
 			Expect(err).To(Equal(storage.ErrEmptyResource))
+		})
+		It("should skip invalid paths and tmp backup files", func() {
+			validPath := filepath.Join(baseDir, "kubelet", "pods.v1.core", "default", "pod-valid")
+			invalidPath := filepath.Join(baseDir, "kubelet", "pods.v1.core", "default", "extra", "pod-invalid")
+			tmpPath := filepath.Join(baseDir, "kubelet", "pods.v1.core", "default", "tmp_pod-backup")
+
+			Expect(os.MkdirAll(filepath.Dir(validPath), 0755)).To(Succeed())
+			Expect(os.MkdirAll(filepath.Dir(invalidPath), 0755)).To(Succeed())
+			Expect(writeFileAt(validPath, []byte("{}"))).To(Succeed())
+			Expect(writeFileAt(invalidPath, []byte("{}"))).To(Succeed())
+			Expect(writeFileAt(tmpPath, []byte("{}"))).To(Succeed())
+
+			gotKeys, err := store.ListResourceKeysOfComponent("kubelet", schema.GroupVersionResource{
+				Group:    "",
+				Version:  "v1",
+				Resource: "pods",
+			})
+			Expect(err).To(BeNil())
+			Expect(gotKeys).To(HaveLen(1))
+			Expect(gotKeys[0]).NotTo(BeNil())
+			Expect(gotKeys[0].Key()).To(Equal("kubelet/pods.v1.core/default/pod-valid"))
 		})
 	})
 
@@ -1495,6 +1587,51 @@ func TestExtractInfoFromPath(t *testing.T) {
 				t.Errorf("failed at case: %s, want: %s, got: %s", c, want, got)
 			}
 		})
+	}
+}
+
+func TestListResourceKeysSkipsInvalidAndTmpFiles(t *testing.T) {
+	dir, err := os.MkdirTemp("", "list-resource-keys")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(dir)
+
+	store, err := NewDiskStorage(dir)
+	if err != nil {
+		t.Fatalf("failed to create disk storage: %v", err)
+	}
+
+	paths := []string{
+		filepath.Join(dir, "kubelet", "pods.v1.core", "default", "pod-a"),
+		filepath.Join(dir, "kubelet", "pods.v1.core", "default", "extra", "pod-b"),
+		filepath.Join(dir, "kubelet", "pods.v1.core", "default", "tmp_pod-c"),
+	}
+	for _, p := range paths {
+		if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
+			t.Fatalf("failed to create dir: %v", err)
+		}
+		if err := os.WriteFile(p, []byte("{}"), 0644); err != nil {
+			t.Fatalf("failed to write file: %v", err)
+		}
+	}
+
+	keys, err := store.ListResourceKeysOfComponent("kubelet", schema.GroupVersionResource{
+		Version:  "v1",
+		Resource: "pods",
+	})
+	if err != nil {
+		t.Fatalf("ListResourceKeysOfComponent() error = %v", err)
+	}
+	if len(keys) != 1 {
+		t.Fatalf("ListResourceKeysOfComponent() len = %d, want 1", len(keys))
+	}
+	if keys[0] == nil {
+		t.Fatal("ListResourceKeysOfComponent() returned nil key")
+	}
+	wantKey := "kubelet/pods.v1.core/default/pod-a"
+	if keys[0].Key() != wantKey {
+		t.Fatalf("ListResourceKeysOfComponent() key = %q, want %q", keys[0].Key(), wantKey)
 	}
 }
 

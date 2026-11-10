@@ -31,6 +31,7 @@ import (
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/openyurtio/openyurt/pkg/apis"
+	"github.com/openyurtio/openyurt/pkg/apis/apps"
 	appsv1beta2 "github.com/openyurtio/openyurt/pkg/apis/apps/v1beta2"
 	"github.com/openyurtio/openyurt/pkg/projectinfo"
 )
@@ -74,6 +75,26 @@ func TestDefault(t *testing.T) {
 			pool: &appsv1beta2.NodePool{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "shanghai",
+				},
+				Spec: appsv1beta2.NodePoolSpec{
+					Type:        appsv1beta2.Edge,
+					HostNetwork: true,
+				},
+			},
+			errCode: 0,
+		},
+		"add labels for node with desired nodepool label": {
+			node: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo",
+					Labels: map[string]string{
+						apps.DesiredNodePoolLabel: "beijing",
+					},
+				},
+			},
+			pool: &appsv1beta2.NodePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "beijing",
 				},
 				Spec: appsv1beta2.NodePoolSpec{
 					Type:        appsv1beta2.Edge,

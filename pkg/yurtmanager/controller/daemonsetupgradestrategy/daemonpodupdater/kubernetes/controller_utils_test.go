@@ -19,6 +19,7 @@ package kubernetes
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"net/http/httptest"
@@ -279,4 +280,294 @@ func TestComputeHash(t *testing.T) {
 
 		assert.NotEqual(t, hash, otherHash, "expected different hashes but got the same: %d", hash)
 	}
+}
+func TestControllerExpectations_Methods(t *testing.T) {
+	e := NewControllerExpectations() // Tests NewControllerExpectations
+	key := "test-controller"
+
+	// Test ExpectCreations
+	err := e.ExpectCreations(key, 2)
+	assert.NoError(t, err)
+	exp, exists, err := e.GetExpectations(key)
+	assert.NoError(t, err)
+	assert.True(t, exists)
+	add, del := exp.GetExpectations()
+	assert.Equal(t, int64(2), add)
+	assert.Equal(t, int64(0), del)
+	assert.False(t, e.SatisfiedExpectations(key))
+
+	// Test RaiseExpectations
+	e.RaiseExpectations(key, 1, 1)
+	exp, _, _ = e.GetExpectations(key)
+	add, del = exp.GetExpectations()
+	assert.Equal(t, int64(3), add)
+	assert.Equal(t, int64(1), del)
+
+	// Test ExpectDeletions
+	err = e.ExpectDeletions(key, 2)
+	assert.NoError(t, err)
+	exp, _, _ = e.GetExpectations(key)
+	add, del = exp.GetExpectations()
+	assert.Equal(t, int64(0), add) // ExpectDeletions overrides add with 0
+	assert.Equal(t, int64(2), del)
+	assert.False(t, e.SatisfiedExpectations(key))
+
+	// Fulfill expectations
+	e.DeletionObserved(key)
+	e.DeletionObserved(key)
+	assert.True(t, e.SatisfiedExpectations(key))
+
+	// Test DeleteExpectations
+	e.DeleteExpectations(key)
+	_, exists, _ = e.GetExpectations(key)
+	assert.False(t, exists)
+	assert.True(t, e.SatisfiedExpectations(key)) // Satisfied when no expectations
+}
+
+func TestFakePodControl(t *testing.T) {
+	fakeControl := &FakePodControl{}
+
+	// Test CreatePods
+	spec := &v1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"foo": "bar"}}}
+	controllerRef := &metav1.OwnerReference{Name: "test-controller"}
+
+	err := fakeControl.CreatePods(context.TODO(), "default", spec, nil, controllerRef)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, fakeControl.CreateCallCount)
+	assert.Len(t, fakeControl.Templates, 1)
+	assert.Len(t, fakeControl.ControllerRefs, 1)
+
+	// Test PatchPod
+	patchData := []byte("patch")
+	err = fakeControl.PatchPod(context.TODO(), "default", "pod-name", patchData)
+	assert.NoError(t, err)
+	assert.Len(t, fakeControl.Patches, 1)
+	assert.Equal(t, patchData, fakeControl.Patches[0])
+
+	// Test DeletePod
+	err = fakeControl.DeletePod(context.TODO(), "default", "pod-name", nil)
+	assert.NoError(t, err)
+	assert.Len(t, fakeControl.DeletePodName, 1)
+	assert.Equal(t, "pod-name", fakeControl.DeletePodName[0])
+
+	// Test error injection
+	fakeControl.Err = errors.New("fake error")
+	err = fakeControl.PatchPod(context.TODO(), "default", "pod-name", patchData)
+	assert.EqualError(t, err, "fake error")
+	err = fakeControl.CreatePods(context.TODO(), "default", spec, nil, controllerRef)
+	assert.EqualError(t, err, "fake error")
+	err = fakeControl.DeletePod(context.TODO(), "default", "pod-name", nil)
+	assert.EqualError(t, err, "fake error")
+
+	// Test limit
+	fakeControl.Clear()
+	fakeControl.Err = nil
+	fakeControl.CreateLimit = 1
+	err = fakeControl.CreatePods(context.TODO(), "default", spec, nil, controllerRef)
+	assert.NoError(t, err)
+	err = fakeControl.CreatePods(context.TODO(), "default", spec, nil, controllerRef)
+	assert.ErrorContains(t, err, "limit 1 already reached")
+
+	// Test Clear
+	fakeControl.Clear()
+	assert.Equal(t, 0, fakeControl.CreateCallCount)
+	assert.Len(t, fakeControl.Templates, 0)
+	assert.Len(t, fakeControl.ControllerRefs, 0)
+	assert.Len(t, fakeControl.Patches, 0)
+	assert.Len(t, fakeControl.DeletePodName, 0)
+}
+
+func TestRealPodControl_PatchPod(t *testing.T) {
+	ns := metav1.NamespaceDefault
+	fakeHandler := utiltesting.FakeHandler{
+		StatusCode:   200,
+		ResponseBody: `{}`,
+	}
+	testServer := httptest.NewServer(&fakeHandler)
+	defer testServer.Close()
+	clientset := clientset.NewForConfigOrDie(&restclient.Config{Host: testServer.URL, ContentConfig: restclient.ContentConfig{ContentType: runtime.ContentTypeJSON, GroupVersion: &schema.GroupVersion{Group: "", Version: "v1"}}})
+
+	podControl := RealPodControl{
+		KubeClient: clientset,
+		Recorder:   &record.FakeRecorder{},
+	}
+
+	err := podControl.PatchPod(context.TODO(), ns, "podName", []byte("{}"))
+	assert.NoError(t, err)
+}
+
+func TestValidateControllerRef(t *testing.T) {
+	tests := []struct {
+		name          string
+		controllerRef *metav1.OwnerReference
+		wantErr       bool
+		errContains   string
+	}{
+		{
+			name:          "nil ref",
+			controllerRef: nil,
+			wantErr:       true,
+			errContains:   "controllerRef is nil",
+		},
+		{
+			name:          "empty api version",
+			controllerRef: &metav1.OwnerReference{Kind: "ReplicaSet"},
+			wantErr:       true,
+			errContains:   "empty APIVersion",
+		},
+		{
+			name:          "empty kind",
+			controllerRef: &metav1.OwnerReference{APIVersion: "v1"},
+			wantErr:       true,
+			errContains:   "empty Kind",
+		},
+		{
+			name: "controller not set to true",
+			controllerRef: &metav1.OwnerReference{
+				APIVersion: "v1",
+				Kind:       "ReplicaSet",
+				Controller: func() *bool { b := false; return &b }(),
+			},
+			wantErr:     true,
+			errContains: "Controller is not set to true",
+		},
+		{
+			name: "blockOwnerDeletion not set",
+			controllerRef: &metav1.OwnerReference{
+				APIVersion: "v1",
+				Kind:       "ReplicaSet",
+				Controller: func() *bool { b := true; return &b }(),
+			},
+			wantErr:     true,
+			errContains: "BlockOwnerDeletion is not set",
+		},
+		{
+			name: "valid ref",
+			controllerRef: &metav1.OwnerReference{
+				APIVersion:         "v1",
+				Kind:               "ReplicaSet",
+				Controller:         func() *bool { b := true; return &b }(),
+				BlockOwnerDeletion: func() *bool { b := true; return &b }(),
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateControllerRef(tt.controllerRef)
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errContains)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestGetPodFromTemplate(t *testing.T) {
+	template := &v1.PodTemplateSpec{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels:      map[string]string{"foo": "bar"},
+			Annotations: map[string]string{"ann": "val"},
+			Finalizers:  []string{"fin1"},
+		},
+		Spec: v1.PodSpec{
+			Containers: []v1.Container{{Name: "c1"}},
+		},
+	}
+	controllerRef := &metav1.OwnerReference{
+		APIVersion:         "v1",
+		Kind:               "ReplicaSet",
+		Controller:         func() *bool { b := true; return &b }(),
+		BlockOwnerDeletion: func() *bool { b := true; return &b }(),
+	}
+
+	// Test success
+	parentObject := newReplicationController(1)
+	pod, err := GetPodFromTemplate(template, parentObject, controllerRef)
+	assert.NoError(t, err)
+	assert.Equal(t, "foobar-", pod.GenerateName)
+	assert.Equal(t, map[string]string{"foo": "bar"}, pod.Labels)
+	assert.Equal(t, map[string]string{"ann": "val"}, pod.Annotations)
+	assert.Equal(t, []string{"fin1"}, pod.Finalizers)
+	assert.Len(t, pod.OwnerReferences, 1)
+
+	// Test missing ObjectMeta
+	type dummyObject struct{ runtime.Object }
+	_, err = GetPodFromTemplate(template, &dummyObject{}, controllerRef)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "does not have ObjectMeta")
+}
+
+func TestRealPodControl_DeletePod_GenericError(t *testing.T) {
+	ns := metav1.NamespaceDefault
+	fakeHandler := utiltesting.FakeHandler{
+		StatusCode:   500,
+		ResponseBody: `{}`,
+	}
+	testServer := httptest.NewServer(&fakeHandler)
+	defer testServer.Close()
+	clientset := clientset.NewForConfigOrDie(&restclient.Config{Host: testServer.URL, ContentConfig: restclient.ContentConfig{ContentType: runtime.ContentTypeJSON, GroupVersion: &schema.GroupVersion{Group: "", Version: "v1"}}})
+
+	podControl := RealPodControl{
+		KubeClient: clientset,
+		Recorder:   &record.FakeRecorder{},
+	}
+
+	controllerSpec := newReplicationController(1)
+	err := podControl.DeletePod(context.TODO(), ns, "podName", controllerSpec)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unable to delete pods")
+
+	// Test with parent object without ObjectMeta
+	type dummyObject struct{ runtime.Object }
+	err = podControl.DeletePod(context.TODO(), ns, "podName", &dummyObject{})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "does not have ObjectMeta")
+}
+
+func TestRealPodControl_CreatePods_Failures(t *testing.T) {
+	ns := metav1.NamespaceDefault
+	fakeHandler := utiltesting.FakeHandler{
+		StatusCode:   500,
+		ResponseBody: `{}`,
+	}
+	testServer := httptest.NewServer(&fakeHandler)
+	defer testServer.Close()
+	clientset := clientset.NewForConfigOrDie(&restclient.Config{Host: testServer.URL, ContentConfig: restclient.ContentConfig{ContentType: runtime.ContentTypeJSON, GroupVersion: &schema.GroupVersion{Group: "", Version: "v1"}}})
+
+	podControl := RealPodControl{
+		KubeClient: clientset,
+		Recorder:   &record.FakeRecorder{},
+	}
+
+	controllerSpec := newReplicationController(1)
+	controllerRef := metav1.NewControllerRef(controllerSpec, v1.SchemeGroupVersion.WithKind("ReplicationController"))
+
+	// Test CreatePods where create fails
+	err := podControl.CreatePods(context.TODO(), ns, controllerSpec.Spec.Template, controllerSpec, controllerRef)
+	assert.Error(t, err) // Server returns 500
+
+	// Test CreatePods without labels
+	badTemplate := controllerSpec.Spec.Template.DeepCopy()
+	badTemplate.Labels = nil
+	err = podControl.CreatePods(context.TODO(), ns, badTemplate, controllerSpec, controllerRef)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unable to create pods, no labels")
+}
+
+func TestGetPodsPrefix(t *testing.T) {
+	// Name shorter than DNS subdomain limit (253)
+	prefix := getPodsPrefix("short-name")
+	assert.Equal(t, "short-name-", prefix)
+
+	// Very long name
+	longName := ""
+	for i := 0; i < 300; i++ {
+		longName += "a"
+	}
+	prefix = getPodsPrefix(longName)
+	assert.Equal(t, longName, prefix) // the dash is omitted if name + dash is invalid
 }
