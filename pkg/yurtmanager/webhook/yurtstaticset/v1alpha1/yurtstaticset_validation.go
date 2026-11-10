@@ -53,16 +53,12 @@ func (webhook *YurtStaticSetHandler) ValidateUpdate(ctx context.Context, oldObj,
 	if !ok {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a YurtStaticSet but got a %T", newObj))
 	}
-	oldSP, ok := oldObj.(*v1alpha1.YurtStaticSet)
+	_, ok = oldObj.(*v1alpha1.YurtStaticSet)
 	if !ok {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a YurtStaticSet but got a %T", oldObj))
 	}
 
 	if err := validate(newSP); err != nil {
-		return nil, err
-	}
-
-	if err := validate(oldSP); err != nil {
 		return nil, err
 	}
 

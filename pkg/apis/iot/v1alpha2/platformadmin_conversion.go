@@ -77,6 +77,9 @@ func (c *PlatformAdmin) ConvertFrom(srcRaw conversion.Hub) error {
 		if err != nil {
 			return err
 		}
+		if c.Annotations == nil {
+			c.Annotations = make(map[string]string)
+		}
 		c.Annotations["AdditionalNodepools"] = string(additionalNodePoolsJSON)
 	}
 	c.Spec.Platform = PlatformAdminPlatformEdgeX

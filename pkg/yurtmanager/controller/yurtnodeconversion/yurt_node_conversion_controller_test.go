@@ -67,6 +67,7 @@ func TestReconcileCreateConvertJob(t *testing.T) {
 	assert.Equal(t, "node-a", job.Labels[nodeservant.ConversionNodeLabelKey])
 	assert.Contains(t, job.Spec.Template.Spec.Containers[0].Args[0], "convert")
 	assert.Contains(t, job.Spec.Template.Spec.Containers[0].Args[0], "--nodepool-name=pool-a")
+	assert.Contains(t, job.Finalizers, conversionJobFinalizer)
 }
 
 func TestReconcileConvertSuccess(t *testing.T) {
@@ -175,6 +176,7 @@ func TestReconcileCreateRevertJob(t *testing.T) {
 		Name:      conversionJobName("node-a"),
 	}, job))
 	assert.Equal(t, "/usr/local/bin/entry.sh revert --node-name=node-a", job.Spec.Template.Spec.Containers[0].Args[0])
+	assert.Contains(t, job.Finalizers, conversionJobFinalizer)
 }
 
 func TestReconcileRevertSuccess(t *testing.T) {
@@ -278,6 +280,34 @@ func TestReconcileDeleteStaleFinishedJob(t *testing.T) {
 		Name:      conversionJobName("node-a"),
 	}, deletedJob)
 	assert.Error(t, err)
+}
+
+func TestReconcileIgnoreDeletingStaleJob(t *testing.T) {
+	node := newNode("node-a", map[string]string{
+		projectinfo.GetEdgeWorkerLabelKey(): "true",
+	}, false, nil)
+	job := newConversionJobForTest(t, actionConvert, "node-a")
+	job.Status.Conditions = []batchv1.JobCondition{{
+		Type:   batchv1.JobComplete,
+		Status: corev1.ConditionTrue,
+	}}
+	job.Status.Succeeded = 1
+	now := metav1.Now()
+	job.DeletionTimestamp = &now
+	job.Finalizers = []string{"dummy-finalizer"}
+
+	r, cli := newReconcilerForTest(t, node, job)
+
+	result, err := r.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Name: "node-a"}})
+	require.NoError(t, err)
+	assert.False(t, result.Requeue)
+
+	ignoredJob := &batchv1.Job{}
+	err = cli.Get(context.Background(), types.NamespacedName{
+		Namespace: r.conversionJobNamespace(),
+		Name:      conversionJobName("node-a"),
+	}, ignoredJob)
+	assert.NoError(t, err)
 }
 
 func TestReconcileKeepRunningJobInProgress(t *testing.T) {
@@ -588,6 +618,7 @@ func newConversionJobForTest(t *testing.T, action, nodeName string) *batchv1.Job
 
 	job, err := nodeservant.RenderNodeServantJob(action, renderCtx, nodeName)
 	require.NoError(t, err)
+	job.Finalizers = append(job.Finalizers, conversionJobFinalizer)
 	return job
 }
 

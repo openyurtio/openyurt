@@ -120,8 +120,8 @@ function build_e2e_binary() {
       fi
     done
 
-    ginkgo build $YURT_ROOT/test/e2e \
-    --gcflags "${gcflags:-}" ${goflags} --ldflags "${goldflags}"
+    ginkgo build --gcflags "${gcflags:-}" --ldflags "${goldflags}" $YURT_ROOT/test/e2e
+
 }
 
 function local_up_openyurt {
