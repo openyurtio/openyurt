@@ -28,4 +28,5 @@ const (
 	CoreDNSServiceName       = "kube-dns"
 	PodStartShortTimeout     = 1 * time.Minute
 	YurtE2EWorkerNodeName    = "openyurt-e2e-test-worker"
+	YurtE2EWorker2NodeName   = "openyurt-e2e-test-worker2"
 )
