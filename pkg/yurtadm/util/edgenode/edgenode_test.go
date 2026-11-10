@@ -122,6 +122,11 @@ func TestParseEnvironmentFilePath(t *testing.T) {
 			directive: "EnvironmentFile= -/var/lib/kubelet/kubeadm-flags.env ",
 			expected:  "/var/lib/kubelet/kubeadm-flags.env",
 		},
+		{
+			name:      "whitespace after ignore-prefix is trimmed",
+			directive: "EnvironmentFile=- /var/lib/kubelet/kubeadm-flags.env ",
+			expected:  "/var/lib/kubelet/kubeadm-flags.env",
+		},
 	}
 
 	for _, tt := range tests {
