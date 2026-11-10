@@ -153,6 +153,8 @@ func (r *ReconcileDNS) Reconcile(ctx context.Context, req reconcile.Request) (re
 		klog.Error(Format("could not list node, error %s", err.Error()))
 		return reconcile.Result{Requeue: true, RequeueAfter: 2 * time.Second}, err
 	}
+	// The ConfigMap is read from the cluster, so its data section may be absent even
+	// though buildRavenDNSConfigMap always creates it with one.
 	if cm.Data == nil {
 		cm.Data = make(map[string]string)
 	}
