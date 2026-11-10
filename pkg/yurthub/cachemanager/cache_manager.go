@@ -437,9 +437,11 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 				} else {
 					updateObjCnt++
 				}
-				errMsg := cm.updateInMemoryCache(ctx, info, obj)
-				if errMsg != nil {
-					klog.Errorf("failed to update cache, %v", errMsg)
+				if err == nil {
+					errMsg := cm.updateInMemoryCache(ctx, info, obj)
+					if errMsg != nil {
+						klog.Errorf("failed to update cache, %v", errMsg)
+					}
 				}
 			case watch.Deleted:
 				err = cm.storage.Delete(key)
@@ -455,7 +457,11 @@ func (cm *cacheManager) saveWatchObject(ctx context.Context, info *apirequest.Re
 			}
 
 			if err != nil {
-				klog.Errorf("could not process watch object %s, %v", key.Key(), err)
+				if errors.Is(err, storage.ErrStorageAccessConflict) {
+					klog.V(2).Infof("could not process watch object %s, %v", key.Key(), err)
+				} else {
+					klog.Errorf("could not process watch object %s, %v", key.Key(), err)
+				}
 			}
 		case watch.Bookmark:
 			rv, _ := accessor.ResourceVersion(obj)
@@ -679,13 +685,13 @@ func (cm *cacheManager) storeObjectWithKey(key storage.Key, obj runtime.Object) 
 		if err := cm.storage.Create(key, obj); err != nil {
 			if errors.Is(err, storage.ErrStorageAccessConflict) {
 				klog.V(2).Infof("skip to cache obj because key(%s) is under processing", key.Key())
-				return nil
+				return err
 			}
 			return fmt.Errorf("could not create obj of key: %s, %v", key.Key(), err)
 		}
 	case errors.Is(err, storage.ErrStorageAccessConflict):
 		klog.V(2).Infof("skip to cache watch event because key(%s) is under processing", key.Key())
-		return nil
+		return err
 	default:
 		return fmt.Errorf("could not store obj with rv %s of key: %s, %v", newRv, key.Key(), err)
 	}
