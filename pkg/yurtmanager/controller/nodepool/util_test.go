@@ -400,6 +400,58 @@ func TestConcilateNode(t *testing.T) {
 			},
 			updated: false,
 		},
+		"pool has nil labels and annotations": {
+			mockNode: corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"label1": "value1",
+					},
+					Annotations: map[string]string{
+						"anno1": "value1",
+					},
+				},
+			},
+			pool: appsv1beta2.NodePool{
+				Spec: appsv1beta2.NodePoolSpec{},
+			},
+			wantedNodeExcludeAttribute: corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"label1": "value1",
+					},
+					Annotations: map[string]string{
+						"anno1": "value1",
+					},
+				},
+			},
+			updated: false,
+		},
+		"node has nil labels and annotations when pool has labels and annotations": {
+			mockNode: corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{},
+			},
+			pool: appsv1beta2.NodePool{
+				Spec: appsv1beta2.NodePoolSpec{
+					Labels: map[string]string{
+						"poollabel1": "value1",
+					},
+					Annotations: map[string]string{
+						"poolanno1": "value1",
+					},
+				},
+			},
+			wantedNodeExcludeAttribute: corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"poollabel1": "value1",
+					},
+					Annotations: map[string]string{
+						"poolanno1": "value1",
+					},
+				},
+			},
+			updated: true,
+		},
 	}
 
 	for k, tc := range testcases {
@@ -497,6 +549,34 @@ func TestConciliateAnnotations(t *testing.T) {
 	conciliateAnnotations(mockNode, oldAnnos, newAnnos)
 	if !reflect.DeepEqual(wantNodeAnnos, mockNode.Annotations) {
 		t.Errorf("Expected %v, got %v", wantNodeAnnos, mockNode.Annotations)
+	}
+}
+
+func TestConciliateLabels_NilMaps(t *testing.T) {
+	mockNode := &corev1.Node{}
+	conciliateLabels(mockNode, nil, nil)
+	if mockNode.Labels == nil {
+		t.Errorf("Expected initialized labels map, got nil")
+	}
+
+	oldLabels := map[string]string{"foo": "bar"}
+	conciliateLabels(mockNode, oldLabels, nil)
+	if _, exists := mockNode.Labels["foo"]; exists {
+		t.Errorf("Expected foo to be deleted")
+	}
+}
+
+func TestConciliateAnnotations_NilMaps(t *testing.T) {
+	mockNode := &corev1.Node{}
+	conciliateAnnotations(mockNode, nil, nil)
+	if mockNode.Annotations == nil {
+		t.Errorf("Expected initialized annotations map, got nil")
+	}
+
+	oldAnnos := map[string]string{"foo": "bar"}
+	conciliateAnnotations(mockNode, oldAnnos, nil)
+	if _, exists := mockNode.Annotations["foo"]; exists {
+		t.Errorf("Expected foo to be deleted")
 	}
 }
 
