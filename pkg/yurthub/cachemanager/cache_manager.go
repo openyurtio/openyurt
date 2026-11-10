@@ -492,9 +492,16 @@ func listRequestIsIncomplete(req *http.Request) bool {
 	if isListRequestWithNameFieldSelector(req) {
 		return true
 	}
-	// An informer's relist sends resourceVersion=0 (or nothing) with no match parameter,
-	// meaning "any version, newest available" — a current view, which must keep pruning.
-	return req.URL.Query().Get("resourceVersionMatch") == string(metav1.ResourceVersionMatchExact)
+	query := req.URL.Query()
+	match := query.Get("resourceVersionMatch")
+	if match == string(metav1.ResourceVersionMatchExact) {
+		return true
+	}
+	// A positive limit with a nonzero resourceVersion uses legacy Exact semantics
+	// when resourceVersionMatch is unset, even if the snapshot fits in one page.
+	limit, err := strconv.ParseInt(query.Get("limit"), 10, 64)
+	rv := query.Get("resourceVersion")
+	return match == "" && err == nil && limit > 0 && rv != "" && rv != "0"
 }
 
 // listResponseHasMorePages reports whether a list response carries a continue token,
