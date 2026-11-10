@@ -110,33 +110,58 @@ func NewRequestMultiplexerManager(
 }
 
 func (m *MultiplexerManager) addConfigmap(obj interface{}) {
-	cm, _ := obj.(*corev1.ConfigMap)
+	cm, ok := obj.(*corev1.ConfigMap)
+	if !ok {
+		if tombstone, isTombstone := obj.(cache.DeletedFinalStateUnknown); isTombstone {
+			cm, ok = tombstone.Obj.(*corev1.ConfigMap)
+		}
+	}
+	if !ok || cm == nil {
+		return
+	}
 
 	m.updateLeaderHubConfiguration(cm)
+	m.RLock()
+	source := m.sourceForPoolScopeMetadata
+	metadata := m.poolScopeMetadata.Clone()
+	m.RUnlock()
+
 	klog.Infof(
 		"after added configmap, source for pool scope metadata: %s, pool scope metadata: %v",
-		m.sourceForPoolScopeMetadata,
-		m.poolScopeMetadata,
+		source,
+		metadata,
 	)
 }
 
 func (m *MultiplexerManager) updateConfigmap(oldObj, newObj interface{}) {
-	oldCM, _ := oldObj.(*corev1.ConfigMap)
-	newCM, _ := newObj.(*corev1.ConfigMap)
+	oldCM, okOld := oldObj.(*corev1.ConfigMap)
+	newCM, okNew := newObj.(*corev1.ConfigMap)
+	if !okOld || !okNew || oldCM == nil || newCM == nil {
+		return
+	}
 
 	if maps.Equal(oldCM.Data, newCM.Data) {
 		return
 	}
 
 	m.updateLeaderHubConfiguration(newCM)
+	m.RLock()
+	source := m.sourceForPoolScopeMetadata
+	metadata := m.poolScopeMetadata.Clone()
+	m.RUnlock()
+
 	klog.Infof(
 		"after updated configmap, source for pool scope metadata: %s, pool scope metadata: %v",
-		m.sourceForPoolScopeMetadata,
-		m.poolScopeMetadata,
+		source,
+		metadata,
 	)
 }
 
 func (m *MultiplexerManager) updateLeaderHubConfiguration(cm *corev1.ConfigMap) {
+	if cm == nil {
+		return
+	}
+
 	newPoolScopeMetadata := sets.New[string]()
 	if len(cm.Data[PoolScopeMetadataKey]) != 0 {
 		for _, part := range strings.Split(cm.Data[PoolScopeMetadataKey], ",") {
@@ -172,6 +197,9 @@ func (m *MultiplexerManager) updateLeaderHubConfiguration(cm *corev1.ConfigMap) 
 		newSource = PoolSourceForPoolScopeMetadata
 	}
 
+	m.Lock()
+	defer m.Unlock()
+
 	// LeaderHubEndpoints are changed, related health checker and load balancer are need to be updated.
 	if !m.leaderAddresses.Equal(newLeaderAddresses) {
 		servers := m.resolveLeaderHubServers(newLeaderAddresses)
@@ -188,8 +216,6 @@ func (m *MultiplexerManager) updateLeaderHubConfiguration(cm *corev1.ConfigMap) 
 	// if pool scope metadata are removed, related GVR cache should be destroyed.
 	deletedPoolScopeMetadata := m.poolScopeMetadata.Difference(newPoolScopeMetadata)
 
-	m.Lock()
-	defer m.Unlock()
 	m.sourceForPoolScopeMetadata = newSource
 	m.poolScopeMetadata = newPoolScopeMetadata
 	for _, gvrStr := range deletedPoolScopeMetadata.UnsortedList() {
@@ -198,6 +224,7 @@ func (m *MultiplexerManager) updateLeaderHubConfiguration(cm *corev1.ConfigMap) 
 		}
 		delete(m.lazyLoadedGVRCacheDestroyFunc, gvrStr)
 		delete(m.lazyLoadedGVRCache, gvrStr)
+		m.filterStoreManager.DeleteFilterStore(gvrStr)
 	}
 }
 
