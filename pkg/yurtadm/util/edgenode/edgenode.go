@@ -121,6 +121,9 @@ func GetNodeName(kubeadmConfPath string) (string, error) {
 	}
 	for _, ef := range environmentFiles {
 		ef = parseEnvironmentFilePath(ef)
+		if ef == "" {
+			continue
+		}
 		nodeName, err = GetSingleContentFromFile(ef, constants.KubeletHostname)
 		if nodeName != "" {
 			nodeName = strings.Split(nodeName, NodeNameSplit)[1]
@@ -152,7 +155,8 @@ func parseEnvironmentFilePath(directive string) string {
 	if i := strings.IndexByte(path, '='); i >= 0 {
 		path = path[i+1:]
 	}
-	return strings.TrimPrefix(strings.TrimSpace(path), "-")
+	path = strings.TrimPrefix(strings.TrimSpace(path), "-")
+	return strings.TrimSpace(path)
 }
 
 // GetHostname returns OS's hostname if 'hostnameOverride' is empty; otherwise, return 'hostnameOverride'.
