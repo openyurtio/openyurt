@@ -152,6 +152,10 @@ func (m *GCManager) gcPodsWhenRestart() {
 
 	deletedPods := make([]storage.Key, 0)
 	for i := range localPodKeys {
+		if localPodKeys[i] == nil {
+			klog.Warningf("skip nil pod key at index %d when gc pods on restart", i)
+			continue
+		}
 		if _, ok := currentPodKeys[localPodKeys[i]]; !ok {
 			deletedPods = append(deletedPods, localPodKeys[i])
 		}
@@ -193,18 +197,23 @@ func (m *GCManager) gcEvents(kubeClient clientset.Interface, component string) {
 
 	deletedEvents := make([]storage.Key, 0)
 	for _, key := range localEventKeys {
+		if key == nil {
+			klog.Warningf("skip nil event key when gc %s events", component)
+			continue
+		}
 		_, _, ns, name := util.SplitKey(key.Key())
 		if len(ns) == 0 || len(name) == 0 {
 			klog.Infof("could not get namespace or name for event %s", key.Key())
 			continue
 		}
 
-		_, err := kubeClient.CoreV1().Events(ns).Get(context.Background(), name, metav1.GetOptions{})
-		if apierrors.IsNotFound(err) {
-			deletedEvents = append(deletedEvents, key)
-		} else if err != nil {
+		exists, err := eventExistsOnAPIServer(kubeClient, ns, name)
+		if err != nil {
 			klog.Errorf("could not get %s %s event for node(%s), %v", component, key.Key(), m.nodeName, err)
 			break
+		}
+		if !exists {
+			deletedEvents = append(deletedEvents, key)
 		}
 	}
 
@@ -215,4 +224,26 @@ func (m *GCManager) gcEvents(kubeClient clientset.Interface, component string) {
 			klog.Infof("gc events %s successfully", key.Key())
 		}
 	}
+}
+
+// eventExistsOnAPIServer checks whether an event still exists on the apiserver.
+// Cached events use events.k8s.io/v1, so EventsV1 is checked first with a CoreV1 fallback
+// for older clusters that only serve core/v1 Events.
+func eventExistsOnAPIServer(kubeClient clientset.Interface, ns, name string) (bool, error) {
+	_, err := kubeClient.EventsV1().Events(ns).Get(context.Background(), name, metav1.GetOptions{})
+	if err == nil {
+		return true, nil
+	}
+	if !apierrors.IsNotFound(err) {
+		return false, err
+	}
+
+	_, err = kubeClient.CoreV1().Events(ns).Get(context.Background(), name, metav1.GetOptions{})
+	if err == nil {
+		return true, nil
+	}
+	if apierrors.IsNotFound(err) {
+		return false, nil
+	}
+	return false, err
 }

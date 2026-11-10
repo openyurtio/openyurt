@@ -73,17 +73,23 @@ func (sef *serviceEnvUpdaterFilter) Filter(obj runtime.Object, _ <-chan struct{}
 }
 
 func (sef *serviceEnvUpdaterFilter) mutatePodEnv(req *corev1.Pod) *corev1.Pod {
-	for i := range req.Spec.Containers {
+	sef.mutateContainersEnv(req.Spec.InitContainers)
+	sef.mutateContainersEnv(req.Spec.Containers)
+	return req
+}
+
+func (sef *serviceEnvUpdaterFilter) mutateContainersEnv(containers []corev1.Container) {
+	for i := range containers {
 		foundHost := false
 		foundPort := false
 
-		for j, envVar := range req.Spec.Containers[i].Env {
+		for j, envVar := range containers[i].Env {
 			switch envVar.Name {
 			case envVarServiceHost:
-				req.Spec.Containers[i].Env[j].Value = sef.host
+				containers[i].Env[j].Value = sef.host
 				foundHost = true
 			case envVarServicePort:
-				req.Spec.Containers[i].Env[j].Value = sef.port
+				containers[i].Env[j].Value = sef.port
 				foundPort = true
 			}
 
@@ -92,5 +98,4 @@ func (sef *serviceEnvUpdaterFilter) mutatePodEnv(req *corev1.Pod) *corev1.Pod {
 			}
 		}
 	}
-	return req
 }

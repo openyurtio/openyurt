@@ -98,7 +98,7 @@ func Test_GetHostName(t *testing.T) {
 	}
 }
 
-func Test_parseEnvironmentFilePath(t *testing.T) {
+func TestParseEnvironmentFilePath(t *testing.T) {
 	tests := []struct {
 		name      string
 		directive string

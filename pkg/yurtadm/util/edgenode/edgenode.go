@@ -156,6 +156,22 @@ func GetNodeName(kubeadmConfPath string) (string, error) {
 	return nodeName, nil
 }
 
+// parseEnvironmentFilePath extracts the file path from a systemd `EnvironmentFile=`
+// directive, e.g. `EnvironmentFile=-/var/lib/kubelet/kubeadm-flags.env`. It strips the
+// `EnvironmentFile=` key and the optional leading `-` (which only tells systemd to ignore
+// the file when it is missing).
+//
+// Using strings.Split(directive, "-")[1] here was unsafe: it panics when the directive
+// contains no "-" (e.g. `EnvironmentFile=/opt/kubelet/config.env`), and it truncates paths
+// that contain a hyphen such as the kubeadm default `kubeadm-flags.env`.
+func parseEnvironmentFilePath(directive string) string {
+	path := directive
+	if i := strings.IndexByte(path, '='); i >= 0 {
+		path = path[i+1:]
+	}
+	return strings.TrimPrefix(strings.TrimSpace(path), "-")
+}
+
 // GetHostname returns OS's hostname if 'hostnameOverride' is empty; otherwise, return 'hostnameOverride'.
 // This is compatible with kubelet's hostname processing logic
 // https://github.com/kubernetes/kubernetes/blob/c00975370a5bf81328dc56396ee05edc7306e238/pkg/util/node/node.go#L46

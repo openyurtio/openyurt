@@ -23,7 +23,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func IsNil(i interface{}) bool {
+func IsNil(i any) bool {
 	if i == nil {
 		return true
 	}

@@ -112,3 +112,15 @@ func computeHash(target string) string {
 func FormatName(name string) string {
 	return strings.Join([]string{name, fmt.Sprintf("%08x", rand.Uint32())}, "-")
 }
+
+func GetBoolAnnotation(annotations map[string]string, key string, fallback bool) bool {
+	if val, ok := annotations[key]; ok {
+		if strings.ToLower(val) == "true" {
+			return true
+		}
+		if strings.ToLower(val) == "false" {
+			return false
+		}
+	}
+	return fallback
+}

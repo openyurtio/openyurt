@@ -41,6 +41,9 @@ func (webhook *NodeHandler) Default(ctx context.Context, obj runtime.Object) err
 	if len(npName) == 0 {
 		npName = node.Labels[apps.DesiredNodePoolLabel]
 		if len(npName) != 0 {
+			if node.Labels == nil {
+				node.Labels = make(map[string]string)
+			}
 			node.Labels[projectinfo.GetNodePoolLabel()] = npName
 		} else {
 			return nil
