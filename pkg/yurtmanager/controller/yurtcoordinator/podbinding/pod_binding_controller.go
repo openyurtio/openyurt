@@ -237,10 +237,15 @@ func (r *ReconcilePodBinding) reconcilePod(pod *corev1.Pod) error {
 		for i := range pod.Spec.Tolerations {
 			if (pod.Spec.Tolerations[i].Key == corev1.TaintNodeNotReady || pod.Spec.Tolerations[i].Key == corev1.TaintNodeUnreachable) &&
 				(pod.Spec.Tolerations[i].Effect == corev1.TaintEffectNoExecute) {
-				if pod.Annotations == nil {
-					pod.Annotations = make(map[string]string)
-				}
 				if _, ok := pod.Annotations[TolerationKeyToAnnotation[pod.Spec.Tolerations[i].Key]]; !ok {
+					// no original value is stored and tolerationSeconds is nil, so the pod itself
+					// tolerates the taint forever. node autonomy must not shorten that toleration.
+					if pod.Spec.Tolerations[i].TolerationSeconds == nil {
+						continue
+					}
+					if pod.Annotations == nil {
+						pod.Annotations = make(map[string]string)
+					}
 					pod.Annotations[TolerationKeyToAnnotation[pod.Spec.Tolerations[i].Key]] = fmt.Sprintf("%d", *pod.Spec.Tolerations[i].TolerationSeconds)
 				}
 				pod.Spec.Tolerations[i].TolerationSeconds = duration
