@@ -152,7 +152,8 @@ func parseEnvironmentFilePath(directive string) string {
 	if i := strings.IndexByte(path, '='); i >= 0 {
 		path = path[i+1:]
 	}
-	return strings.TrimPrefix(strings.TrimSpace(path), "-")
+	path = strings.TrimPrefix(strings.TrimSpace(path), "-")
+	return strings.TrimSpace(path)
 }
 
 // GetHostname returns OS's hostname if 'hostnameOverride' is empty; otherwise, return 'hostnameOverride'.
