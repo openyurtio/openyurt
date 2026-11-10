@@ -325,15 +325,20 @@ func (cm *cacheManager) prepareGvkForListObj(gvr schema.GroupVersionResource) (s
 }
 
 func completeListObjWithObjs(listObj runtime.Object, objs []runtime.Object) error {
-	listRv := 0
-	rvStr := ""
-	rvInt := 0
+	var listRv uint64
 	accessor := meta.NewAccessor()
 	for i := range objs {
-		rvStr, _ = accessor.ResourceVersion(objs[i])
-		rvInt, _ = strconv.Atoi(rvStr)
-		if rvInt > listRv {
-			listRv = rvInt
+		rvStr, err := accessor.ResourceVersion(objs[i])
+		if err != nil || len(rvStr) == 0 {
+			continue
+		}
+		rvUint, err := strconv.ParseUint(rvStr, 10, 64)
+		if err != nil {
+			klog.Warningf("failed to parse resourceVersion %q: %v", rvStr, err)
+			continue
+		}
+		if rvUint > listRv {
+			listRv = rvUint
 		}
 	}
 
@@ -341,7 +346,7 @@ func completeListObjWithObjs(listObj runtime.Object, objs []runtime.Object) erro
 		return fmt.Errorf("could not meta set list with %d objects, %v", len(objs), err)
 	}
 
-	return accessor.SetResourceVersion(listObj, strconv.Itoa(listRv))
+	return accessor.SetResourceVersion(listObj, strconv.FormatUint(listRv, 10))
 }
 
 func generateEmptyListObjOfGVK(listGvk schema.GroupVersionKind) (runtime.Object, error) {

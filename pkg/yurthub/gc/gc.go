@@ -141,6 +141,7 @@ func (m *GCManager) gcPodsWhenRestart() {
 			Namespace: ns,
 			Name:      name,
 			Resources: "pods",
+			Version:   "v1",
 		})
 		if err != nil {
 			klog.Errorf("could not get pod key for %s/%s, %v", ns, name, err)
