@@ -55,7 +55,7 @@ var (
 	copyFile                = edgenode.CopyFile
 
 	yurthubReleaseVersionRegexp    = regexp.MustCompile(`^v[0-9]+\.[0-9]+\.[0-9]+$`)
-	yurthubVersionWithCommitRegexp = regexp.MustCompile(`^(v[0-9]+\.[0-9]+\.[0-9]+)-[0-9a-f]{7,40}$`)
+	yurthubVersionWithCommitRegexp = regexp.MustCompile(`^(v[0-9]+\.[0-9]+\.[0-9]+)(?:-(?:alpha|beta|rc)\.[0-9]+)?(?:-[0-9a-f]{7,40})?$`)
 )
 
 func CheckAndInstallYurthub(yurthubVersion string) error {
