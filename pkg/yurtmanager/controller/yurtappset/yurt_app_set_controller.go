@@ -557,6 +557,7 @@ func (r *ReconcileYurtAppSet) conciliateWorkloads(
 						workloadTobeUpdated.GetName(),
 						err,
 					)
+					return err
 				}
 				klog.Infof(
 					"YurtAppSet[%s/%s] templatetype %s update workload by nodepool %s success",
@@ -565,7 +566,7 @@ func (r *ReconcileYurtAppSet) conciliateWorkloads(
 					templateType,
 					workloadmanager.GetWorkloadRefNodePool(workloadTobeUpdated),
 				)
-				return err
+				return nil
 			},
 		)
 
