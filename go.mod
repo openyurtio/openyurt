@@ -19,7 +19,7 @@ require (
 	github.com/jarcoal/httpmock v1.4.2
 	github.com/lithammer/dedent v1.1.0
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
-	github.com/onsi/ginkgo/v2 v2.32.0
+	github.com/onsi/ginkgo/v2 v2.34.0
 	github.com/onsi/gomega v1.44.0
 	github.com/opencontainers/selinux v1.15.1
 	github.com/pkg/errors v0.9.1
