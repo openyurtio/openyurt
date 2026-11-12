@@ -96,20 +96,6 @@ func CopyFile(sourceFile string, destinationFile string, perm os.FileMode) error
 	return nil
 }
 
-// parseEnvironmentFilePath extracts the file path from a systemd EnvironmentFile
-// directive such as "EnvironmentFile=-/var/lib/kubelet/kubeadm-flags.env". It drops
-// the directive key and the optional leading "-" (which only tells systemd to ignore
-// a missing file), and keeps any "-" inside the path itself. An empty string is
-// returned when the directive carries no path.
-func parseEnvironmentFilePath(directive string) string {
-	path := directive
-	if i := strings.IndexByte(path, '='); i >= 0 {
-		path = path[i+1:]
-	}
-	path = strings.TrimPrefix(strings.TrimSpace(path), "-")
-	return strings.TrimSpace(path)
-}
-
 // GetNodeName gets the node name based on environment variable, parameters --hostname-override
 // in the configuration file or hostname
 func GetNodeName(kubeadmConfPath string) (string, error) {
