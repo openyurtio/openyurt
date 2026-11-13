@@ -68,6 +68,34 @@ func WithRequestForPoolScopeMetadata(handler http.Handler, resolveRequestForPool
 	})
 }
 
+// WithRequestFromMultiplexerServer marks requests which are received by the multiplexer server.
+func WithRequestFromMultiplexerServer(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		ctx := util.WithIsRequestFromMultiplexerServer(req.Context(), true)
+		req = req.WithContext(ctx)
+		handler.ServeHTTP(w, req)
+	})
+}
+
+// WithMultiplexerServerRestriction only allows the multiplexer server to serve list/watch requests for pool scope metadata
+// by local multiplexer. multiplexer server listens on the node IP for follower yurthubs and does not authenticate clients,
+// so other requests should be rejected instead of being forwarded to kube-apiserver with the client certificate of yurthub.
+func WithMultiplexerServerRestriction(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		ctx := req.Context()
+		if isRequestFromMultiplexerServer, ok := util.IsRequestFromMultiplexerServerFrom(ctx); ok && isRequestFromMultiplexerServer {
+			isRequestForPoolScopeMetadata, _ := util.IsRequestForPoolScopeMetadataFrom(ctx)
+			forwardRequestForPoolScopeMetadata, _ := util.ForwardRequestForPoolScopeMetadataFrom(ctx)
+			if !isRequestForPoolScopeMetadata || forwardRequestForPoolScopeMetadata {
+				klog.Errorf("multiplexer server only serves list/watch requests for pool scope metadata, reject request %s", util.ReqString(req))
+				util.Err(errors.NewForbidden(schema.GroupResource{}, "", fmt.Errorf("multiplexer server only serves list/watch requests for pool scope metadata")), w, req)
+				return
+			}
+		}
+		handler.ServeHTTP(w, req)
+	})
+}
+
 // WithPartialObjectMetadataRequest is used for extracting info for partial object metadata request,
 // then these info is used by cache manager.
 func WithPartialObjectMetadataRequest(handler http.Handler) http.Handler {
