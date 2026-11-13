@@ -133,6 +133,7 @@ func (p *yurtReverseProxy) buildHandlerChain(handler http.Handler) http.Handler 
 	}
 	handler = util.WithRequestClientComponent(handler)
 	handler = util.WithPartialObjectMetadataRequest(handler)
+	handler = util.WithMultiplexerServerRestriction(handler)
 	handler = util.WithRequestForPoolScopeMetadata(handler, p.multiplexerManager.ResolveRequestForPoolScopeMetadata)
 
 	if !yurtutil.IsNil(p.tenantMgr) && p.tenantMgr.GetTenantNs() != "" {

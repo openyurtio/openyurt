@@ -33,6 +33,7 @@ import (
 	"github.com/openyurtio/openyurt/pkg/yurthub/healthchecker"
 	ota "github.com/openyurtio/openyurt/pkg/yurthub/otaupdate"
 	otautil "github.com/openyurtio/openyurt/pkg/yurthub/otaupdate/util"
+	proxyutil "github.com/openyurtio/openyurt/pkg/yurthub/proxy/util"
 )
 
 var encodePodsFn = otautil.EncodePods
@@ -73,7 +74,7 @@ func RunYurtHubServers(cfg *config.YurtHubConfiguration,
 	}
 
 	if cfg.YurtHubMultiplexerServerServing != nil {
-		if _, _, err := cfg.YurtHubMultiplexerServerServing.Serve(proxyHandler, 0, stopCh); err != nil {
+		if _, _, err := cfg.YurtHubMultiplexerServerServing.Serve(proxyutil.WithRequestFromMultiplexerServer(proxyHandler), 0, stopCh); err != nil {
 			return err
 		}
 	}

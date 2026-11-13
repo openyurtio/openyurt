@@ -74,6 +74,8 @@ const (
 	ProxyForwardPoolScopeMetadata
 	// ObjectFilter represents a request has filter.
 	ObjectFilter
+	// ProxyRequestFromMultiplexerServer represents a request is received by the multiplexer server or not.
+	ProxyRequestFromMultiplexerServer
 
 	YurtHubNamespace      = "kube-system"
 	CacheUserAgentsKey    = "cache_agents"
@@ -194,6 +196,17 @@ func WithForwardRequestForPoolScopeMetadata(parent context.Context, forwardReque
 // ForwardRequestForPoolScopeMetadataFrom returns the value of the request for pool scope metadata on the ctx
 func ForwardRequestForPoolScopeMetadataFrom(ctx context.Context) (bool, bool) {
 	info, ok := ctx.Value(ProxyForwardPoolScopeMetadata).(bool)
+	return info, ok
+}
+
+// WithIsRequestFromMultiplexerServer returns a copy of parent in which request from multiplexer server value is set
+func WithIsRequestFromMultiplexerServer(parent context.Context, isRequestFromMultiplexerServer bool) context.Context {
+	return WithValue(parent, ProxyRequestFromMultiplexerServer, isRequestFromMultiplexerServer)
+}
+
+// IsRequestFromMultiplexerServerFrom returns the value of the request from multiplexer server on the ctx
+func IsRequestFromMultiplexerServerFrom(ctx context.Context) (bool, bool) {
+	info, ok := ctx.Value(ProxyRequestFromMultiplexerServer).(bool)
 	return info, ok
 }
 
