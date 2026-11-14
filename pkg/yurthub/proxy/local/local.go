@@ -175,6 +175,19 @@ func (lp *LocalProxy) localWatch(w http.ResponseWriter, req *http.Request) error
 		return apierrors.NewBadRequest(err.Error())
 	}
 
+	// A WatchList client (sendInitialEvents=true) waits for a synthetic
+	// "k8s.io/initial-events-end" bookmark before it considers its store synced, and this
+	// watch never emits any event at all. Answering 200 would therefore hang the client
+	// forever: the missing bookmark is only ever logged as a warning by client-go's
+	// reflector, never surfaced as an error, so it neither fails nor falls back.
+	// Reject the request instead. client-go treats any error that is not a 429 or a
+	// connection refusal as a signal to fall back to LIST+WATCH, which this proxy can serve
+	// from the local cache.
+	if opts.SendInitialEvents != nil && *opts.SendInitialEvents {
+		klog.V(2).Infof("rejecting watchlist request %s while disconnected, so the client falls back to list+watch", hubutil.ReqString(req))
+		return apierrors.NewBadRequest("yurthub does not support sendInitialEvents(WatchList) while disconnected from the cloud, use list+watch instead")
+	}
+
 	ctx := req.Context()
 	contentType, _ := hubutil.ReqContentTypeFrom(ctx)
 	w.Header().Set(yurtutil.HTTPHeaderContentType, contentType)
