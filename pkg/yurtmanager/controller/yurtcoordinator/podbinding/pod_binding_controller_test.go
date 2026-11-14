@@ -256,6 +256,131 @@ func TestReconcile(t *testing.T) {
 			},
 			resultCount: 1,
 		},
+		"update pod toleration seconds when tolerationSeconds is nil": {
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod1",
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node1",
+					Tolerations: []corev1.Toleration{
+						{
+							Key:      corev1.TaintNodeNotReady,
+							Operator: corev1.TolerationOpExists,
+							Effect:   corev1.TaintEffectNoExecute,
+						},
+						{
+							Key:      corev1.TaintNodeUnreachable,
+							Operator: corev1.TolerationOpExists,
+							Effect:   corev1.TaintEffectNoExecute,
+						},
+					},
+				},
+			},
+			node: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "node1",
+					Labels: map[string]string{
+						projectinfo.GetEdgeWorkerLabelKey(): "true",
+					},
+					Annotations: map[string]string{
+						"node.openyurt.io/autonomy-duration": "100s",
+					},
+				},
+			},
+			resultPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod1",
+					Namespace: metav1.NamespaceDefault,
+					Annotations: map[string]string{
+						originalNotReadyTolerationDurationAnnotation:    "",
+						originalUnreachableTolerationDurationAnnotation: "",
+					},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node1",
+					Tolerations: []corev1.Toleration{
+						{
+							Key:               corev1.TaintNodeNotReady,
+							Operator:          corev1.TolerationOpExists,
+							Effect:            corev1.TaintEffectNoExecute,
+							TolerationSeconds: &second2,
+						},
+						{
+							Key:               corev1.TaintNodeUnreachable,
+							Operator:          corev1.TolerationOpExists,
+							Effect:            corev1.TaintEffectNoExecute,
+							TolerationSeconds: &second2,
+						},
+					},
+				},
+			},
+			resultCount: 1,
+		},
+		"restore pod toleration seconds when original tolerationSeconds was nil": {
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod1",
+					Namespace: metav1.NamespaceDefault,
+					Annotations: map[string]string{
+						originalNotReadyTolerationDurationAnnotation:    "",
+						originalUnreachableTolerationDurationAnnotation: "",
+					},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node1",
+					Tolerations: []corev1.Toleration{
+						{
+							Key:               corev1.TaintNodeNotReady,
+							Operator:          corev1.TolerationOpExists,
+							Effect:            corev1.TaintEffectNoExecute,
+							TolerationSeconds: &second2,
+						},
+						{
+							Key:               corev1.TaintNodeUnreachable,
+							Operator:          corev1.TolerationOpExists,
+							Effect:            corev1.TaintEffectNoExecute,
+							TolerationSeconds: &second2,
+						},
+					},
+				},
+			},
+			node: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "node1",
+					Labels: map[string]string{
+						projectinfo.GetEdgeWorkerLabelKey(): "true",
+					},
+				},
+			},
+			resultPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod1",
+					Namespace: metav1.NamespaceDefault,
+					Annotations: map[string]string{
+						originalNotReadyTolerationDurationAnnotation:    "",
+						originalUnreachableTolerationDurationAnnotation: "",
+					},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node1",
+					Tolerations: []corev1.Toleration{
+						{
+							Key:      corev1.TaintNodeNotReady,
+							Operator: corev1.TolerationOpExists,
+							Effect:   corev1.TaintEffectNoExecute,
+						},
+						{
+							Key:      corev1.TaintNodeUnreachable,
+							Operator: corev1.TolerationOpExists,
+							Effect:   corev1.TaintEffectNoExecute,
+						},
+					},
+				},
+			},
+			resultCount: 1,
+		},
 		"pod toleration seconds is not changed with invalid duration": {
 			pod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
@@ -420,8 +545,8 @@ func TestReconcile(t *testing.T) {
 					t.Errorf("expect pod annotations %v, but got %v", tc.resultPod.Annotations, currentPod.Annotations)
 				}
 
-				if !reflect.DeepEqual(tc.resultPod.Spec.Tolerations, tc.resultPod.Spec.Tolerations) {
-					t.Errorf("expect pod annotations %v, but got %v", tc.resultPod.Spec.Tolerations, currentPod.Spec.Tolerations)
+				if !reflect.DeepEqual(tc.resultPod.Spec.Tolerations, currentPod.Spec.Tolerations) {
+					t.Errorf("expect pod tolerations %v, but got %v", tc.resultPod.Spec.Tolerations, currentPod.Spec.Tolerations)
 				}
 			}
 		})
