@@ -218,3 +218,83 @@ func TestReconcileYurtStaticSetDeleteConfigMap(t *testing.T) {
 		})
 	}
 }
+
+func TestSyncConfigMapWithNilMaps(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := appsv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal("Fail to add yurt custom resource")
+	}
+	if err := clientgoscheme.AddToScheme(scheme); err != nil {
+		t.Fatal("Fail to add kubernetes client-go custom resource")
+	}
+
+	tests := []struct {
+		name        string
+		annotations map[string]string
+		data        map[string]string
+	}{
+		{
+			name:        "both annotations and data are nil",
+			annotations: nil,
+			data:        nil,
+		},
+		{
+			name:        "annotations is nil and data is non-nil",
+			annotations: nil,
+			data:        map[string]string{"dummy": "value"},
+		},
+		{
+			name:        "annotations is non-nil and data is nil",
+			annotations: map[string]string{"dummy": "value"},
+			data:        nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			instance := &appsv1alpha1.YurtStaticSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-staticset",
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: appsv1alpha1.YurtStaticSetSpec{
+					StaticPodManifest: "nginx",
+					Template:          corev1.PodTemplateSpec{},
+				},
+			}
+			cmName := util.WithConfigMapPrefix(instance.Name)
+			cm := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        cmName,
+					Namespace:   metav1.NamespaceDefault,
+					Annotations: tt.annotations,
+				},
+				Data: tt.data,
+			}
+
+			c := fakeclient.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(instance, cm).Build()
+			r := &ReconcileYurtStaticSet{
+				Client: c,
+			}
+
+			targetHash := "hash123"
+			targetData := "manifest-data"
+			err := r.syncConfigMap(instance, targetHash, targetData)
+			if err != nil {
+				t.Fatalf("syncConfigMap() unexpected error = %v", err)
+			}
+
+			updatedCM := &corev1.ConfigMap{}
+			if err := c.Get(context.TODO(), client.ObjectKey{Namespace: instance.Namespace, Name: cmName}, updatedCM); err != nil {
+				t.Fatalf("failed to get updated configmap: %v", err)
+			}
+
+			if updatedCM.Annotations[StaticPodHashAnnotation] != targetHash {
+				t.Errorf("expected annotation %s = %s, got %s", StaticPodHashAnnotation, targetHash, updatedCM.Annotations[StaticPodHashAnnotation])
+			}
+			if updatedCM.Data[instance.Spec.StaticPodManifest] != targetData {
+				t.Errorf("expected data %s = %s, got %s", instance.Spec.StaticPodManifest, targetData, updatedCM.Data[instance.Spec.StaticPodManifest])
+			}
+		})
+	}
+}
