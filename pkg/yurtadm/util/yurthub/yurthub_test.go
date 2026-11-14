@@ -446,7 +446,7 @@ func TestCheckAndInstallYurthub(t *testing.T) {
 			return oldLookPath(file)
 		}
 
-		err = CheckAndInstallYurthub("v1.7.0")
+		err = CheckAndInstallYurthub("v1.7.0", "")
 		if err != nil {
 			t.Errorf("CheckAndInstallYurthub() error = %v, wantErr %v", err, nil)
 		}
@@ -497,7 +497,7 @@ func TestCheckAndInstallYurthub(t *testing.T) {
 			return nil
 		}
 
-		err := CheckAndInstallYurthub("v1.7.0-6fc029d")
+		err := CheckAndInstallYurthub("v1.7.0-6fc029d", "")
 		assert.NoError(t, err)
 	})
 
@@ -514,9 +514,46 @@ func TestCheckAndInstallYurthub(t *testing.T) {
 			return nil
 		}
 
-		err := CheckAndInstallYurthub("6fc029d")
+		err := CheckAndInstallYurthub("6fc029d", "")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "can not parse yurthub release version")
+	})
+
+	t.Run("Yurthub binary URL is used and skips version resolution", func(t *testing.T) {
+		lookPath = func(file string) (string, error) {
+			if file == yurthubExecStartPath {
+				return "", &os.PathError{Op: "stat", Path: file, Err: os.ErrNotExist}
+			}
+			return oldLookPath(file)
+		}
+
+		wantURL := "https://example.com/releases/download/yurthub-linux-amd64.tar.gz"
+		downloadFile = func(url, savePath string, retry int) error {
+			if url != wantURL {
+				t.Fatalf("unexpected download url: %s, want %s", url, wantURL)
+			}
+			if filepath.Base(savePath) != customYurthubPackageName {
+				t.Fatalf("unexpected save path: %s", savePath)
+			}
+			return nil
+		}
+		untar = func(src, dst string) error {
+			binaryDir := filepath.Join(dst, fmt.Sprintf("linux-%s", runtime.GOARCH))
+			if err := os.MkdirAll(binaryDir, 0755); err != nil {
+				return err
+			}
+			return os.WriteFile(filepath.Join(binaryDir, constants.Yurthub), []byte("dummy"), 0755)
+		}
+		copyFile = func(src, dest string, mode os.FileMode) error {
+			if dest != yurthubExecStartPath {
+				t.Fatalf("unexpected copy destination: %s", dest)
+			}
+			return nil
+		}
+
+		// The version is unresolvable on purpose: an explicit URL must make it irrelevant.
+		err := CheckAndInstallYurthub("dev-6fc029d", wantURL)
+		assert.NoError(t, err)
 	})
 }
 
@@ -797,7 +834,7 @@ func Test_CheckAndInstallYurthub_LookPathErrorCausesDownloadAttempt(t *testing.T
 		return errors.New("simulated download failure")
 	}
 
-	err := CheckAndInstallYurthub("v0.0.0-test")
+	err := CheckAndInstallYurthub("v0.0.0-test", "")
 	if err == nil {
 		t.Fatalf("CheckAndInstallYurthub() expected to return an error when binary missing and download/copy fails, but got nil")
 	}
