@@ -185,7 +185,7 @@ func (r *DeviceReconciler) reconcileCreateDevice(ctx context.Context, d *iotv1al
 	} else {
 		klog.V(4).ErrorS(err, "could not visit the edge platform")
 		util.SetDeviceCondition(deviceStatus, util.NewDeviceCondition(iotv1alpha1.DeviceSyncedCondition, corev1.ConditionFalse, iotv1alpha1.DeviceVisitedCoreMetadataSyncedReason, ""))
-		return nil
+		return err
 	}
 	d.Status = *newDeviceStatus
 	util.SetDeviceCondition(deviceStatus, util.NewDeviceCondition(iotv1alpha1.DeviceSyncedCondition, corev1.ConditionTrue, "", ""))
@@ -321,7 +321,7 @@ func DeleteDevicesOnControllerShutdown(ctx context.Context, cli client.Client, o
 		}
 
 		if err := cli.Delete(ctx, &device); err != nil {
-			klog.Errorf("DeviceName: %s, update device err:%v", device.GetName(), err)
+			klog.Errorf("DeviceName: %s, delete device err:%v", device.GetName(), err)
 			continue
 		}
 	}
