@@ -83,9 +83,10 @@ func TestDownloadAndInstallYurthub(t *testing.T) {
 			yurthubTmpDir = originalYurthubTmpDir
 		})
 
-		var copySrc, copyDst string
+		var untarDst, copySrc, copyDst string
 		// Mock untar to create a fake yurthub binary inside a subdirectory.
 		utilUntar = func(src, dst string) error {
+			untarDst = dst
 			subDir := filepath.Join(dst, "yurthub-v1.0")
 			if err := os.Mkdir(subDir, 0755); err != nil {
 				return err
@@ -102,7 +103,8 @@ func TestDownloadAndInstallYurthub(t *testing.T) {
 		err := DownloadAndInstallYurthub("http://fake.url/yurthub.tar.gz")
 
 		assert.NoError(t, err)
-		assert.Equal(t, filepath.Join(tmpDir, "yurthub-v1.0", "yurthub"), copySrc, "Source path for copy is incorrect")
+		assert.Equal(t, tmpDir, filepath.Dir(untarDst), "package should be extracted in a private dir under the temp dir")
+		assert.Equal(t, filepath.Join(untarDst, "yurthub-v1.0", "yurthub"), copySrc, "Source path for copy is incorrect")
 		assert.Equal(t, "/usr/bin/yurthub", copyDst, "Destination path for copy is incorrect")
 	})
 
@@ -145,6 +147,41 @@ func TestDownloadAndInstallYurthub(t *testing.T) {
 		err := DownloadAndInstallYurthub("http://fake.url/yurthub.tar.gz")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "no binary file named 'yurthub' found")
+	})
+
+	t.Run("should not pick up a binary planted in the shared temp dir", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		originalYurthubTmpDir := yurthubTmpDir
+		yurthubTmpDir = tmpDir
+		t.Cleanup(func() {
+			yurthubTmpDir = originalYurthubTmpDir
+		})
+
+		// another local user can create files in the shared temp dir before yurtadm runs.
+		plantedPath := filepath.Join(tmpDir, "a", "yurthub")
+		assert.NoError(t, os.MkdirAll(filepath.Dir(plantedPath), 0755))
+		assert.NoError(t, os.WriteFile(plantedPath, []byte("planted binary"), 0755))
+
+		var untarDst, copySrc string
+		utilDownloadFile = func(url, savePath string, retries int) error { return nil }
+		utilUntar = func(src, dst string) error {
+			untarDst = dst
+			subDir := filepath.Join(dst, "yurthub-v1.0")
+			if err := os.Mkdir(subDir, 0755); err != nil {
+				return err
+			}
+			return os.WriteFile(filepath.Join(subDir, "yurthub"), []byte("fake binary"), 0755)
+		}
+		edgenodeCopyFile = func(src, dst string, perm os.FileMode) error {
+			copySrc = src
+			return nil
+		}
+
+		err := DownloadAndInstallYurthub("http://fake.url/yurthub.tar.gz")
+
+		assert.NoError(t, err)
+		assert.NotEqual(t, plantedPath, copySrc, "binary planted in the shared temp dir must not be installed")
+		assert.Equal(t, filepath.Join(untarDst, "yurthub-v1.0", "yurthub"), copySrc)
 	})
 }
 

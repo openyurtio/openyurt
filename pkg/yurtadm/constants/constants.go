@@ -37,7 +37,6 @@ const (
 	DefaultDockerCRISocket        = "/var/run/dockershim.sock"
 	YurthubYamlName               = "yurthub.yaml"
 	YurthubStaticPodManifest      = "yurthub"
-	YurthubTmpDir                 = "/tmp/yurthub"
 	YurthubNamespace              = "kube-system"
 	YurthubYurtStaticSetName      = "yurt-hub"
 	YurthubCloudYurtStaticSetName = "yurt-hub-cloud"
