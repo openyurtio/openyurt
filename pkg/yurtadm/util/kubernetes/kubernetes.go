@@ -66,6 +66,8 @@ var (
 
 	// BootstrapTokenRegexp is a compiled regular expression of TokenRegexpString
 	BootstrapTokenRegexp = regexp.MustCompile(constants.BootstrapTokenPattern)
+
+	kubeadmJoinConfigFilePath = filepath.Join(constants.KubeletWorkdir, constants.KubeadmJoinConfigFileName)
 )
 
 // RunJobAndCleanup runs the job, wait for it to be complete, and delete it
@@ -382,7 +384,6 @@ func GetKubernetesVersionFromCluster(client kubernetes.Interface) (string, error
 }
 
 func SetKubeadmJoinConfig(data joindata.YurtJoinData) error {
-	kubeadmJoinConfigFilePath := filepath.Join(constants.KubeletWorkdir, constants.KubeadmJoinConfigFileName)
 	kubeadmJoinConfigDir := filepath.Dir(kubeadmJoinConfigFilePath)
 	if _, err := os.Stat(kubeadmJoinConfigDir); err != nil {
 		if os.IsNotExist(err) {
@@ -448,7 +449,12 @@ func SetKubeadmJoinConfig(data joindata.YurtJoinData) error {
 		return err
 	}
 
-	if err := os.WriteFile(kubeadmJoinConfigFilePath, []byte(kubeadmJoinTemplate), constants.DirMode); err != nil {
+	// The join config carries the bootstrap token, so it must only be readable by root.
+	// os.WriteFile keeps the mode of an existing file, so drop one left by an earlier run first.
+	if err := os.Remove(kubeadmJoinConfigFilePath); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if err := os.WriteFile(kubeadmJoinConfigFilePath, []byte(kubeadmJoinTemplate), 0600); err != nil {
 		return err
 	}
 	return nil
