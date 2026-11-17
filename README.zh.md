@@ -58,7 +58,7 @@ OpenYurt 集群安装分成 2 个部分，分别为安装 OpenYurt 管控组件�
 
 ## 发展规划
 
-[OpenYurt 发展规划](https://github.com/openyurtio/community/blob/main/roadmap.md)
+[OpenYurt 发展规划](https://github.com/openyurtio/openyurt/blob/master/ROADMAP.md)
 
 ## 社区
 

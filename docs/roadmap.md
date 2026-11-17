@@ -163,4 +163,4 @@ detail info: https://github.com/orgs/openyurtio/projects/11
 
 ## Roadmap from 2023
 
-Because of three SIGs(controlplane, dataplane, IoT) have been launched in openyurt community, so roadmap from 2023 for all SIGs will be managed in [openyurtio/community repo](https://github.com/openyurtio/community), and the link of roadmap is: https://github.com/openyurtio/community/blob/main/roadmap.md, and this file is only used for managing the stale roadmap.
+Because of three SIGs(controlplane, dataplane, IoT) have been launched in openyurt community, so roadmap from 2023 for all SIGs will be managed in [openyurtio/community repo](https://github.com/openyurtio/community), and the link of roadmap is: https://github.com/openyurtio/community/tree/main/roadmap, and this file is only used for managing the stale roadmap.
