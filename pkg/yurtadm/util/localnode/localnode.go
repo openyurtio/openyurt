@@ -44,7 +44,7 @@ type iptablesInterface interface {
 // Replace direct function calls with package-level variables to allow monkey patching in tests.
 var (
 	// os functions
-	osMkdirAll   = os.MkdirAll
+	osMkdirTemp  = os.MkdirTemp
 	osRemoveAll  = os.RemoveAll
 	filepathWalk = filepath.Walk
 
@@ -62,7 +62,7 @@ var (
 	checkChainFunc = CheckIptablesChainAndRulesExists
 
 	// Convert constant to variable for testing.
-	yurthubTmpDir = constants.YurthubTmpDir
+	yurthubTmpDir = constants.TmpDownloadDir
 )
 
 // DownloadAndDeployYurthubInSystemd downloads yurthub binary and deploys yurthub in systemd
@@ -92,17 +92,20 @@ func DownloadAndDeployYurthubInSystemd(hostControlPlaneAddr string, serverAddr s
 func DownloadAndInstallYurthub(yurthubBinaryURL string) error {
 	//download yurthub (format: tar.gz) from yurthubBinaryURL
 	originalFileName := path.Base(yurthubBinaryURL)
-	if err := osMkdirAll(yurthubTmpDir, 0755); err != nil {
+	// use a private directory, the shared temp dir may already contain files
+	// planted by other local users.
+	tmpDir, err := osMkdirTemp(yurthubTmpDir, "yurthub-")
+	if err != nil {
 		return err
 	}
-	defer osRemoveAll(yurthubTmpDir)
-	savePath := fmt.Sprintf("%s/%s", yurthubTmpDir, originalFileName)
+	defer osRemoveAll(tmpDir)
+	savePath := filepath.Join(tmpDir, originalFileName)
 	klog.V(1).Infof("Download yurthub from: %s", yurthubBinaryURL)
 	if err := utilDownloadFile(yurthubBinaryURL, savePath, 3); err != nil {
 		return fmt.Errorf("download yurthub fail: %w", err)
 	}
-	// untar the tar.gz file to YurthubTmpDir
-	if err := utilUntar(savePath, yurthubTmpDir); err != nil {
+	// untar the tar.gz file to tmpDir
+	if err := utilUntar(savePath, tmpDir); err != nil {
 		return err
 	}
 
@@ -123,7 +126,7 @@ func DownloadAndInstallYurthub(yurthubBinaryURL string) error {
 	}
 
 	// start traversal search from the root of the untared directory
-	if err := filepathWalk(yurthubTmpDir, walkFn); err != nil && err != io.EOF {
+	if err := filepathWalk(tmpDir, walkFn); err != nil && err != io.EOF {
 		return fmt.Errorf("error looking up %s: %w", binaryToFind, err)
 	}
 

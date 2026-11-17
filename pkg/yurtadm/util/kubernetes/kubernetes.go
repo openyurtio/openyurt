@@ -146,7 +146,12 @@ func CheckAndInstallKubelet(kubernetesResourceServer, clusterVersion string) err
 	if !kubeletExist {
 		//download and install kubelet
 		packageURL := fmt.Sprintf(constants.KubeletURLFormat, kubernetesResourceServer, clusterVersion, runtime.GOARCH)
-		savePath := fmt.Sprintf("%s/kubelet", constants.TmpDownloadDir)
+		tmpDir, err := os.MkdirTemp(constants.TmpDownloadDir, "kubelet-")
+		if err != nil {
+			return err
+		}
+		defer os.RemoveAll(tmpDir)
+		savePath := filepath.Join(tmpDir, "kubelet")
 		klog.V(1).Infof("Download kubelet from: %s", packageURL)
 		if err := util.DownloadFile(packageURL, savePath, 3); err != nil {
 			return fmt.Errorf("download kubelet fail: %w", err)
@@ -173,14 +178,15 @@ func CheckAndInstallKubernetesCni(reuseCNIBin bool) error {
 
 	//download and install kubernetes-cni
 	cniURL := fmt.Sprintf(constants.CniURLFormat, constants.KubeCniVersion, runtime.GOARCH, constants.KubeCniVersion)
-	savePath := fmt.Sprintf("%s/cni-plugins-linux-%s-%s.tgz", constants.TmpDownloadDir, runtime.GOARCH, constants.KubeCniVersion)
-	if _, err := os.Stat(savePath); errors.Is(err, os.ErrNotExist) {
-		klog.V(1).Infof("Download cni from: %s", cniURL)
-		if err := util.DownloadFile(cniURL, savePath, 3); err != nil {
-			return err
-		}
-	} else {
-		klog.V(1).Infof("Skip download cni, use already exist file: %s", savePath)
+	tmpDir, err := os.MkdirTemp(constants.TmpDownloadDir, "cni-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmpDir)
+	savePath := filepath.Join(tmpDir, fmt.Sprintf("cni-plugins-linux-%s-%s.tgz", runtime.GOARCH, constants.KubeCniVersion))
+	klog.V(1).Infof("Download cni from: %s", cniURL)
+	if err := util.DownloadFile(cniURL, savePath, 3); err != nil {
+		return err
 	}
 
 	if err := os.MkdirAll(constants.KubeCniDir, 0755); err != nil {
@@ -240,7 +246,12 @@ func CheckAndInstallKubeadm(kubernetesResourceServer, clusterVersion string) err
 	if !kubeadmExist {
 		// download and install kubeadm
 		packageURL := fmt.Sprintf(constants.KubeadmURLFormat, kubernetesResourceServer, clusterVersion, runtime.GOARCH)
-		savePath := fmt.Sprintf("%s/kubeadm", TmpDownloadDir)
+		tmpDir, err := os.MkdirTemp(TmpDownloadDir, "kubeadm-")
+		if err != nil {
+			return err
+		}
+		defer os.RemoveAll(tmpDir)
+		savePath := filepath.Join(tmpDir, "kubeadm")
 		klog.V(1).Infof("Download kubeadm from %s", packageURL)
 		if err := util.DownloadFile(packageURL, savePath, 3); err != nil {
 			return fmt.Errorf("download kubeadm fail: %w", err)
