@@ -96,3 +96,15 @@ func TestGetChainsFromTable(t *testing.T) {
 	}
 	checkChains(t, []byte(iptablesSave), expected)
 }
+
+func TestGetChainsFromTableTruncatedLastLine(t *testing.T) {
+	// The last chain line is truncated and contains no space, which can happen
+	// when the iptables-save output is read incompletely. GetChainsFromTable
+	// should skip the malformed trailing line instead of panicking, and still
+	// return the chains parsed from the well-formed lines.
+	iptablesSave := "*filter\n:INPUT ACCEPT [0:0]\n:FORWARD"
+	expected := map[Chain]struct{}{
+		Chain("INPUT"): {},
+	}
+	checkChains(t, []byte(iptablesSave), expected)
+}
