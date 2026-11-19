@@ -76,16 +76,26 @@ func WriteObjectToYamlFile(obj runtime.Object, path string) error {
 		return err
 	}
 
-	if err := os.Remove(path); err != nil {
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		os.Remove(tmpPath)
 		return err
 	}
 
 	// rename tmp path file to path file
-	return os.Rename(tmpPath, path)
+	if err := os.Rename(tmpPath, path); err != nil {
+		os.Remove(tmpPath)
+		return err
+	}
+	return nil
 }
 
 func backupFile(path string) error {
+	if exists, err := FileExists(path); err != nil {
+		return err
+	} else if !exists {
+		return nil
+	}
+
 	src, err := os.Open(path)
 	if err != nil {
 		return err
