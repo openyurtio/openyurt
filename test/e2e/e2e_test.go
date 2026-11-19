@@ -33,7 +33,6 @@ import (
 	yurthub "github.com/openyurtio/openyurt/test/e2e/autonomy"
 	cmd2 "github.com/openyurtio/openyurt/test/e2e/cmd"
 	"github.com/openyurtio/openyurt/test/e2e/common/ns"
-	p "github.com/openyurtio/openyurt/test/e2e/common/pod"
 	"github.com/openyurtio/openyurt/test/e2e/constants"
 	"github.com/openyurtio/openyurt/test/e2e/util"
 	"github.com/openyurtio/openyurt/test/e2e/util/ginkgowrapper"
@@ -79,12 +78,15 @@ var _ = ginkgo.BeforeSuite(func() {
 
 	if labelFilter([]string{"edge-autonomy"}) {
 		// get nginx podIP on edge node worker2
-		cs := c
-		podName := "yurt-e2e-test-nginx-openyurt-e2e-test-worker2"
-		ginkgo.By("get pod info:" + podName)
-		pod, err := p.GetPod(cs, constants.YurtDefaultNamespaceName, podName)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to get pod nginx on edge node 2")
+		ginkgo.By("get nginx pod info on edge node 2")
+		pods, err := c.CoreV1().Pods(constants.YurtDefaultNamespaceName).List(context.Background(), metav1.ListOptions{
+			LabelSelector: "app=" + constants.NginxServiceName,
+			FieldSelector: "spec.nodeName=" + constants.YurtE2EWorker2NodeName,
+		})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to get nginx pod on edge node 2")
+		gomega.Expect(pods.Items).To(gomega.HaveLen(1), "expected one nginx pod on edge node 2")
 
+		pod := &pods.Items[0]
 		yurthub.Edge2NginxPodIP = pod.Status.PodIP
 		klog.Infof("get PodIP of Nginx on edge node 2: %s", yurthub.Edge2NginxPodIP)
 
