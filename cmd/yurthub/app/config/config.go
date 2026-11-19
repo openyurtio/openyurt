@@ -272,15 +272,16 @@ func parseRemoteServers(serverAddr string) ([]*url.URL, error) {
 	us := make([]*url.URL, 0, len(servers))
 	remoteServers := make([]string, 0, len(servers))
 	for _, server := range servers {
-		u, err := url.Parse(server)
+		u, err := url.Parse(withDefaultScheme(server))
 		if err != nil {
 			klog.Errorf("could not parse server address %q, %v", server, err)
 			return us, err
 		}
-		if u.Scheme == "" {
-			u.Scheme = "https"
-		} else if u.Scheme != "https" {
+		if u.Scheme != "https" {
 			return us, fmt.Errorf("only https scheme is supported for server address(%s)", serverAddr)
+		}
+		if u.Host == "" {
+			return us, fmt.Errorf("no host is set in server address(%s)", serverAddr)
 		}
 		us = append(us, u)
 		remoteServers = append(remoteServers, u.String())
@@ -292,6 +293,18 @@ func parseRemoteServers(serverAddr string) ([]*url.URL, error) {
 	klog.Infof("%s would connect remote servers: %s", projectinfo.GetHubName(), strings.Join(remoteServers, ","))
 
 	return us, nil
+}
+
+// withDefaultScheme adds the https scheme to a server address that has none, such as
+// "1.2.3.4:6443", "apiserver.example.com:6443" or "//1.2.3.4:6443". url.Parse can not
+// handle these addresses itself: it fails on "1.2.3.4:6443" and takes "apiserver.example.com"
+// as the scheme of "apiserver.example.com:6443".
+func withDefaultScheme(server string) string {
+	if strings.Contains(server, "://") {
+		return server
+	}
+
+	return "https://" + strings.TrimPrefix(server, "//")
 }
 
 // createClientAndSharedInformerFactories create client and sharedInformers from the given proxyAddr.

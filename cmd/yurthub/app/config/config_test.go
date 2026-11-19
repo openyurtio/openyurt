@@ -17,6 +17,7 @@ limitations under the License.
 package config
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/openyurtio/openyurt/cmd/yurthub/app/options"
@@ -44,6 +45,78 @@ func TestComplete(t *testing.T) {
 		t.Errorf("expect no err, but got %v", err)
 	} else if cfg == nil {
 		t.Errorf("expect cfg not nil, but got nil")
+	}
+}
+
+func TestParseRemoteServers(t *testing.T) {
+	testcases := map[string]struct {
+		serverAddr string
+		expected   []string
+		expectErr  bool
+	}{
+		"https url": {
+			serverAddr: "https://1.2.3.4:6443",
+			expected:   []string{"https://1.2.3.4:6443"},
+		},
+		"multiple https urls": {
+			serverAddr: "https://1.2.3.4:6443,https://5.6.7.8:6443",
+			expected:   []string{"https://1.2.3.4:6443", "https://5.6.7.8:6443"},
+		},
+		"ip and port without scheme": {
+			serverAddr: "1.2.3.4:6443",
+			expected:   []string{"https://1.2.3.4:6443"},
+		},
+		"dns name and port without scheme": {
+			serverAddr: "apiserver.example.com:6443",
+			expected:   []string{"https://apiserver.example.com:6443"},
+		},
+		"ipv6 and port without scheme": {
+			serverAddr: "[::1]:6443",
+			expected:   []string{"https://[::1]:6443"},
+		},
+		"with and without scheme": {
+			serverAddr: "https://1.2.3.4:6443,5.6.7.8:6443",
+			expected:   []string{"https://1.2.3.4:6443", "https://5.6.7.8:6443"},
+		},
+		"scheme relative address": {
+			serverAddr: "//1.2.3.4:6443",
+			expected:   []string{"https://1.2.3.4:6443"},
+		},
+		"http scheme is not supported": {
+			serverAddr: "http://1.2.3.4:6443",
+			expectErr:  true,
+		},
+		"not set": {
+			serverAddr: "",
+			expectErr:  true,
+		},
+		"empty entry": {
+			serverAddr: "https://1.2.3.4:6443,",
+			expectErr:  true,
+		},
+	}
+
+	for k, tt := range testcases {
+		t.Run(k, func(t *testing.T) {
+			servers, err := parseRemoteServers(tt.serverAddr)
+			if tt.expectErr {
+				if err == nil {
+					t.Fatalf("expect an error for %q, but got servers %v", tt.serverAddr, servers)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("expect no error for %q, but got %v", tt.serverAddr, err)
+			}
+
+			got := make([]string, 0, len(servers))
+			for _, u := range servers {
+				got = append(got, u.String())
+			}
+			if !reflect.DeepEqual(got, tt.expected) {
+				t.Errorf("expect servers %v, but got %v", tt.expected, got)
+			}
+		})
 	}
 }
 
