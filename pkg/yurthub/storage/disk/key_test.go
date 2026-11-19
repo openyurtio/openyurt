@@ -275,3 +275,59 @@ func TestExtractKeyBuildInfo(t *testing.T) {
 		})
 	}
 }
+
+func TestStorageKey_Validate(t *testing.T) {
+	cases := []struct {
+		name    string
+		key     storageKey
+		wantErr bool
+	}{
+		{
+			name:    "valid full key",
+			key:     storageKey{path: "kubelet/pods.v1.core/default/nginx", rootKey: false},
+			wantErr: false,
+		},
+		{
+			name:    "valid non-enhancement mode key (no version/group)",
+			key:     storageKey{path: "kubelet/pods/default/nginx", rootKey: false},
+			wantErr: false,
+		},
+		{
+			name:    "valid root key with only component+resource",
+			key:     storageKey{path: "kubelet/pods.v1.core", rootKey: true},
+			wantErr: false,
+		},
+		{
+			name:    "empty path",
+			key:     storageKey{path: "", rootKey: false},
+			wantErr: true,
+		},
+		{
+			name:    "non-root key missing name segment",
+			key:     storageKey{path: "kubelet/pods.v1.core", rootKey: false},
+			wantErr: true,
+		},
+		{
+			name:    "malformed gvr (2 dots-worth of parts, not 1 or 3)",
+			key:     storageKey{path: "kubelet/pods.v1/default/nginx", rootKey: false},
+			wantErr: true,
+		},
+		{
+    		name:    "empty component",
+    		key:     storageKey{path: "//pods.v1.core/default/nginx", rootKey: false},
+    		wantErr: true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := c.key.Validate()
+			if c.wantErr && err == nil {
+				t.Errorf("expected error, got nil")
+			}
+			if !c.wantErr && err != nil {
+				t.Errorf("expected no error, got %v", err)
+			}
+		})
+	}
+}
