@@ -128,6 +128,13 @@ func (r *ReconcileNodePool) Reconcile(ctx context.Context, req reconcile.Request
 	}
 	klog.V(5).Infof("NodePool %s: %#+v", nodePool.Name, nodePool)
 
+	if nodePool.Spec.Labels == nil {
+		nodePool.Spec.Labels = make(map[string]string)
+	}
+	if nodePool.Spec.Annotations == nil {
+		nodePool.Spec.Annotations = make(map[string]string)
+	}
+
 	var currentNodeList corev1.NodeList
 	if err := r.List(ctx, &currentNodeList, client.MatchingLabels(map[string]string{
 		projectinfo.GetNodePoolLabel(): nodePool.GetName(),

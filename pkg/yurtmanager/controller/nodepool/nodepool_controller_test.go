@@ -94,6 +94,22 @@ func prepareNodes() []client.Object {
 				},
 			},
 		},
+		&corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node5",
+				Labels: map[string]string{
+					projectinfo.GetNodePoolLabel(): "edge-hangar",
+				},
+			},
+			Status: corev1.NodeStatus{
+				Conditions: []corev1.NodeCondition{
+					{
+						Type:   corev1.NodeReady,
+						Status: corev1.ConditionTrue,
+					},
+				},
+			},
+		},
 	}
 	return nodes
 }
@@ -131,6 +147,15 @@ func prepareNodePools() []client.Object {
 				Labels: map[string]string{
 					"region": "shanghai",
 				},
+			},
+		},
+		&appsv1beta2.NodePool{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "edge-hangar",
+			},
+			Spec: appsv1beta2.NodePoolSpec{
+				Type: appsv1beta2.Edge,
+				// Labels and Annotations omitted (nil)
 			},
 		},
 	}
@@ -247,6 +272,41 @@ func TestReconcile(t *testing.T) {
 				Status: appsv1beta2.NodePoolStatus{
 					ReadyNodeNum:   0,
 					UnreadyNodeNum: 0,
+				},
+			},
+		},
+		"reconcile edge-hangar pool with nil spec labels and annotations": {
+			EnableSyncNodePoolConfigurations: true,
+			pool:                             "edge-hangar",
+			wantedPool: &appsv1beta2.NodePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "edge-hangar",
+				},
+				Spec: appsv1beta2.NodePoolSpec{
+					Type: appsv1beta2.Edge,
+				},
+				Status: appsv1beta2.NodePoolStatus{
+					ReadyNodeNum:   1,
+					UnreadyNodeNum: 0,
+					Nodes:          []string{"node5"},
+				},
+			},
+			wantedNodes: []corev1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node5",
+						Labels: map[string]string{
+							projectinfo.GetNodePoolLabel(): "edge-hangar",
+						},
+					},
+					Status: corev1.NodeStatus{
+						Conditions: []corev1.NodeCondition{
+							{
+								Type:   corev1.NodeReady,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
 				},
 			},
 		},

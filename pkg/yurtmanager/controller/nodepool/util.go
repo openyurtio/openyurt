@@ -30,6 +30,13 @@ import (
 // conciliatePoolRelatedAttrs will update the node's attributes that related to
 // the nodepool
 func conciliateNode(node *corev1.Node, nodePool *appsv1beta2.NodePool) (bool, error) {
+	if nodePool.Spec.Labels == nil {
+		nodePool.Spec.Labels = make(map[string]string)
+	}
+	if nodePool.Spec.Annotations == nil {
+		nodePool.Spec.Annotations = make(map[string]string)
+	}
+
 	// update node attr
 	newNpra := &NodePoolRelatedAttributes{
 		Labels:      nodePool.Spec.Labels,
@@ -58,6 +65,10 @@ func conciliateNode(node *corev1.Node, nodePool *appsv1beta2.NodePool) (bool, er
 
 // conciliateLabels will update the node's label that related to the nodepool
 func conciliateLabels(node *corev1.Node, oldLabels, newLabels map[string]string) {
+	if node.Labels == nil {
+		node.Labels = make(map[string]string)
+	}
+
 	// 1. remove labels from the node if they have been removed from the
 	// node pool
 	for oldK := range oldLabels {
@@ -71,8 +82,12 @@ func conciliateLabels(node *corev1.Node, oldLabels, newLabels map[string]string)
 	node.Labels = mergeMap(node.Labels, newLabels)
 }
 
-// conciliateLabels will update the node's annotation that related to the nodepool
+// conciliateAnnotations will update the node's annotation that related to the nodepool
 func conciliateAnnotations(node *corev1.Node, oldAnnos, newAnnos map[string]string) {
+	if node.Annotations == nil {
+		node.Annotations = make(map[string]string)
+	}
+
 	// 1. remove annotations from the node if they have been removed from the
 	// node pool
 	for oldK := range oldAnnos {
