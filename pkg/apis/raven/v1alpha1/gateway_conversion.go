@@ -104,19 +104,21 @@ func (src *Gateway) ConvertFrom(srcRaw conversion.Hub) error {
 			Subnets:   node.Subnets,
 		})
 	}
-	if srcRawV1beta1.Status.ActiveEndpoints == nil {
-		klog.Infof("convert from v1beta1 to v1alpha1 for %s", src.Name)
-		return nil
-	}
-	if len(srcRawV1beta1.Status.ActiveEndpoints) < 1 {
-		src.Status.ActiveEndpoint = nil
-	} else {
-		src.Status.ActiveEndpoint = &Endpoint{
-			NodeName: srcRawV1beta1.Status.ActiveEndpoints[0].NodeName,
-			PublicIP: srcRawV1beta1.Status.ActiveEndpoints[0].PublicIP,
-			UnderNAT: srcRawV1beta1.Status.ActiveEndpoints[0].UnderNAT,
-			Config:   srcRawV1beta1.Status.ActiveEndpoints[0].Config,
+	// v1alpha1 only knows the tunnel gateway, so pick the first active tunnel
+	// endpoint. ActiveEndpoints is sorted by node name and may also contain
+	// proxy endpoints, which must not be reported as the v1alpha1 gateway.
+	src.Status.ActiveEndpoint = nil
+	for _, ep := range srcRawV1beta1.Status.ActiveEndpoints {
+		if ep == nil || ep.Type != v1beta1.Tunnel {
+			continue
 		}
+		src.Status.ActiveEndpoint = &Endpoint{
+			NodeName: ep.NodeName,
+			PublicIP: ep.PublicIP,
+			UnderNAT: ep.UnderNAT,
+			Config:   ep.Config,
+		}
+		break
 	}
 	klog.Infof("convert from v1beta1 to v1alpha1 for %s", src.Name)
 	return nil
