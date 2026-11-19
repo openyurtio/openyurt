@@ -110,6 +110,11 @@ func TestNewFromFilters(t *testing.T) {
 			disabledFilters:  []string{"*"},
 			generatedFilters: sets.New[string](),
 		},
+		"disable all filters when wildcard is listed with other filters": {
+			inputFilters:     allFilters,
+			disabledFilters:  []string{"masterservice", "*"},
+			generatedFilters: sets.New[string](),
+		},
 		"register duplicated filters": {
 			inputFilters:     append(allFilters, "servicetopology"),
 			disabledFilters:  []string{},
