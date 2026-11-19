@@ -108,6 +108,9 @@ func (ds *diskStorage) Create(key storage.Key, content []byte) error {
 	if err := utils.ValidateKey(key, storageKey{}); err != nil {
 		return err
 	}
+	if err := utils.ValidateDiskKey(key); err != nil {
+		return err
+	}
 	storageKey := key.(storageKey)
 
 	if !storageKey.isRootKey() && len(content) == 0 {
@@ -137,6 +140,9 @@ func (ds *diskStorage) Delete(key storage.Key) error {
 	if err := utils.ValidateKey(key, storageKey{}); err != nil {
 		return err
 	}
+	if err := utils.ValidateDiskKey(key); err != nil {
+		return err
+	}
 	storageKey := key.(storageKey)
 
 	ds.lockKey(storageKey)
@@ -158,7 +164,10 @@ func (ds *diskStorage) Delete(key storage.Key) error {
 // If key points to a dir, return ErrKeyHasNoContent.
 func (ds *diskStorage) Get(key storage.Key) ([]byte, error) {
 	if err := utils.ValidateKey(key, storageKey{}); err != nil {
-		return []byte{}, storage.ErrKeyIsEmpty
+		return []byte{}, err
+	}
+	if err := utils.ValidateDiskKey(key); err != nil {
+		return []byte{}, err
 	}
 	storageKey := key.(storageKey)
 
@@ -183,6 +192,9 @@ func (ds *diskStorage) Get(key storage.Key) ([]byte, error) {
 // If the root dir of this rootKey does not exist, return ErrStorageNotFound.
 func (ds *diskStorage) List(key storage.Key) ([][]byte, error) {
 	if err := utils.ValidateKey(key, storageKey{}); err != nil {
+		return [][]byte{}, err
+	}
+	if err := utils.ValidateDiskKey(key); err != nil {
 		return [][]byte{}, err
 	}
 	storageKey := key.(storageKey)
