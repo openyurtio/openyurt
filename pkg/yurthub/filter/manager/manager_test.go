@@ -112,6 +112,16 @@ func TestFindResponseFilter(t *testing.T) {
 			isFound:              true,
 			names:                sets.New("nodeportisolation"),
 		},
+		"disable all filters in cloud mode": {
+			enableResourceFilter:    true,
+			workingMode:             "cloud",
+			disabledResourceFilters: []string{"*"},
+			userAgent:               "kube-proxy",
+			verb:                    "GET",
+			path:                    "/api/v1/services",
+			isFound:                 false,
+			names:                   sets.New[string](),
+		},
 		"reject by approver for unknown component": {
 			enableResourceFilter: true,
 			enableDummyIf:        true,
@@ -256,6 +266,16 @@ func TestFindObjectFilter(t *testing.T) {
 			path:                 "/api/v1/services",
 			isFound:              true,
 			names:                sets.New("nodeportisolation"),
+		},
+		"disable all filters in cloud mode": {
+			enableResourceFilter:    true,
+			workingMode:             "cloud",
+			disabledResourceFilters: []string{"*"},
+			userAgent:               "kube-proxy",
+			verb:                    "GET",
+			path:                    "/api/v1/services",
+			isFound:                 false,
+			names:                   sets.New[string](),
 		},
 		"reject by approver for unknown component": {
 			enableResourceFilter: true,
