@@ -194,6 +194,20 @@ func add(mgr manager.Manager, cfg *config.CompletedConfig, r reconcile.Reconcile
 		return err
 	}
 
+	err = c.Watch(source.Kind[client.Object](
+		mgr.GetCache(),
+		&appsv1.StatefulSet{},
+		handler.EnqueueRequestForOwner(
+			mgr.GetScheme(),
+			mgr.GetRESTMapper(),
+			&unitv1beta1.YurtAppSet{},
+			handler.OnlyControllerOwner(),
+		),
+	))
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
