@@ -22,6 +22,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"strings"
+	"time"
 
 	certificatesv1 "k8s.io/api/certificates/v1"
 	certificatesv1beta1 "k8s.io/api/certificates/v1beta1"
@@ -192,9 +193,11 @@ func (r *ReconcileCsrApprover) Reconcile(ctx context.Context, request reconcile.
 		return reconcile.Result{}, nil
 	}
 
-	ok, successMsg := isYurtCSR(v1Instance)
+	ok, successMsg, cType := isYurtCSR(v1Instance)
 	if !ok {
 		klog.Infof("csr(%s) is not %s", v1Instance.GetName(), yurtCsr)
+		// Record rejection for non-Yurt CSRs
+		csrRejectedTotal.WithLabelValues("not_yurt_csr").Inc()
 		return reconcile.Result{}, nil
 	}
 
@@ -211,8 +214,18 @@ func (r *ReconcileCsrApprover) Reconcile(ctx context.Context, request reconcile.
 	err = r.updateApproval(ctx, v1Instance)
 	if err != nil {
 		klog.Errorf("could not approve %s(%s), %v", yurtCsr, v1Instance.GetName(), err)
+		csrRejectedTotal.WithLabelValues("approval_failed").Inc()
 		return reconcile.Result{}, err
 	}
+
+	// Record approval metrics
+	csrApprovedTotal.WithLabelValues(string(cType)).Inc()
+	// Calculate pending duration from CSR creation timestamp
+	if !v1Instance.CreationTimestamp.IsZero() {
+		pendingDuration := time.Since(v1Instance.CreationTimestamp.Time).Seconds()
+		csrPendingDurationSeconds.WithLabelValues(string(cType)).Observe(pendingDuration)
+	}
+
 	klog.Infof("successfully approve %s(%s)", yurtCsr, v1Instance.GetName())
 	return reconcile.Result{}, nil
 }
@@ -227,18 +240,31 @@ func (r *ReconcileCsrApprover) updateApproval(ctx context.Context, csr *certific
 	}
 }
 
+// csrType represents the type of CSR for metrics labeling.
+type csrType string
+
+const (
+	csrTypeYurthubClient csrType = "yurthub_client"
+	csrTypeYurthubServer csrType = "yurthub_server"
+	csrTypeTunnelProxy   csrType = "tunnel_proxy"
+	csrTypeTunnelAgent   csrType = "tunnel_agent"
+	csrTypeTunnelServer  csrType = "tunnel_server"
+	csrTypeUnknown       csrType = "unknown"
+)
+
 // isYurtCSR checks if given csr is an openyurt related csr and
-// return success message for specified recognizers.
-func isYurtCSR(csr *certificatesv1.CertificateSigningRequest) (bool, string) {
+// return success message and csr type for specified recognizers.
+func isYurtCSR(csr *certificatesv1.CertificateSigningRequest) (bool, string, csrType) {
 	var successMsg string
+	var cType csrType
 	pemBytes := csr.Spec.Request
 	block, _ := pem.Decode(pemBytes)
 	if block == nil || block.Type != "CERTIFICATE REQUEST" {
-		return false, successMsg
+		return false, successMsg, csrTypeUnknown
 	}
 	x509cr, err := x509.ParseCertificateRequest(block.Bytes)
 	if err != nil {
-		return false, successMsg
+		return false, successMsg, csrTypeUnknown
 	}
 
 	// Reserve Raven identities before generic recognizers to prevent approval through another template.
@@ -246,24 +272,48 @@ func isYurtCSR(csr *certificatesv1.CertificateSigningRequest) (bool, string) {
 		if csr.Spec.Username != ravenAgentUsername {
 			klog.InfoS("Leaving Raven CSR pending: unauthorized requester",
 				"csr", csr.Name, "commonName", x509cr.Subject.CommonName, "username", csr.Spec.Username)
-			return false, ""
+			return false, "", csrTypeUnknown
 		}
 		if !r.recognize(csr, x509cr) {
 			klog.InfoS("Leaving Raven CSR pending: certificate template mismatch",
 				"csr", csr.Name, "commonName", x509cr.Subject.CommonName, "username", csr.Spec.Username)
-			return false, ""
+			return false, "", csrTypeUnknown
 		}
-		return true, r.successMsg
+		// Determine Raven CSR type based on CommonName
+		switch x509cr.Subject.CommonName {
+		case constants.YurtTunnelProxyClientCSRCN:
+			cType = csrTypeTunnelProxy
+		case constants.YurtTunnelAgentCSRCN:
+			cType = csrTypeTunnelAgent
+		case ravenServerCertCommonName:
+			cType = csrTypeTunnelServer
+		default:
+			cType = csrTypeUnknown
+		}
+		return true, r.successMsg, cType
 	}
 
 	for _, r := range recognizers {
 		if r.recognize(csr, x509cr) {
 			successMsg = r.successMsg
-			return true, successMsg
+			// Determine generic CSR type based on success message
+			switch r.successMsg {
+			case "Auto approving yurthub node client certificate":
+				cType = csrTypeYurthubClient
+			case "Auto approving openyurt tls server certificate":
+				cType = csrTypeYurthubServer
+			case "Auto approving tunnel-server proxy client certificate":
+				cType = csrTypeTunnelProxy
+			case "Auto approving tunnel-agent client certificate":
+				cType = csrTypeTunnelAgent
+			default:
+				cType = csrTypeUnknown
+			}
+			return true, successMsg, cType
 		}
 	}
 
-	return false, successMsg
+	return false, successMsg, csrTypeUnknown
 }
 
 // checkCertApprovalCondition checks if the given csr's status is
@@ -481,6 +531,10 @@ func isYurtTunnelAgentCert(csr *certificatesv1.CertificateSigningRequest, x509cr
 	}
 
 	return true
+}
+
+func init() {
+	RegisterMetrics()
 }
 
 func usagesToSet(usages []certificatesv1.KeyUsage) sets.Set[string] {
