@@ -1188,7 +1188,7 @@ func TestIsYurtCSRInvalidInput(t *testing.T) {
 			Request: []byte("not a PEM"),
 		},
 	}
-	ok, msg := isYurtCSR(csr)
+	ok, msg, _ := isYurtCSR(csr)
 	if ok {
 		t.Error("expected false for invalid PEM")
 	}
