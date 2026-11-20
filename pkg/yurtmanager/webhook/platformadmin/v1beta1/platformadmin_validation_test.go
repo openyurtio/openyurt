@@ -293,6 +293,67 @@ func TestValidateUpdate(t *testing.T) {
 	}
 }
 
+// TestValidatePlatformAdminWithNodePoolsAcrossNamespaces checks that a NodePool, which is cluster scoped,
+// cannot be claimed by two PlatformAdmins even if they have the same name in different namespaces.
+func TestValidatePlatformAdminWithNodePoolsAcrossNamespaces(t *testing.T) {
+	newPlatformAdmin := func(namespace, name string, nodePools ...string) *v1beta1.PlatformAdmin {
+		return &v1beta1.PlatformAdmin{
+			ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name},
+			Spec:       v1beta1.PlatformAdminSpec{NodePools: nodePools},
+		}
+	}
+
+	tests := []struct {
+		name     string
+		existing *v1beta1.PlatformAdmin
+		incoming *v1beta1.PlatformAdmin
+		wantErr  bool
+	}{
+		{
+			name:     "same name in another namespace using the same nodepool is rejected",
+			existing: newPlatformAdmin("team-a", "edgex", "beijing"),
+			incoming: newPlatformAdmin("team-b", "edgex", "beijing"),
+			wantErr:  true,
+		},
+		{
+			name:     "different name in another namespace using the same nodepool is rejected",
+			existing: newPlatformAdmin("team-a", "edgex", "beijing"),
+			incoming: newPlatformAdmin("team-b", "edgex-2", "beijing"),
+			wantErr:  true,
+		},
+		{
+			name:     "same name in another namespace using another nodepool is accepted",
+			existing: newPlatformAdmin("team-a", "edgex", "beijing"),
+			incoming: newPlatformAdmin("team-b", "edgex", "hangzhou"),
+			wantErr:  false,
+		},
+		{
+			name:     "updating the existing platformadmin itself is accepted",
+			existing: newPlatformAdmin("team-a", "edgex", "beijing"),
+			incoming: newPlatformAdmin("team-a", "edgex", "beijing"),
+			wantErr:  false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			handler := &PlatformAdminHandler{
+				Client: NewFakeClient(buildClient(buildNodePool(), []client.Object{tc.existing})).Build(),
+			}
+
+			errs := handler.validatePlatformAdminWithNodePools(context.TODO(), tc.incoming)
+
+			if tc.wantErr {
+				if assert.Len(t, errs, 1) {
+					assert.Contains(t, errs[0].Detail, "already used by other platformadmin instance")
+				}
+			} else {
+				assert.Empty(t, errs)
+			}
+		})
+	}
+}
+
 // TestValidateDelete tests the ValidateDelete method of PlatformAdminHandler.
 func TestValidateDelete(t *testing.T) {
 	handler := &PlatformAdminHandler{}
