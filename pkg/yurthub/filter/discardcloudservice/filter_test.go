@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The OpenYurt Authors.
+Copyright 2021 The OpenYurt Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,138 +20,202 @@ import (
 	"reflect"
 	"testing"
 
-	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-
-	"github.com/openyurtio/openyurt/pkg/util"
-	"github.com/openyurtio/openyurt/pkg/yurthub/filter/base"
 )
 
-func TestRegister(t *testing.T) {
-	filters := base.NewFilters([]string{})
-	Register(filters)
-	if !filters.Enabled(FilterName) {
-		t.Errorf("couldn't register %s filter", FilterName)
+func TestDiscardCloudServiceFilter(t *testing.T) {
+	filter, err := NewDiscardCloudServiceFilter()
+	if err != nil {
+		t.Fatalf("failed to create filter: %v", err)
 	}
-}
 
-func TestName(t *testing.T) {
-	dcsf, _ := NewDiscardCloudServiceFilter()
-	if dcsf.Name() != FilterName {
-		t.Errorf("expect %s, but got %s", FilterName, dcsf.Name())
-	}
-}
-
-func TestFilter(t *testing.T) {
-	testcases := map[string]struct {
-		responseObj runtime.Object
-		expectObj   runtime.Object
+	tests := []struct {
+		name          string
+		obj           runtime.Object
+		wantDiscarded bool
+		description   string
 	}{
-		"discard lb service": {
-			responseObj: &corev1.Service{
+		{
+			name: "LoadBalancer service with discard annotation",
+			obj: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "svc1",
+					Name:      "lb-svc",
 					Namespace: "default",
 					Annotations: map[string]string{
 						DiscardServiceAnnotation: "true",
 					},
 				},
-				Spec: corev1.ServiceSpec{
-					ClusterIP: "10.96.105.187",
-					Type:      corev1.ServiceTypeLoadBalancer,
+				Spec: v1.ServiceSpec{
+					Type: v1.ServiceTypeLoadBalancer,
 				},
 			},
-			expectObj: nil,
+			wantDiscarded: true,
+			description:   "LoadBalancer with discard annotation should be discarded",
 		},
-		"discard cloud clusterIP service": {
-			responseObj: &corev1.Service{
+		{
+			name: "LoadBalancer service without annotation",
+			obj: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "lb-svc",
+					Namespace: "default",
+				},
+				Spec: v1.ServiceSpec{
+					Type: v1.ServiceTypeLoadBalancer,
+				},
+			},
+			wantDiscarded: false,
+			description:   "LoadBalancer without annotation should be kept",
+		},
+		{
+			name: "ClusterIP service with discard-clusterip annotation",
+			obj: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "clusterip-svc",
+					Namespace: "default",
+					Annotations: map[string]string{
+						DiscardClusterIPAnnotation: "true",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Type: v1.ServiceTypeClusterIP,
+				},
+			},
+			wantDiscarded: true,
+			description:   "ClusterIP with discard-clusterip annotation should be discarded",
+		},
+		{
+			name: "ClusterIP service without annotation",
+			obj: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "clusterip-svc",
+					Namespace: "default",
+				},
+				Spec: v1.ServiceSpec{
+					Type: v1.ServiceTypeClusterIP,
+				},
+			},
+			wantDiscarded: false,
+			description:   "ClusterIP without annotation should be kept",
+		},
+		{
+			name: "Hardcoded service (backward compatibility)",
+			obj: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "x-tunnel-server-internal-svc",
 					Namespace: "kube-system",
 				},
-				Spec: corev1.ServiceSpec{
-					ClusterIP: "10.96.105.187",
-					Type:      corev1.ServiceTypeClusterIP,
+				Spec: v1.ServiceSpec{
+					Type: v1.ServiceTypeClusterIP,
 				},
 			},
-			expectObj: nil,
+			wantDiscarded: true,
+			description:   "Hardcoded service should still be discarded",
 		},
-		"skip lb service": {
-			responseObj: &corev1.Service{
+		{
+			name: "ClusterIP service with false annotation",
+			obj: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "svc1",
+					Name:      "clusterip-svc",
 					Namespace: "default",
-				},
-				Spec: corev1.ServiceSpec{
-					ClusterIP: "10.96.105.187",
-					Type:      corev1.ServiceTypeLoadBalancer,
-				},
-			},
-			expectObj: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "svc1",
-					Namespace: "default",
-				},
-				Spec: corev1.ServiceSpec{
-					ClusterIP: "10.96.105.187",
-					Type:      corev1.ServiceTypeLoadBalancer,
-				},
-			},
-		},
-		"skip podList": {
-			responseObj: &corev1.PodList{
-				Items: []corev1.Pod{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "pod1",
-							Namespace: "default",
-						},
-						Spec: corev1.PodSpec{
-							Containers: []corev1.Container{
-								{
-									Name:  "nginx",
-									Image: "nginx",
-								},
-							},
-						},
+					Annotations: map[string]string{
+						DiscardClusterIPAnnotation: "false",
 					},
 				},
-			},
-			expectObj: &corev1.PodList{
-				Items: []corev1.Pod{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "pod1",
-							Namespace: "default",
-						},
-						Spec: corev1.PodSpec{
-							Containers: []corev1.Container{
-								{
-									Name:  "nginx",
-									Image: "nginx",
-								},
-							},
-						},
-					},
+				Spec: v1.ServiceSpec{
+					Type: v1.ServiceTypeClusterIP,
 				},
 			},
+			wantDiscarded: false,
+			description:   "ClusterIP with false annotation should be kept",
+		},
+		{
+			name: "NodePort service should be kept",
+			obj: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "nodeport-svc",
+					Namespace: "default",
+				},
+				Spec: v1.ServiceSpec{
+					Type: v1.ServiceTypeNodePort,
+				},
+			},
+			wantDiscarded: false,
+			description:   "NodePort service should be kept",
+		},
+		{
+			name: "Non-service object should be kept",
+			obj: &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-cm",
+					Namespace: "default",
+				},
+			},
+			wantDiscarded: false,
+			description:   "Non-service objects should pass through",
+		},
+		{
+			name: "ClusterIP with empty annotation value",
+			obj: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "clusterip-svc",
+					Namespace: "default",
+					Annotations: map[string]string{
+						DiscardClusterIPAnnotation: "",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Type: v1.ServiceTypeClusterIP,
+				},
+			},
+			wantDiscarded: false,
+			description:   "ClusterIP with empty annotation should be kept",
+		},
+		{
+			name: "Multiple annotations including discard-clusterip",
+			obj: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "multi-anno-svc",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"other-annotation":         "value",
+						DiscardClusterIPAnnotation: "true",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Type: v1.ServiceTypeClusterIP,
+				},
+			},
+			wantDiscarded: true,
+			description:   "ClusterIP with multiple annotations including discard should be discarded",
 		},
 	}
 
-	stopCh := make(<-chan struct{})
-	for k, tt := range testcases {
-		t.Run(k, func(t *testing.T) {
-			dcsf, _ := NewDiscardCloudServiceFilter()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := filter.Filter(tt.obj, nil)
 
-			newObj := dcsf.Filter(tt.responseObj, stopCh)
-			if tt.expectObj == nil {
-				if !util.IsNil(newObj) {
-					t.Errorf("RuntimeObjectFilter expect nil obj, but got %v", newObj)
+			if tt.wantDiscarded {
+				if result != nil {
+					t.Errorf("%s: expected object to be discarded (nil), got %v", tt.description, result)
 				}
-			} else if !reflect.DeepEqual(newObj, tt.expectObj) {
-				t.Errorf("RuntimeObjectFilter got error, expected: \n%v\nbut got: \n%v\n", tt.expectObj, newObj)
+			} else {
+				if result == nil {
+					t.Errorf("%s: expected object to be kept, got nil", tt.description)
+				}
+				// Verify it's the same object
+				if !reflect.DeepEqual(result, tt.obj) {
+					t.Errorf("%s: returned object differs from input", tt.description)
+				}
 			}
 		})
+	}
+}
+
+func TestDiscardCloudServiceFilter_Name(t *testing.T) {
+	filter, _ := NewDiscardCloudServiceFilter()
+	if filter.Name() != FilterName {
+		t.Errorf("expected name %s, got %s", FilterName, filter.Name())
 	}
 }

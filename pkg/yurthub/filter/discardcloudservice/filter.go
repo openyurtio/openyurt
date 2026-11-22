@@ -36,9 +36,16 @@ const (
 	// If end users want to discard specified LB service at the edge side,
 	// End users should add annotation["svc.openyurt.io/discard"]="true" for LB service.
 	DiscardServiceAnnotation = "svc.openyurt.io/discard"
+
+	// DiscardClusterIPAnnotation is annotation used to discard clusterIP service.
+	// If end users want to discard specified clusterIP service at the edge side,
+	// End users should add annotation["svc.openyurt.io/discard-clusterip"]="true" for the service.
+	DiscardClusterIPAnnotation = "svc.openyurt.io/discard-clusterip"
 )
 
 var (
+	// cloudClusterIPService contains hardcoded services to discard (backward compatibility).
+	// Deprecated: use DiscardClusterIPAnnotation instead.
 	cloudClusterIPService = map[string]struct{}{
 		"kube-system/x-tunnel-server-internal-svc": {},
 	}
@@ -70,9 +77,10 @@ func (sf *discardCloudServiceFilter) Filter(obj runtime.Object, _ <-chan struct{
 	}
 }
 
-func discardCloudService(svc *v1.Service) *v1.Service {
+func discardCloudService(svc *v1.Service) runtime.Object {
 	nsName := fmt.Sprintf("%s/%s", svc.Namespace, svc.Name)
-	// remove cloud LoadBalancer service
+
+	// 1. remove cloud LoadBalancer service
 	if svc.Spec.Type == v1.ServiceTypeLoadBalancer {
 		if svc.Annotations[DiscardServiceAnnotation] == "true" {
 			klog.V(2).Infof("load balancer service(%s) is discarded in StreamResponseFilter of discardCloudServiceFilterHandler", nsName)
@@ -80,9 +88,15 @@ func discardCloudService(svc *v1.Service) *v1.Service {
 		}
 	}
 
-	// remove cloud clusterIP service
+	// 2. remove cloud clusterIP service - check annotation first (preferred)
+	if svc.Annotations[DiscardClusterIPAnnotation] == "true" {
+		klog.V(2).Infof("clusterIP service(%s) is discarded via annotation in discardCloudServiceFilterHandler", nsName)
+		return nil
+	}
+
+	// 3. fallback to hardcoded list (backward compatibility)
 	if _, ok := cloudClusterIPService[nsName]; ok {
-		klog.V(2).Infof("clusterIP service(%s) is discarded in StreamResponseFilter of discardCloudServiceFilterHandler", nsName)
+		klog.V(2).Infof("clusterIP service(%s) is discarded via hardcoded list in discardCloudServiceFilterHandler", nsName)
 		return nil
 	}
 
