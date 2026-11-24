@@ -378,6 +378,222 @@ func TestReconcile(t *testing.T) {
 			},
 			resultCount: 0,
 		},
+		"keep infinite toleration untouched with node autonomy duration": {
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod1",
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node1",
+					Tolerations: []corev1.Toleration{
+						{
+							Key:      corev1.TaintNodeNotReady,
+							Operator: corev1.TolerationOpExists,
+							Effect:   corev1.TaintEffectNoExecute,
+						},
+						{
+							Key:      corev1.TaintNodeUnreachable,
+							Operator: corev1.TolerationOpExists,
+							Effect:   corev1.TaintEffectNoExecute,
+						},
+					},
+				},
+			},
+			node: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "node1",
+					Labels: map[string]string{
+						projectinfo.GetEdgeWorkerLabelKey(): "true",
+					},
+					Annotations: map[string]string{
+						"node.openyurt.io/autonomy-duration": "100s",
+					},
+				},
+			},
+			resultPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod1",
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node1",
+					Tolerations: []corev1.Toleration{
+						{
+							Key:      corev1.TaintNodeNotReady,
+							Operator: corev1.TolerationOpExists,
+							Effect:   corev1.TaintEffectNoExecute,
+						},
+						{
+							Key:      corev1.TaintNodeUnreachable,
+							Operator: corev1.TolerationOpExists,
+							Effect:   corev1.TaintEffectNoExecute,
+						},
+					},
+				},
+			},
+			resultCount: 0,
+		},
+		"keep infinite toleration untouched with node autonomy duration is 0": {
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod1",
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node1",
+					Tolerations: []corev1.Toleration{
+						{
+							Key:      corev1.TaintNodeUnreachable,
+							Operator: corev1.TolerationOpExists,
+							Effect:   corev1.TaintEffectNoExecute,
+						},
+					},
+				},
+			},
+			node: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "node1",
+					Labels: map[string]string{
+						projectinfo.GetEdgeWorkerLabelKey(): "true",
+					},
+					Annotations: map[string]string{
+						"node.openyurt.io/autonomy-duration": "0s",
+					},
+				},
+			},
+			resultPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod1",
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node1",
+					Tolerations: []corev1.Toleration{
+						{
+							Key:      corev1.TaintNodeUnreachable,
+							Operator: corev1.TolerationOpExists,
+							Effect:   corev1.TaintEffectNoExecute,
+						},
+					},
+				},
+			},
+			resultCount: 0,
+		},
+		"only update finite toleration when another toleration is infinite": {
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod1",
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node1",
+					Tolerations: []corev1.Toleration{
+						{
+							Key:      corev1.TaintNodeNotReady,
+							Operator: corev1.TolerationOpExists,
+							Effect:   corev1.TaintEffectNoExecute,
+						},
+						{
+							Key:               corev1.TaintNodeUnreachable,
+							Operator:          corev1.TolerationOpExists,
+							Effect:            corev1.TaintEffectNoExecute,
+							TolerationSeconds: &second1,
+						},
+					},
+				},
+			},
+			node: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "node1",
+					Labels: map[string]string{
+						projectinfo.GetEdgeWorkerLabelKey(): "true",
+					},
+					Annotations: map[string]string{
+						"node.openyurt.io/autonomy-duration": "100s",
+					},
+				},
+			},
+			resultPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod1",
+					Namespace: metav1.NamespaceDefault,
+					Annotations: map[string]string{
+						originalUnreachableTolerationDurationAnnotation: "300",
+					},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node1",
+					Tolerations: []corev1.Toleration{
+						{
+							Key:      corev1.TaintNodeNotReady,
+							Operator: corev1.TolerationOpExists,
+							Effect:   corev1.TaintEffectNoExecute,
+						},
+						{
+							Key:               corev1.TaintNodeUnreachable,
+							Operator:          corev1.TolerationOpExists,
+							Effect:            corev1.TaintEffectNoExecute,
+							TolerationSeconds: &second2,
+						},
+					},
+				},
+			},
+			resultCount: 1,
+		},
+		"apply new duration to toleration set infinite by previous node autonomy": {
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod1",
+					Namespace: metav1.NamespaceDefault,
+					Annotations: map[string]string{
+						originalUnreachableTolerationDurationAnnotation: "300",
+					},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node1",
+					Tolerations: []corev1.Toleration{
+						{
+							Key:      corev1.TaintNodeUnreachable,
+							Operator: corev1.TolerationOpExists,
+							Effect:   corev1.TaintEffectNoExecute,
+						},
+					},
+				},
+			},
+			node: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "node1",
+					Labels: map[string]string{
+						projectinfo.GetEdgeWorkerLabelKey(): "true",
+					},
+					Annotations: map[string]string{
+						"node.openyurt.io/autonomy-duration": "100s",
+					},
+				},
+			},
+			resultPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod1",
+					Namespace: metav1.NamespaceDefault,
+					Annotations: map[string]string{
+						originalUnreachableTolerationDurationAnnotation: "300",
+					},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node1",
+					Tolerations: []corev1.Toleration{
+						{
+							Key:               corev1.TaintNodeUnreachable,
+							Operator:          corev1.TolerationOpExists,
+							Effect:            corev1.TaintEffectNoExecute,
+							TolerationSeconds: &second2,
+						},
+					},
+				},
+			},
+			resultCount: 1,
+		},
 	}
 
 	for k, tc := range testcases {
@@ -420,8 +636,8 @@ func TestReconcile(t *testing.T) {
 					t.Errorf("expect pod annotations %v, but got %v", tc.resultPod.Annotations, currentPod.Annotations)
 				}
 
-				if !reflect.DeepEqual(tc.resultPod.Spec.Tolerations, tc.resultPod.Spec.Tolerations) {
-					t.Errorf("expect pod annotations %v, but got %v", tc.resultPod.Spec.Tolerations, currentPod.Spec.Tolerations)
+				if !reflect.DeepEqual(tc.resultPod.Spec.Tolerations, currentPod.Spec.Tolerations) {
+					t.Errorf("expect pod tolerations %v, but got %v", tc.resultPod.Spec.Tolerations, currentPod.Spec.Tolerations)
 				}
 			}
 		})
