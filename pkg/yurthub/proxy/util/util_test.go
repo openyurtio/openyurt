@@ -154,6 +154,123 @@ func TestWithRequestForPoolScopeMetadata(t *testing.T) {
 	}
 }
 
+func TestWithMultiplexerServerRestriction(t *testing.T) {
+	nodeName := "foo"
+	testcases := map[string]struct {
+		fromMultiplexerServer bool
+		userAgent             string
+		verb                  string
+		path                  string
+		served                bool
+		code                  int
+	}{
+		"list service resource from follower yurthub through multiplexer server": {
+			fromMultiplexerServer: true,
+			userAgent:             util.MultiplexerProxyClientUserAgentPrefix + "bar",
+			verb:                  "GET",
+			path:                  "/api/v1/services",
+			served:                true,
+			code:                  http.StatusOK,
+		},
+		"get secret resource through multiplexer server": {
+			fromMultiplexerServer: true,
+			verb:                  "GET",
+			path:                  "/api/v1/namespaces/kube-system/secrets/foo",
+			served:                false,
+			code:                  http.StatusForbidden,
+		},
+		"create pod resource through multiplexer server": {
+			fromMultiplexerServer: true,
+			verb:                  "POST",
+			path:                  "/api/v1/namespaces/default/pods",
+			served:                false,
+			code:                  http.StatusForbidden,
+		},
+		"get non resource through multiplexer server": {
+			fromMultiplexerServer: true,
+			verb:                  "GET",
+			path:                  "/version",
+			served:                false,
+			code:                  http.StatusForbidden,
+		},
+		"list service resource with user agent of local multiplexer through multiplexer server": {
+			fromMultiplexerServer: true,
+			userAgent:             util.MultiplexerProxyClientUserAgentPrefix + nodeName,
+			verb:                  "GET",
+			path:                  "/api/v1/services",
+			served:                false,
+			code:                  http.StatusForbidden,
+		},
+		"get secret resource through local proxy server": {
+			fromMultiplexerServer: false,
+			verb:                  "GET",
+			path:                  "/api/v1/namespaces/kube-system/secrets/foo",
+			served:                true,
+			code:                  http.StatusOK,
+		},
+	}
+
+	resolver := newTestRequestInfoResolver()
+
+	clientset := fake.NewSimpleClientset()
+	factory := informers.NewSharedInformerFactory(clientset, 0)
+
+	for k, tc := range testcases {
+		t.Run(k, func(t *testing.T) {
+			req, _ := http.NewRequest(tc.verb, tc.path, nil)
+			if len(tc.userAgent) != 0 {
+				req.Header.Set("User-Agent", tc.userAgent)
+			}
+			req.RemoteAddr = "127.0.0.1"
+
+			storageMap := map[string]kstorage.Interface{
+				serviceGVR.String(): nil,
+			}
+			dsm := storage.NewDummyStorageManager(storageMap)
+
+			restMapperManager, _ := meta.NewRESTMapperManager(t.TempDir())
+
+			poolScopeResources := []schema.GroupVersionResource{
+				{Group: "", Version: "v1", Resource: "services"},
+				{Group: "discovery.k8s.io", Version: "v1", Resource: "endpointslices"},
+			}
+
+			healthChecker := fakeHealthChecker.NewFakeChecker(map[*url.URL]bool{})
+			loadBalancer := remote.NewLoadBalancer("round-robin", []*url.URL{}, nil, nil, healthChecker, nil, context.Background().Done())
+			cfg := &config.YurtHubConfiguration{
+				PoolScopeResources:       poolScopeResources,
+				RESTMapperManager:        restMapperManager,
+				SharedFactory:            factory,
+				LoadBalancerForLeaderHub: loadBalancer,
+				NodeName:                 nodeName,
+			}
+			rmm := multiplexer.NewRequestMultiplexerManager(cfg, dsm, healthChecker)
+
+			served := false
+			var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				served = true
+			})
+
+			handler = WithMultiplexerServerRestriction(handler)
+			handler = WithRequestForPoolScopeMetadata(handler, rmm.ResolveRequestForPoolScopeMetadata)
+			handler = filters.WithRequestInfo(handler, resolver)
+			if tc.fromMultiplexerServer {
+				handler = WithRequestFromMultiplexerServer(handler)
+			}
+			resp := httptest.NewRecorder()
+			handler.ServeHTTP(resp, req)
+
+			if served != tc.served {
+				t.Errorf("%s: expect served %v, but got %v", k, tc.served, served)
+			}
+
+			if resp.Code != tc.code {
+				t.Errorf("%s: expect status code %d, but got %d", k, tc.code, resp.Code)
+			}
+		})
+	}
+}
+
 func TestWithPartialObjectMetadataRequest(t *testing.T) {
 	testcases := map[string]struct {
 		Verb         string
