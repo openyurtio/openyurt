@@ -176,7 +176,9 @@ func (webhook *PlatformAdminHandler) validatePlatformAdminWithNodePools(
 	}
 
 	for _, other := range platformadmins.Items {
-		if platformAdmin.Name != other.Name {
+		// PlatformAdmin is namespaced but NodePool is cluster scoped, so only the
+		// same namespace and name identifies the platformadmin being validated itself.
+		if platformAdmin.Namespace != other.Namespace || platformAdmin.Name != other.Name {
 			for _, poolName := range platformAdmin.Spec.NodePools {
 				if util.Contains(other.Spec.NodePools, poolName) {
 					return field.ErrorList{
