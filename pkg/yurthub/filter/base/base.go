@@ -86,8 +86,10 @@ func (fs *Filters) Register(name string, fn Factory) {
 	fs.names = append(fs.names, name)
 }
 
+// Enabled returns true if the filter is not disabled. The wildcard "*" disables all
+// filters, even when it is listed together with the names of other filters.
 func (fs *Filters) Enabled(name string) bool {
-	if fs.disabledFilters.Len() == 1 && fs.disabledFilters.Has("*") {
+	if fs.disabledFilters.Has("*") {
 		return false
 	}
 
