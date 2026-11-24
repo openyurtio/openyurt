@@ -24,6 +24,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -123,7 +124,54 @@ func Add(ctx context.Context, cfg *appconfig.CompletedConfig, mgr manager.Manage
 		return err
 	}
 
+	// Watch for changes to Nodes
+	// NodePool status only exposes the number of ready and unready nodes, so the NodePool watch
+	// misses leader candidate changes which leave those numbers unchanged.
+	err = c.Watch(
+		source.Kind[client.Object](
+			mgr.GetCache(),
+			&corev1.Node{},
+			handler.EnqueueRequestsFromMapFunc(nodePoolRequestForNode),
+			predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					oldNode, ok := e.ObjectOld.(*corev1.Node)
+					if !ok {
+						return false
+					}
+					newNode, ok := e.ObjectNew.(*corev1.Node)
+					if !ok {
+						return false
+					}
+					return isLeaderCandidacyChanged(oldNode, newNode)
+				},
+			},
+		),
+	)
+	if err != nil {
+		return err
+	}
+
 	return nil
+}
+
+// nodePoolRequestForNode returns the reconcile request of the NodePool that the node belongs to.
+func nodePoolRequestForNode(_ context.Context, obj client.Object) []reconcile.Request {
+	nodePoolName := obj.GetLabels()[projectinfo.GetNodePoolLabel()]
+	if len(nodePoolName) == 0 {
+		return nil
+	}
+	return []reconcile.Request{{NamespacedName: types.NamespacedName{Name: nodePoolName}}}
+}
+
+// isLeaderCandidacyChanged returns true if the update changes any node attribute that reconcileHubLeader
+// selects leaders by: labels, readiness and internal IP.
+func isLeaderCandidacyChanged(oldNode, newNode *corev1.Node) bool {
+	oldInternalIP, _ := nodeutil.GetInternalIP(oldNode)
+	newInternalIP, _ := nodeutil.GetInternalIP(newNode)
+
+	return !maps.Equal(oldNode.Labels, newNode.Labels) ||
+		nodeutil.IsNodeReady(*oldNode) != nodeutil.IsNodeReady(*newNode) ||
+		oldInternalIP != newInternalIP
 }
 
 var _ reconcile.Reconciler = &ReconcileHubLeader{}
