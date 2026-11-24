@@ -17,9 +17,16 @@ limitations under the License.
 package kubernetes
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
+	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
 )
 
 // --- TestIsValidBootstrapToken tests the BootstrapTokenRegexp regex pattern ---
@@ -139,6 +146,77 @@ func TestConstructNodeLabels(t *testing.T) {
 			if !reflect.DeepEqual(resultMap, tt.expectedMap) {
 				t.Errorf("constructNodeLabels() result mismatch.\nExpected Map: %v\nActual Map: %v\nActual String: %s",
 					tt.expectedMap, resultMap, resultStr)
+			}
+		})
+	}
+}
+
+// joinConfigData implements the parts of joindata.YurtJoinData used by SetKubeadmJoinConfig.
+type joinConfigData struct {
+	joindata.YurtJoinData
+}
+
+func (joinConfigData) JoinToken() string                       { return "abcdef.0123456789abcdef" }
+func (joinConfigData) PauseImage() string                      { return "registry.k8s.io/pause:3.9" }
+func (joinConfigData) KubernetesVersion() string               { return "v1.30.0" }
+func (joinConfigData) NodeLabels() map[string]string           { return nil }
+func (joinConfigData) IgnorePreflightErrors() sets.Set[string] { return sets.New[string]() }
+func (joinConfigData) NodeRegistration() *joindata.NodeRegistration {
+	return &joindata.NodeRegistration{
+		Name:        "edge-node",
+		CRISocket:   "unix:///run/containerd/containerd.sock",
+		WorkingMode: constants.EdgeNode,
+	}
+}
+
+// --- TestSetKubeadmJoinConfigFileMode checks that the join config holding the bootstrap token is root-only ---
+func TestSetKubeadmJoinConfigFileMode(t *testing.T) {
+	oldPath := kubeadmJoinConfigFilePath
+	defer func() { kubeadmJoinConfigFilePath = oldPath }()
+
+	tests := []struct {
+		name         string
+		existingMode os.FileMode // zero means the file does not exist yet
+	}{
+		{
+			name: "New_File",
+		},
+		{
+			name:         "Existing_World_Readable_File",
+			existingMode: 0755,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			kubeadmJoinConfigFilePath = filepath.Join(t.TempDir(), constants.KubeadmJoinConfigFileName)
+			if tt.existingMode != 0 {
+				if err := os.WriteFile(kubeadmJoinConfigFilePath, []byte("stale"), tt.existingMode); err != nil {
+					t.Fatalf("failed to create existing join config: %v", err)
+				}
+				if err := os.Chmod(kubeadmJoinConfigFilePath, tt.existingMode); err != nil {
+					t.Fatalf("failed to chmod existing join config: %v", err)
+				}
+			}
+
+			if err := SetKubeadmJoinConfig(joinConfigData{}); err != nil {
+				t.Fatalf("SetKubeadmJoinConfig() returned error: %v", err)
+			}
+
+			info, err := os.Stat(kubeadmJoinConfigFilePath)
+			if err != nil {
+				t.Fatalf("failed to stat join config: %v", err)
+			}
+			if perm := info.Mode().Perm(); perm != 0600 {
+				t.Errorf("join config mode = %#o, want 0600", perm)
+			}
+
+			content, err := os.ReadFile(kubeadmJoinConfigFilePath)
+			if err != nil {
+				t.Fatalf("failed to read join config: %v", err)
+			}
+			if !strings.Contains(string(content), "tlsBootstrapToken: abcdef.0123456789abcdef") {
+				t.Errorf("join config does not contain the bootstrap token:\n%s", content)
 			}
 		})
 	}
