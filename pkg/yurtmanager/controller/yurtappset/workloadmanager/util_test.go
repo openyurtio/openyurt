@@ -227,6 +227,76 @@ func TestIsNodePoolRelated(t *testing.T) {
 	assert.False(t, isNodePoolRelated(nodePool, pools, npSelector))
 }
 
+// TestIsNodePoolRelatedWithInvalidSelector checks that a NodePoolSelector that
+// cannot be converted into a label selector does not make isNodePoolRelated panic.
+func TestIsNodePoolRelatedWithInvalidSelector(t *testing.T) {
+	nodePool := &v1beta2.NodePool{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "nodepool1",
+			Labels: map[string]string{"label": "value"},
+		},
+	}
+
+	tests := []struct {
+		name       string
+		pools      []string
+		npSelector *metav1.LabelSelector
+		expect     bool
+	}{
+		{
+			name:  "In operator without values",
+			pools: []string{"nodepool2"},
+			npSelector: &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{Key: "label", Operator: metav1.LabelSelectorOpIn},
+				},
+			},
+			expect: false,
+		},
+		{
+			name:  "unknown operator",
+			pools: []string{"nodepool2"},
+			npSelector: &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{Key: "label", Operator: "Equals", Values: []string{"value"}},
+				},
+			},
+			expect: false,
+		},
+		{
+			name:  "invalid selector but the pool is listed in pools",
+			pools: []string{"nodepool1"},
+			npSelector: &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{Key: "label", Operator: metav1.LabelSelectorOpIn},
+				},
+			},
+			expect: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.NotPanics(t, func() {
+				assert.Equal(t, tt.expect, isNodePoolRelated(nodePool, tt.pools, tt.npSelector))
+			})
+		})
+	}
+
+	yas := &v1beta1.YurtAppSet{
+		Spec: v1beta1.YurtAppSetSpec{
+			NodePoolSelector: &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{Key: "label", Operator: metav1.LabelSelectorOpIn},
+				},
+			},
+		},
+	}
+	assert.NotPanics(t, func() {
+		assert.False(t, IsNodePoolRelatedToYurtAppSet(nodePool, yas))
+	})
+}
+
 // TestCombineLabels 测试CombineLabels函数，测试组合两个map的情况
 func TestCombineMaps(t *testing.T) {
 	// 测试case 1: label1为空，期望返回label2

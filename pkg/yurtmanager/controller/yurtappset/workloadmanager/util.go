@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openyurtio/openyurt/pkg/apis/apps"
@@ -114,8 +115,13 @@ func isNodePoolRelated(nodePool client.Object, pools []string, npSelector *metav
 		return true
 	}
 	if npSelector != nil {
-		npSelector, _ := metav1.LabelSelectorAsSelector(npSelector)
-		if npSelector.Matches(labels.Set(nodePool.GetLabels())) {
+		selector, err := metav1.LabelSelectorAsSelector(npSelector)
+		if err != nil {
+			// an invalid selector can not match any nodepool, do not dereference the nil selector
+			klog.Errorf("skip invalid nodepool selector %v when checking nodepool %s: %v", npSelector, nodePool.GetName(), err)
+			return false
+		}
+		if selector.Matches(labels.Set(nodePool.GetLabels())) {
 			return true
 		}
 	}
