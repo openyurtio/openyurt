@@ -6,8 +6,11 @@ picks them up automatically when it is started inside this repository.
 | Skill | Invoke | Scope |
 |---|---|---|
 | [openyurt-deploy](openyurt-deploy/SKILL.md) | `/openyurt-deploy [node ...]` | Install yurt-manager v1.7.0 on an existing kubeadm cluster, convert/revert worker nodes with the label-driven `YurtNodeConversionController`, enable autonomy, recover failed conversions, uninstall |
+| [openyurt-raven](openyurt-raven/SKILL.md) | `/openyurt-raven [gateway ...]` | Deploy `raven-agent` and configure cross-NodePool L3 tunnel and L7 proxy networking via `Gateway` (`raven.openyurt.io/v1beta1`) CRs |
+| [raven-topology](raven-topology/SKILL.md) | `/raven-topology` | Diagnose Raven gateway election, `raven-agent-ds` L3 VPN tunnels, and L7 proxy endpoints (`yurt-manager` controllers) |
+| [yurthub-autonomy](yurthub-autonomy/SKILL.md) | `/yurthub-autonomy [node]` | Verify edge node autonomy (`node.openyurt.io/autonomy-duration`), pod eviction tolerations, and YurtHub offline cache state |
 
-Planned, not included yet: `openyurt-raven` (cross-pool networking), `yurtadm join`
+Planned, not included yet: `yurtadm join`
 flows, versioned references for releases after v1.7.0.
 
 ## Using `/openyurt-deploy`
