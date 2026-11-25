@@ -160,7 +160,7 @@ func addJoinConfigFlags(flagSet *flag.FlagSet, joinOptions *joinOptions) {
 	)
 	flagSet.StringVar(
 		&joinOptions.yurthubBinaryURL, yurtconstants.YurtHubBinaryURL, joinOptions.yurthubBinaryURL,
-		"Sets the binary URL of yurthub (tar.gz), we will download and untar it automatically, then deploy local mode yurthub in systemd",
+		"Sets the binary URL of yurthub (tar.gz), we will download and untar it automatically. Required for local mode, optional for edge and cloud nodes where it overrides the default download URL",
 	)
 	flagSet.StringVar(
 		&joinOptions.hostControlPlaneAddr, yurtconstants.HostControlPlaneAddr, joinOptions.hostControlPlaneAddr,
