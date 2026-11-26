@@ -23,7 +23,7 @@ the `yurt-manager` framework lets you easily add new CRD and their controller, w
 | apis              | `pkg/apis`                          | api definition, including the group and version directories. Do not modify the directory structure!!!                                             |
 | controller        | `pkg/controller`                    | Process the logic of the crd controller. Do not modify the directory structure !!!                                                                |
 | webhook           | `pkg/webhook`                       | Handle the logic of crd Webhooks. Do not modify the directory structure!!!                                                                        |
-| charts            | `charts/openyurt`                   | openyurt helm chart, You can run the `make manifests` command to automatically modify the template file. Do not modify the directory structure!!! |
+| charts            | `charts/yurt-manager`               | yurt-manager helm chart, You can run the `make manifests` command to automatically modify the template file. Do not modify the directory structure!!! |
 | manifest          | `_output/manifest`                 | temporary directory for converting helm chart. Do not modify the directory structure!!!                                                           |
 
 The directory structure is as follows:
@@ -65,12 +65,14 @@ The directory structure is as follows:
 │           ├── rbac
 │           └── webhook
 ├── charts
-│   └── openyurt
+│   └── yurt-manager
 │       ├── Chart.yaml
+│       ├── crds
 │       ├── templates
 │       │   ├── _helpers.tpl
 │       │   ├── yurt-manager-auto-generated.yaml
-│       │   └── yurt-manager.yaml
+│       │   ├── yurt-manager.yaml
+│       │   └── yurthub-cfg.yaml
 │       └── values.yaml
 
 ```
@@ -120,9 +122,9 @@ After the preceding command is executed, you can run the `git status` command to
 # make manifests
 ```
 
-`make manifests` command will automatically update file `charts/openyurt/templates/yurt-manager-auto-generated.yaml` . If you have other special configurations for `yurt-manger`, please update the `charts/openyurt/templates/yurt-manager.yaml` and `charts/openyurt/values.yaml` files.
+`make manifests` command will automatically update file `charts/yurt-manager/templates/yurt-manager-auto-generated.yaml` . If you have other special configurations for `yurt-manger`, please update the `charts/yurt-manager/templates/yurt-manager.yaml` and `charts/yurt-manager/values.yaml` files.
 
-Do not modify file `charts/openyurt/templates/yurt-manager-auto-generated.yaml` directly, because file `charts/openyurt/templates/yurt-manager-auto-generated.yaml` is overwritten every time command `make manifests` is executed
+Do not modify file `charts/yurt-manager/templates/yurt-manager-auto-generated.yaml` directly, because file `charts/yurt-manager/templates/yurt-manager-auto-generated.yaml` is overwritten every time command `make manifests` is executed
 
 exec `git commit` to record local change
 
@@ -143,13 +145,13 @@ Suppose the name of our image repository `edgetest-registry.cn-zhangjiakou.cr.al
 
 ```shell
 # cd $GOPATH/src/github.com/openyurtio/openyurt
-# helm uninstall openyurt
-# helm install openyurt ./openyurt --set yurtManager.image.registry=edgetest-registry.cn-zhangjiakou.cr.aliyuncs.com --set yurtManager.image.tag=v1.2.0-52ef527
+# helm uninstall yurt-manager
+# helm install yurt-manager ./charts/yurt-manager --set image.registry=edgetest-registry.cn-zhangjiakou.cr.aliyuncs.com --set image.tag=v1.2.0-52ef527
 ```
 
 Note !!!
 
-You need to specify the correct `yurtManager.image.registry` and `yurtManager.image.tag` using the `--set` flag  when you execute `helm install` command.
+You need to specify the correct `image.registry` and `image.tag` using the `--set` flag  when you execute `helm install` command.
 
 
 
