@@ -171,7 +171,7 @@ func (r *DeviceServiceReconciler) reconcileCreateDeviceService(ctx context.Conte
 	if edgeDs, err := r.deviceServiceCli.Get(context.TODO(), edgeDeviceServiceName, clients.GetOptions{Namespace: r.Namespace}); err != nil {
 		if !clients.IsNotFoundErr(err) {
 			klog.V(4).ErrorS(err, "could not visit the edge platform")
-			return nil
+			return err
 		} else {
 			createdDs, err := r.deviceServiceCli.Create(context.TODO(), ds, clients.CreateOptions{})
 			if err != nil {
@@ -239,7 +239,7 @@ func DeleteDeviceServicesOnControllerShutdown(ctx context.Context, cli client.Cl
 		}
 
 		if err := cli.Delete(ctx, &deviceService); err != nil {
-			klog.Errorf("DeviceServiceName: %s, update deviceservice err:%v", deviceService.GetName(), err)
+			klog.Errorf("DeviceServiceName: %s, delete deviceservice err:%v", deviceService.GetName(), err)
 			continue
 		}
 	}

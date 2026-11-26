@@ -147,7 +147,7 @@ func (r *DeviceProfileReconciler) reconcileCreateDeviceProfile(ctx context.Conte
 	if edgeDp, err := r.edgeClient.Get(context.TODO(), actualName, clients.GetOptions{Namespace: r.Namespace}); err != nil {
 		if !clients.IsNotFoundErr(err) {
 			klog.V(4).ErrorS(err, "could not visit the edge platform")
-			return nil
+			return err
 		}
 	} else {
 		// a. If object exists, the status of the deviceProfile on OpenYurt is updated
@@ -184,7 +184,7 @@ func DeleteDeviceProfilesOnControllerShutdown(ctx context.Context, cli client.Cl
 		}
 
 		if err := cli.Delete(ctx, &deviceProfile); err != nil {
-			klog.Errorf("deviceProfileName: %s, update deviceProfile err:%v", deviceProfile.GetName(), err)
+			klog.Errorf("deviceProfileName: %s, delete deviceProfile err:%v", deviceProfile.GetName(), err)
 			continue
 		}
 	}
