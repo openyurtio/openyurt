@@ -17,7 +17,11 @@ limitations under the License.
 package yurtappset
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"flag"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -26,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -473,4 +478,103 @@ func TestReconcile_ReturnsErrorOnConciliationFailure(t *testing.T) {
 	// to update status) rather than swallowing it with RequeueAfter + nil error.
 	// This ensures controller-runtime engages exponential backoff.
 	assert.NotNil(t, err, "Reconcile should return error on conciliation failure, not nil")
+}
+
+type failingUpdateWorkloadManager struct {
+	workloads []metav1.Object
+}
+
+func (f *failingUpdateWorkloadManager) GetTemplateType() workloadmanager.TemplateType {
+	return workloadmanager.DeploymentTemplateType
+}
+
+func (f *failingUpdateWorkloadManager) List(yas *v1beta1.YurtAppSet) ([]metav1.Object, error) {
+	return f.workloads, nil
+}
+
+func (f *failingUpdateWorkloadManager) Create(yas *v1beta1.YurtAppSet, nodepoolName, revision string) error {
+	return nil
+}
+
+func (f *failingUpdateWorkloadManager) Update(
+	yas *v1beta1.YurtAppSet,
+	workload metav1.Object,
+	nodepoolName, revision string,
+) error {
+	return errors.New("update failed")
+}
+
+func (f *failingUpdateWorkloadManager) Delete(yas *v1beta1.YurtAppSet, workload metav1.Object) error {
+	return nil
+}
+
+// TestConciliateWorkloads_NoSuccessLogOnUpdateFailure verifies that a failed
+// workload update does not log a success message.
+func TestConciliateWorkloads_NoSuccessLogOnUpdateFailure(t *testing.T) {
+	yas := &v1beta1.YurtAppSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-yurtappset",
+			Namespace: "default",
+		},
+		Spec: v1beta1.YurtAppSetSpec{
+			Pools: []string{"test-np1"},
+			Workload: v1beta1.Workload{
+				WorkloadTemplate: v1beta1.WorkloadTemplate{
+					DeploymentTemplate: &v1beta1.DeploymentTemplateSpec{},
+				},
+			},
+		},
+	}
+	np := &v1beta2.NodePool{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-np1",
+		},
+	}
+	deploy := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-deployment-1",
+			Namespace: "default",
+			Labels: map[string]string{
+				apps.PoolNameLabelKey:               "test-np1",
+				apps.YurtAppSetOwnerLabelKey:        "test-yurtappset",
+				apps.ControllerRevisionHashLabelKey: "old-revision",
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(fakeScheme).WithObjects(yas, np).Build()
+	r := &ReconcileYurtAppSet{
+		scheme:   fakeScheme,
+		Client:   fakeClient,
+		recorder: &fakeEventRecorder{},
+		workloadManagers: map[workloadmanager.TemplateType]workloadmanager.WorkloadManager{
+			workloadmanager.DeploymentTemplateType: &failingUpdateWorkloadManager{
+				workloads: []metav1.Object{deploy},
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	fs := flag.NewFlagSet("klog", flag.ContinueOnError)
+	klog.InitFlags(fs)
+	assert.NoError(t, fs.Set("logtostderr", "false"))
+	assert.NoError(t, fs.Set("alsologtostderr", "false"))
+	klog.SetOutput(&buf)
+	defer func() {
+		klog.SetOutput(nil)
+		_ = fs.Set("logtostderr", "true")
+	}()
+
+	expectedRevision := &appsv1.ControllerRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "new-revision",
+		},
+	}
+	_, _, err := r.conciliateWorkloads(yas, expectedRevision, &v1beta1.YurtAppSetStatus{})
+	klog.Flush()
+
+	assert.NotNil(t, err)
+	assert.Contains(t, buf.String(), "update workload")
+	assert.False(t, strings.Contains(buf.String(), "update workload by nodepool test-np1 success"),
+		"success log should not be printed when update fails")
 }
