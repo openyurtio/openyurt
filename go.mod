@@ -1,6 +1,6 @@
 module github.com/openyurtio/openyurt
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/aliyun/alibaba-cloud-sdk-go v1.62.156
@@ -31,7 +31,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/vishvananda/netlink v1.3.1
 	golang.org/x/net v0.56.0
-	golang.org/x/oauth2 v0.36.0
+	golang.org/x/oauth2 v0.38.0
 	golang.org/x/sys v0.47.0
 	google.golang.org/grpc v1.83.1
 	gopkg.in/cheggaaa/pb.v1 v1.0.28
