@@ -108,7 +108,7 @@ func GetNodeName(kubeadmConfPath string) (string, error) {
 	//2. find --hostname-override in 10-kubeadm.conf
 	nodeName, err := GetSingleContentFromFile(kubeadmConfPath, constants.KubeletHostname)
 	if nodeName != "" {
-		nodeName = strings.Split(nodeName, NodeNameSplit)[1]
+		nodeName = strings.SplitN(nodeName, NodeNameSplit, 2)[1]
 		return nodeName, nil
 	} else {
 		klog.V(4).Info("get nodename err: ", err)
@@ -121,9 +121,12 @@ func GetNodeName(kubeadmConfPath string) (string, error) {
 	}
 	for _, ef := range environmentFiles {
 		ef = parseEnvironmentFilePath(ef)
+		if ef == "" {
+			continue
+		}
 		nodeName, err = GetSingleContentFromFile(ef, constants.KubeletHostname)
 		if nodeName != "" {
-			nodeName = strings.Split(nodeName, NodeNameSplit)[1]
+			nodeName = strings.SplitN(nodeName, NodeNameSplit, 2)[1]
 			return nodeName, nil
 		} else {
 			klog.V(4).Info("get nodename err: ", err)
@@ -139,20 +142,15 @@ func GetNodeName(kubeadmConfPath string) (string, error) {
 	return nodeName, nil
 }
 
-// parseEnvironmentFilePath extracts the file path from a systemd `EnvironmentFile=`
-// directive, e.g. `EnvironmentFile=-/var/lib/kubelet/kubeadm-flags.env`. It strips the
-// `EnvironmentFile=` key and the optional leading `-` (which only tells systemd to ignore
-// the file when it is missing).
-//
-// Using strings.Split(directive, "-")[1] here was unsafe: it panics when the directive
-// contains no "-" (e.g. `EnvironmentFile=/opt/kubelet/config.env`), and it truncates paths
-// that contain a hyphen such as the kubeadm default `kubeadm-flags.env`.
+// parseEnvironmentFilePath extracts a path from a systemd EnvironmentFile directive,
+// removing the directive key and optional leading "-" while preserving hyphens in the path.
 func parseEnvironmentFilePath(directive string) string {
 	path := directive
 	if i := strings.IndexByte(path, '='); i >= 0 {
 		path = path[i+1:]
 	}
-	return strings.TrimPrefix(strings.TrimSpace(path), "-")
+	path = strings.TrimPrefix(strings.TrimSpace(path), "-")
+	return strings.TrimSpace(path)
 }
 
 // GetHostname returns OS's hostname if 'hostnameOverride' is empty; otherwise, return 'hostnameOverride'.

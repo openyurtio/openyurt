@@ -17,6 +17,8 @@ limitations under the License.
 package edgenode
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -122,12 +124,64 @@ func TestParseEnvironmentFilePath(t *testing.T) {
 			directive: "EnvironmentFile= -/var/lib/kubelet/kubeadm-flags.env ",
 			expected:  "/var/lib/kubelet/kubeadm-flags.env",
 		},
+		{
+			name:      "directive without a path",
+			directive: "EnvironmentFile=",
+			expected:  "",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := parseEnvironmentFilePath(tt.directive); got != tt.expected {
 				t.Errorf("parseEnvironmentFilePath(%q) = %q, want %q", tt.directive, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestGetNodeNameFromEnvironmentFile(t *testing.T) {
+	tests := []struct {
+		name        string
+		envFileName string
+		dashPrefix  bool
+	}{
+		{
+			name:        "path with a hyphen and ignore prefix",
+			envFileName: "kubeadm-flags.env",
+			dashPrefix:  true,
+		},
+		{
+			name:        "path without a hyphen",
+			envFileName: "config.env",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv(NodeName, "")
+
+			dir := t.TempDir()
+			envFile := filepath.Join(dir, tt.envFileName)
+			if err := os.WriteFile(envFile, []byte(`KUBELET_KUBEADM_ARGS="--hostname-override=edge-node-1"`+"\n"), 0644); err != nil {
+				t.Fatalf("could not write environment file: %v", err)
+			}
+
+			directive := "EnvironmentFile="
+			if tt.dashPrefix {
+				directive += "-"
+			}
+			kubeadmConf := filepath.Join(dir, "10-kubeadm.conf")
+			if err := os.WriteFile(kubeadmConf, []byte("[Service]\n"+directive+envFile+"\n"), 0644); err != nil {
+				t.Fatalf("could not write kubelet configuration: %v", err)
+			}
+
+			nodeName, err := GetNodeName(kubeadmConf)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if nodeName != "edge-node-1" {
+				t.Errorf("GetNodeName() = %q, want %q", nodeName, "edge-node-1")
 			}
 		})
 	}
