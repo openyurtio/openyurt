@@ -46,6 +46,7 @@ func GetPprofHandlers() map[string]http.Handler {
 	handlers["/debug/pprof/cmdline"] = http.HandlerFunc(pprof.Cmdline)
 	handlers["/debug/pprof/profile"] = http.HandlerFunc(pprof.Profile)
 	handlers["/debug/pprof/symbol"] = http.HandlerFunc(pprof.Symbol)
+	handlers["/debug/pprof/trace"] = http.HandlerFunc(pprof.Trace)
 	handlers["/debug/pprof/goroutine"] = pprof.Handler("goroutine")
 	handlers["/debug/pprof/heap"] = pprof.Handler("heap")
 	handlers["/debug/pprof/threadcreate"] = pprof.Handler("threadcreate")
