@@ -88,6 +88,10 @@ func (m *mockFilterFinder) HasSynced() bool {
 	return true
 }
 
+func (m *mockFilterFinder) Reset(cmData map[string]string) error {
+	return nil
+}
+
 type mockResponseFilter struct {
 	name       string
 	filterFunc func(req *http.Request, rc io.ReadCloser, stopCh <-chan struct{}) (int, io.ReadCloser, error)
