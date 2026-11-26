@@ -136,10 +136,12 @@ func add(mgr manager.Manager, cfg *appconfig.CompletedConfig, r reconcile.Reconc
 		return err
 	}
 
-	// 2. Watch for deletion of pods. The reason we watch is that we don't want a daemon set to delete
-	// more pods until all the effects (expectations) of a daemon set's delete have been observed.
+	// 2. Watch for changes to pods. When pods are updated or deleted, we observe expectations and re-enqueue
+	// the DaemonSet to make continuous progress on rolling updates without deadlocking.
 	updater := r.(*ReconcileDaemonpodupdater)
 	if err := c.Watch(source.Kind[client.Object](mgr.GetCache(), &corev1.Pod{}, &handler.Funcs{
+		CreateFunc: updater.addPod,
+		UpdateFunc: updater.updatePod,
 		DeleteFunc: updater.deletePod,
 	})); err != nil {
 		return err
@@ -231,7 +233,74 @@ func (r *ReconcileDaemonpodupdater) Reconcile(_ context.Context, request reconci
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileDaemonpodupdater) deletePod(ctx context.Context, evt event.DeleteEvent, _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (r *ReconcileDaemonpodupdater) enqueueDaemonSet(ds *appsv1.DaemonSet, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	if q == nil || ds == nil {
+		return
+	}
+	q.Add(reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Name:      ds.Name,
+			Namespace: ds.Namespace,
+		},
+	})
+}
+
+func (r *ReconcileDaemonpodupdater) addPod(_ context.Context, evt event.CreateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	pod, ok := evt.Object.(*corev1.Pod)
+	if !ok {
+		utilruntime.HandleError(fmt.Errorf("addPod could not deal with object that is not a pod %#v", evt.Object))
+		return
+	}
+
+	controllerRef := metav1.GetControllerOf(pod)
+	if controllerRef == nil {
+		return
+	}
+	ds := r.resolveControllerRef(pod.Namespace, controllerRef)
+	if ds == nil {
+		return
+	}
+
+	if !checkPrerequisites(ds) {
+		return
+	}
+
+	r.enqueueDaemonSet(ds, q)
+}
+
+func (r *ReconcileDaemonpodupdater) updatePod(_ context.Context, evt event.UpdateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	curPod, ok := evt.ObjectNew.(*corev1.Pod)
+	if !ok {
+		utilruntime.HandleError(fmt.Errorf("updatePod could not deal with object that is not a pod %#v", evt.ObjectNew))
+		return
+	}
+	oldPod, ok := evt.ObjectOld.(*corev1.Pod)
+	if !ok {
+		utilruntime.HandleError(fmt.Errorf("updatePod could not deal with object that is not a pod %#v", evt.ObjectOld))
+		return
+	}
+
+	if curPod.ResourceVersion == oldPod.ResourceVersion {
+		return
+	}
+
+	controllerRef := metav1.GetControllerOf(curPod)
+	if controllerRef == nil {
+		return
+	}
+	ds := r.resolveControllerRef(curPod.Namespace, controllerRef)
+	if ds == nil {
+		return
+	}
+
+	if !checkPrerequisites(ds) {
+		return
+	}
+
+	r.enqueueDaemonSet(ds, q)
+}
+
+func (r *ReconcileDaemonpodupdater) deletePod(_ context.Context, evt event.DeleteEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	pod, ok := evt.Object.(*corev1.Pod)
 	if !ok {
 		utilruntime.HandleError(fmt.Errorf("deletepod could not deal with object that is not a pod %#v", evt.Object))
@@ -261,6 +330,7 @@ func (r *ReconcileDaemonpodupdater) deletePod(ctx context.Context, evt event.Del
 	}
 
 	r.expectations.DeletionObserved(dsKey)
+	r.enqueueDaemonSet(ds, q)
 }
 
 // otaUpdate compare every pod to its owner DaemonSet to check if pod is updatable
