@@ -241,7 +241,11 @@ func (r *ReconcilePodBinding) reconcilePod(pod *corev1.Pod) error {
 					pod.Annotations = make(map[string]string)
 				}
 				if _, ok := pod.Annotations[TolerationKeyToAnnotation[pod.Spec.Tolerations[i].Key]]; !ok {
-					pod.Annotations[TolerationKeyToAnnotation[pod.Spec.Tolerations[i].Key]] = fmt.Sprintf("%d", *pod.Spec.Tolerations[i].TolerationSeconds)
+					if pod.Spec.Tolerations[i].TolerationSeconds != nil {
+						pod.Annotations[TolerationKeyToAnnotation[pod.Spec.Tolerations[i].Key]] = fmt.Sprintf("%d", *pod.Spec.Tolerations[i].TolerationSeconds)
+					} else {
+						pod.Annotations[TolerationKeyToAnnotation[pod.Spec.Tolerations[i].Key]] = ""
+					}
 				}
 				pod.Spec.Tolerations[i].TolerationSeconds = duration
 			}
@@ -252,11 +256,15 @@ func (r *ReconcilePodBinding) reconcilePod(pod *corev1.Pod) error {
 			if (pod.Spec.Tolerations[i].Key == corev1.TaintNodeNotReady || pod.Spec.Tolerations[i].Key == corev1.TaintNodeUnreachable) &&
 				(pod.Spec.Tolerations[i].Effect == corev1.TaintEffectNoExecute) {
 				if durationStr, ok := pod.Annotations[TolerationKeyToAnnotation[pod.Spec.Tolerations[i].Key]]; ok {
-					duration, err := strconv.ParseInt(durationStr, 10, 64)
-					if err != nil {
-						continue
+					if len(durationStr) == 0 {
+						pod.Spec.Tolerations[i].TolerationSeconds = nil
+					} else {
+						duration, err := strconv.ParseInt(durationStr, 10, 64)
+						if err != nil {
+							continue
+						}
+						pod.Spec.Tolerations[i].TolerationSeconds = &duration
 					}
-					pod.Spec.Tolerations[i].TolerationSeconds = &duration
 				}
 			}
 		}
