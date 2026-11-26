@@ -29,6 +29,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/fake"
 
@@ -750,4 +751,44 @@ func TestImagePullPod(t *testing.T) {
 			}
 		})
 	}
+}
+
+type fakeStorageWrapperForEncodeErr struct {
+	cachemanager.StorageWrapper
+	objs []runtime.Object
+}
+
+func (f *fakeStorageWrapperForEncodeErr) KeyFunc(info storage.KeyBuildInfo) (storage.Key, error) {
+	return nil, nil
+}
+
+func (f *fakeStorageWrapperForEncodeErr) List(key storage.Key) ([]runtime.Object, error) {
+	return f.objs, nil
+}
+
+func TestGetPods_EncodePodsError(t *testing.T) {
+	invalidPod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "invalidPod",
+			ManagedFields: []metav1.ManagedFieldsEntry{
+				{
+					FieldsV1: &metav1.FieldsV1{
+						Raw: []byte("{invalid json"),
+					},
+				},
+			},
+		},
+	}
+	fStorage := &fakeStorageWrapperForEncodeErr{
+		objs: []runtime.Object{invalidPod},
+	}
+
+	req, err := http.NewRequest("GET", "/openyurt.io/v1/pods", nil)
+	assert.NoError(t, err)
+	rr := httptest.NewRecorder()
+
+	GetPods(fStorage).ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+	assert.Equal(t, "Encode pod list failed", rr.Body.String())
 }

@@ -44,6 +44,9 @@ var (
 	defaultCacheAgents = []string{"kubelet", "kube-proxy", "flanneld", "coredns", "raven-agent-ds", projectinfo.GetAgentName(), projectinfo.GetHubName()}
 )
 
+// listener is a callback invoked when the configuration reloads.
+type listener func(newCfg map[string]string)
+
 // Manager is used for managing all configurations of Yurthub in yurt-hub-cfg configmap.
 // This configuration configmap includes configurations of cache agents and filters. I'm sure that new
 // configurations will be added according to user's new requirements.
@@ -54,6 +57,7 @@ type Manager struct {
 	baseKeyToFilters map[string][]string
 	reqKeyToFilters  map[string][]string
 	configMapSynced  cache.InformerSynced
+	listeners        []listener
 }
 
 func NewConfigurationManager(nodeName string, sharedFactory informers.SharedInformerFactory) *Manager {
@@ -107,6 +111,15 @@ func NewConfigurationManager(nodeName string, sharedFactory informers.SharedInfo
 // HasSynced is used for checking that configuration of Yurthub has been loaded completed or not.
 func (m *Manager) HasSynced() bool {
 	return m.configMapSynced()
+}
+
+// AddListener registers a callback that will be invoked when the configuration
+// is reloaded via the yurt-hub-cfg ConfigMap watcher. The callback receives the
+// new ConfigMap data map and should be goroutine-safe.
+func (m *Manager) AddListener(fn listener) {
+	m.Lock()
+	defer m.Unlock()
+	m.listeners = append(m.listeners, fn)
 }
 
 // ListAllCacheAgents is used for listing all cache agents.
@@ -164,6 +177,13 @@ func (m *Manager) updateConfigmap(oldObj, newObj interface{}) {
 
 	if filterSettingsChanged(oldCfg.Data, newCfg.Data) {
 		m.updateFilterSettings(newCfg.Data, "update")
+	}
+
+	m.RLock()
+	lis := m.listeners
+	m.RUnlock()
+	for _, l := range lis {
+		l(newCfg.Data)
 	}
 }
 
