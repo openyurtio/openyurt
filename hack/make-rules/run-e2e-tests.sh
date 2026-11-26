@@ -94,6 +94,28 @@ function run_e2e_edge_autonomy_tests {
     $YURT_ROOT/test/e2e/e2e.test e2e --ginkgo.label-filter='edge-autonomy' --ginkgo.v
 }
 
+function wait_for_nginx_pod {
+    local node_name=$1
+    local timeout=$2
+    local timeout_seconds=${timeout%s}
+    local start_time=$SECONDS
+    local pod_names
+    local -a pods
+
+    while (( SECONDS - start_time < timeout_seconds )); do
+        pod_names=$(kubectl get pods --selector=app=yurt-e2e-test-nginx --field-selector="spec.nodeName=${node_name}" --output=name)
+        if [[ -n "${pod_names}" ]]; then
+            mapfile -t pods <<< "${pod_names}"
+            kubectl wait --for=condition=Ready --timeout="${timeout}" "${pods[@]}"
+            return
+        fi
+        sleep 5
+    done
+
+    echo "Timed out waiting for nginx pod on node ${node_name}" >&2
+    return 1
+}
+
 function prepare_autonomy_tests {
 #   run a nginx pod as static pod on each edge node
     local nginxYamlPath="${YURT_ROOT}/test/e2e/yamls/nginx.yaml"
@@ -105,9 +127,9 @@ function prepare_autonomy_tests {
     kubectl apply -f $nginxServiceYamlPath
     docker cp $nginxYamlPath $edgeNodeContainerName:$staticPodPath
     docker cp $nginxYamlPath $edgeNodeContainer2Name:$staticPodPath
-#   wait confirm that nginx is running
-    kubectl wait --for=condition=Ready pod/yurt-e2e-test-nginx-openyurt-e2e-test-worker --timeout=${POD_CREATE_TIMEOUT}
-    kubectl wait --for=condition=Ready pod/yurt-e2e-test-nginx-openyurt-e2e-test-worker2 --timeout=${POD_CREATE_TIMEOUT}
+#   wait until nginx pods are running
+    wait_for_nginx_pod "$edgeNodeContainerName" "$POD_CREATE_TIMEOUT"
+    wait_for_nginx_pod "$edgeNodeContainer2Name" "$POD_CREATE_TIMEOUT"
 
 #   set up dig in edge node1 
 #    docker exec -t $edgeNodeContainerName /bin/bash -c "sed -i -r 's/([a-z]{2}.)?archive.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list"
