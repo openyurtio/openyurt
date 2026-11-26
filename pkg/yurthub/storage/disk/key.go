@@ -52,6 +52,16 @@ func (ds *diskStorage) KeyFunc(info storage.KeyBuildInfo) (storage.Key, error) {
 	if info.Resources == "" {
 		return nil, storage.ErrEmptyResource
 	}
+	// Component comes from the client User-Agent and the other fields come from
+	// the request path, so "." or ".." must not be allowed to move the key out
+	// of its component dir or out of the cache dir.
+	for _, s := range []string{info.Component, info.Resources, info.Namespace, info.Name} {
+		for _, elem := range strings.Split(s, "/") {
+			if elem == "." || elem == ".." {
+				return nil, storage.ErrUnrecognizedKey
+			}
+		}
+	}
 	if info.Name == "" {
 		isRoot = true
 	}
