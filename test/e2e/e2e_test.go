@@ -27,6 +27,7 @@ import (
 	"github.com/onsi/ginkgo/v2/types"
 	"github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
@@ -80,9 +81,9 @@ var _ = ginkgo.BeforeSuite(func() {
 	if labelFilter([]string{"edge-autonomy"}) {
 		// get nginx podIP on edge node worker2
 		cs := c
-		podName := "yurt-e2e-test-nginx-openyurt-e2e-test-worker2"
-		ginkgo.By("get pod info:" + podName)
-		pod, err := p.GetPod(cs, constants.YurtDefaultNamespaceName, podName)
+		labelSelector := labels.SelectorFromSet(labels.Set(map[string]string{"app": constants.NginxServiceName}))
+		ginkgo.By("get nginx pod info on edge node worker2")
+		pod, err := p.GetPodBySelectorOnNode(cs, constants.YurtDefaultNamespaceName, labelSelector, "openyurt-e2e-test-worker2")
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "fail to get pod nginx on edge node 2")
 
 		yurthub.Edge2NginxPodIP = pod.Status.PodIP
