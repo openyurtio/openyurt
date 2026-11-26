@@ -92,6 +92,7 @@ func GetPods(store cachemanager.StorageWrapper) http.Handler {
 		if err != nil {
 			klog.Errorf("Encode pod list failed, %v", err)
 			util.WriteErr(w, "Encode pod list failed", http.StatusInternalServerError)
+			return
 		}
 		util.WriteJSONResponse(w, data)
 	})
