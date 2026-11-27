@@ -542,9 +542,17 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - nodes
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - ""
+  resources:
   - pods
   verbs:
   - get
+  - list
   - patch
   - update
 - apiGroups:
@@ -553,6 +561,12 @@ rules:
   - pods/status
   verbs:
   - update
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
 - apiGroups:
   - batch
   resources:
