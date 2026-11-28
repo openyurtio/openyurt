@@ -33,6 +33,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/openyurtio/openyurt/pkg/yurtadm/cmd/join/joindata"
 	"github.com/openyurtio/openyurt/pkg/yurtadm/constants"
@@ -1469,4 +1470,20 @@ func Test_CheckYurthubHealthzAndReadyz_OK(t *testing.T) {
 func Test_pollYurthubEndpointOK_RequestBuildError(t *testing.T) {
 	err := pollYurthubEndpointOK("http://%zz", 10*time.Millisecond, 50*time.Millisecond)
 	assert.Error(t, err)
+}
+
+// The main yurthub unit must carry an [Install] section, otherwise "systemctl enable yurthub"
+// is a no-op and yurthub does not start after the edge node reboots.
+func Test_setYurthubMainService_WritesUnitEnabledAtBoot(t *testing.T) {
+	oldExec := execCommand
+	execCommand = func(name string, args ...string) *exec.Cmd { return exec.Command("true") }
+	defer func() { execCommand = oldExec }()
+
+	dir := t.TempDir()
+	require.NoError(t, setYurthubMainService(dir))
+
+	content, err := os.ReadFile(filepath.Join(dir, "yurthub.service"))
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "[Install]")
+	assert.Contains(t, string(content), "WantedBy=multi-user.target")
 }

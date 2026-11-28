@@ -305,6 +305,9 @@ After=network.target
 Type=simple
 ExecStart=/usr/local/bin/yurthub
 Restart=always
+
+[Install]
+WantedBy=multi-user.target
 `
 	YurthubSyetmdServiceContent = `
 [Unit]
