@@ -1141,7 +1141,7 @@ func TestAdd(t *testing.T) {
 	assert.NoError(t, err)
 
 	// 创建 CompletedConfig
-	completedConfig := &appconfig.CompletedConfig{}
+	completedConfig := (&appconfig.Config{}).Complete()
 
 	// 测试 Add 函数
 	err = Add(context.TODO(), completedConfig, mgr)

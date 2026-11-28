@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
@@ -40,6 +41,8 @@ import (
 	yurtClient "github.com/openyurtio/openyurt/cmd/yurt-manager/app/client"
 	appconfig "github.com/openyurtio/openyurt/cmd/yurt-manager/app/config"
 	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonsetupgradestrategy"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonsetupgradestrategy/imagepreheat/config"
+	"github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonsetupgradestrategy/imagepreheat/dragonfly"
 )
 
 const (
@@ -50,7 +53,10 @@ const (
 
 func Add(ctx context.Context, c *appconfig.CompletedConfig, mgr manager.Manager) error {
 	klog.Info("add image-pull-controller")
-	r := newReconciler(mgr)
+	r, err := newReconcilerWithConfig(mgr, c.ComponentConfig.ImagePreheatController)
+	if err != nil {
+		return err
+	}
 	return add(mgr, r)
 }
 
@@ -58,12 +64,45 @@ var _ reconcile.Reconciler = &ReconcileImagePull{}
 
 type ReconcileImagePull struct {
 	c client.Client
+	// dragonfly is set when the dragonfly backend is selected; nil means the job backend.
+	dragonfly *dragonflyPreheater
 }
 
 func newReconciler(mgr manager.Manager) *ReconcileImagePull {
 	return &ReconcileImagePull{
 		c: yurtClient.GetClientByControllerNameOrDie(mgr, ControllerName),
 	}
+}
+
+func newReconcilerWithConfig(mgr manager.Manager, cfg config.ImagePreheatControllerConfiguration) (*ReconcileImagePull, error) {
+	r := newReconciler(mgr)
+	if cfg.Backend != config.BackendDragonfly {
+		return r, nil
+	}
+
+	ns, name, ok := strings.Cut(cfg.DragonflyTokenSecret, "/")
+	if !ok || ns == "" || name == "" {
+		return nil, fmt.Errorf("invalid dragonfly token secret %q, want namespace/name", cfg.DragonflyTokenSecret)
+	}
+	// Secrets are not in the shared informer cache, so read the token directly with the controller's own identity.
+	secrets, err := client.New(yurtClient.GetConfigByControllerNameOrDie(mgr, ControllerName), client.Options{
+		Scheme: mgr.GetScheme(),
+		Mapper: mgr.GetRESTMapper(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	r.dragonfly = &dragonflyPreheater{
+		c:                  r.c,
+		secrets:            secrets,
+		df:                 dragonfly.NewClient(cfg.DragonflyManagerAddress, nil),
+		tokenSecret:        types.NamespacedName{Namespace: ns, Name: name},
+		insecureRegistries: cfg.DragonflyInsecureRegistries,
+		now:                time.Now,
+	}
+	klog.Infof("image preheat uses the dragonfly backend at %s", cfg.DragonflyManagerAddress)
+	return r, nil
 }
 
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
@@ -80,6 +119,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return errors.Wrap(err, "failed to watch pod")
 	}
 
+	if ri, ok := r.(*ReconcileImagePull); ok && ri.dragonfly != nil {
+		return nil
+	}
+
 	if err := c.Watch(
 		source.Kind[client.Object](mgr.GetCache(), &batchv1.Job{}, handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &corev1.Pod{}), predicate.NewPredicateFuncs(JobFilter)),
 	); err != nil {
@@ -92,6 +135,9 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core,resources=pods/status,verbs=update
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;create
+// +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=list
+// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get
 
 func (r *ReconcileImagePull) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	klog.Infof("reconcile pod %s", req.String())
@@ -102,6 +148,10 @@ func (r *ReconcileImagePull) Reconcile(ctx context.Context, req reconcile.Reques
 
 	if !r.needReconcile(pod, ds) {
 		return reconcile.Result{}, nil
+	}
+
+	if r.dragonfly != nil {
+		return r.reconcileDragonfly(ctx, ds, pod)
 	}
 
 	job, created, err := r.getOrCreateImagePullJob(ds, pod)
@@ -223,4 +273,21 @@ func (r *ReconcileImagePull) updatePodImageReady(pod *corev1.Pod, job *batchv1.J
 		return r.patchPodImageStatus(pod, corev1.ConditionFalse, daemonsetupgradestrategy.PullImageFail, mesg)
 	}
 	return nil
+}
+
+func (r *ReconcileImagePull) reconcileDragonfly(ctx context.Context, ds *appsv1.DaemonSet, pod *corev1.Pod) (reconcile.Result, error) {
+	phase, msg, err := r.dragonfly.Ensure(ctx, ds, pod)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	switch phase {
+	case phaseSucceeded:
+		return reconcile.Result{}, r.patchPodImageStatus(pod, corev1.ConditionTrue, daemonsetupgradestrategy.PullImageSuccess,
+			daemonsetupgradestrategy.VersionPrefix+GetPodNextHashVersion(pod))
+	case phaseFailed:
+		return reconcile.Result{}, r.patchPodImageStatus(pod, corev1.ConditionFalse, daemonsetupgradestrategy.PullImageFail, msg)
+	default:
+		return reconcile.Result{RequeueAfter: dragonflyPollInterval}, nil
+	}
 }

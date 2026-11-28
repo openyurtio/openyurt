@@ -23,6 +23,7 @@ import (
 
 	csrapproverconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/csrapprover/config"
 	daemonpodupdaterconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonsetupgradestrategy/daemonpodupdater/config"
+	imagepreheatconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/daemonsetupgradestrategy/imagepreheat/config"
 	hubleaderconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/hubleader/config"
 	hubleadercfgconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/hubleaderconfig/config"
 	hubleaderrbacconfig "github.com/openyurtio/openyurt/pkg/yurtmanager/controller/hubleaderrbac/config"
@@ -52,6 +53,9 @@ type YurtManagerConfiguration struct {
 
 	// DaemonPodUpdaterControllerConfiguration holds configuration for DaemonPodUpdaterController related features.
 	DaemonPodUpdaterController daemonpodupdaterconfig.DaemonPodUpdaterControllerConfiguration
+
+	// ImagePreheatControllerConfiguration holds configuration for ImagePreheatController related features.
+	ImagePreheatController imagepreheatconfig.ImagePreheatControllerConfiguration
 
 	// CsrApproverControllerConfiguration holds configuration for CsrApproverController related features.
 	CsrApproverController csrapproverconfig.CsrApproverControllerConfiguration

@@ -28,6 +28,7 @@ type YurtManagerOptions struct {
 	Generic                      *GenericOptions
 	PodBindingController         *PodBindingControllerOptions
 	DaemonPodUpdaterController   *DaemonPodUpdaterControllerOptions
+	ImagePreheatController       *ImagePreheatControllerOptions
 	CsrApproverController        *CsrApproverControllerOptions
 	NodePoolController           *NodePoolControllerOptions
 	YurtStaticSetController      *YurtStaticSetControllerOptions
@@ -55,6 +56,7 @@ func NewYurtManagerOptions() (*YurtManagerOptions, error) {
 		Generic:                      genericOptions,
 		PodBindingController:         NewPodBindingControllerOptions(),
 		DaemonPodUpdaterController:   NewDaemonPodUpdaterControllerOptions(),
+		ImagePreheatController:       NewImagePreheatControllerOptions(),
 		CsrApproverController:        NewCsrApproverControllerOptions(),
 		NodePoolController:           NewNodePoolControllerOptions(),
 		YurtStaticSetController:      NewYurtStaticSetControllerOptions(),
@@ -83,6 +85,7 @@ func (y *YurtManagerOptions) Flags(allControllers, disabledByDefaultControllers 
 	y.Generic.AddFlags(fss.FlagSet("generic"), allControllers, disabledByDefaultControllers)
 	y.PodBindingController.AddFlags(fss.FlagSet("podbinding controller"))
 	y.DaemonPodUpdaterController.AddFlags(fss.FlagSet("daemonpodupdater controller"))
+	y.ImagePreheatController.AddFlags(fss.FlagSet("imagepreheat controller"))
 	y.CsrApproverController.AddFlags(fss.FlagSet("csrapprover controller"))
 	y.NodePoolController.AddFlags(fss.FlagSet("nodepool controller"))
 	y.YurtAppSetController.AddFlags(fss.FlagSet("yurtappset controller"))
@@ -110,6 +113,7 @@ func (y *YurtManagerOptions) Validate(allControllers []string, controllerAliases
 	errs = append(errs, y.Generic.Validate(allControllers, controllerAliases)...)
 	errs = append(errs, y.PodBindingController.Validate()...)
 	errs = append(errs, y.DaemonPodUpdaterController.Validate()...)
+	errs = append(errs, y.ImagePreheatController.Validate()...)
 	errs = append(errs, y.CsrApproverController.Validate()...)
 	errs = append(errs, y.NodePoolController.Validate()...)
 	errs = append(errs, y.YurtAppSetController.Validate()...)
@@ -140,6 +144,9 @@ func (y *YurtManagerOptions) ApplyTo(c *config.Config, controllerAliases map[str
 		return err
 	}
 	if err := y.DaemonPodUpdaterController.ApplyTo(&c.ComponentConfig.DaemonPodUpdaterController); err != nil {
+		return err
+	}
+	if err := y.ImagePreheatController.ApplyTo(&c.ComponentConfig.ImagePreheatController); err != nil {
 		return err
 	}
 	if err := y.CsrApproverController.ApplyTo(&c.ComponentConfig.CsrApproverController); err != nil {
